@@ -97,6 +97,24 @@ export function showLanding(): void {
           <span class="landing-credits-dot">.</span>
           <a href="https://livekit.io" target="_blank" rel="noopener">livekit</a>
         </footer>
+        <div class="landing-support">
+          <span>liking pastel?</span>
+          <a href="https://github.com/sponsors/pixperk" target="_blank" rel="noopener"
+             class="landing-support-link" title="Sponsor on GitHub">
+            <i class="ph ph-heart" aria-hidden="true"></i>
+            <span>sponsor</span>
+          </a>
+          <a href="https://buymeacoffee.com/pixperk" target="_blank" rel="noopener"
+             class="landing-support-link" title="Buy me a coffee">
+            <i class="ph ph-coffee" aria-hidden="true"></i>
+            <span>buy me a coffee</span>
+          </a>
+        </div>
+        <a href="https://github.com/pixperk/pastel" target="_blank" rel="noopener"
+           class="landing-star" title="Star pastel on GitHub">
+          <i class="ph-fill ph-star" aria-hidden="true"></i>
+          <span>drop a star on github</span>
+        </a>
       </div>
     </main>
   `;

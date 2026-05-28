@@ -20,6 +20,44 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 
 ---
 
+## Table of contents
+
+- [The game in 30 seconds](#the-game-in-30-seconds)
+- [Features](#features)
+- [Run it locally](#run-it-locally)
+- [Tests & quality checks](#tests--quality-checks)
+- [Load test](#load-test)
+- [Deploy](#deploy)
+- [Engineering deep dives](#engineering-deep-dives)
+- [Repo layout](#repo-layout)
+- [How it stacks up against skribble](#how-it-stacks-up-against-skribble)
+- [Credits](#credits)
+- [What's next](#whats-next)
+
+---
+
+## The game in 30 seconds
+
+Pick a mode. Start a room. Share the link.
+
+When a friend joins, hit "Let's go!" Or add a bot.
+
+| Mode | Rounds | Words offered |
+|---|---:|---:|
+| Sprint | 3 | 7 |
+| Standard | 5 | 5 |
+| Marathon | 7 | 3 |
+
+Every player draws once per round. The drawer picks a word, everyone else
+guesses in chat. Hints reveal automatically (one letter at 60s, 30s, 10s
+remaining). First correct guess scores most, each next earns 0.7x of the
+previous. The drawer earns half the round total.
+
+A room sits in the lobby for **120 seconds** before it expires and frees
+its six-character code. The host sees a live countdown.
+
+---
+
 ## Features
 
 ### Gameplay
@@ -71,7 +109,7 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 - Personality chat: greets on join, reacts to others' correct guesses, announces own turn, reacts to reveals
 - Bots never hold the host badge; an all-bot room auto-shuts-down
 
-### Same-browser rejoin
+### Reload safety
 - Per-browser `client_token` UUID in localStorage
 - Reload skips the avatar picker entirely
 - Server matches the token against a `departed` map and restores the original `PlayerId`
@@ -97,28 +135,6 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 - Persistent replay model survives resize, DPI change, and reload
 - Non-drawers can scribble while others draw, only they see it
 - Floating event pills for "wiped the canvas", "got it!", "is now the host"
-
----
-
-## The game in 30 seconds
-
-Pick a mode. Start a room. Share the link.
-
-When a friend joins, hit "Let's go!" Or add a bot.
-
-| Mode | Rounds | Words offered |
-|---|---:|---:|
-| Sprint | 3 | 7 |
-| Standard | 5 | 5 |
-| Marathon | 7 | 3 |
-
-Every player draws once per round. The drawer picks a word, everyone else
-guesses in chat. Hints reveal automatically. First correct guess scores
-most; each subsequent guesser earns 0.7x of the previous. The drawer earns
-half the round total.
-
-A room sits in the lobby for **120 seconds** before it expires and frees
-its six-character code. The host sees a live countdown.
 
 ---
 
@@ -156,176 +172,22 @@ return a `503 voice not configured` from `GET /voice/token`.
 
 ---
 
-## Engineering
-
-### Screw JSON
-
-The wire is `postcard`-encoded binary. Each direction is one enum:
-
-```rust
-pub enum ClientMsg { Hello, Stroke, Chat, Guess, Game, Pong, React }
-pub enum ServerMsg { Welcome, Stroke, Chat, Guess, Presence, Game, Ping, Bye, WordOptions, DrawerWord, JoinPending, DrawingFeedback }
-```
-
-A 30-point stroke batch is about 130 bytes. The JSON equivalent is about
-600. Across 10 rooms at 60 Hz that is the difference between "fine" and
-"you should worry about egress".
-
-The TypeScript codec is hand-written (~300 lines). Both sides assert the
-same fixture hex. If either drifts, both builds break.
-
-### One actor per room, no locks
-
-```mermaid
-stateDiagram-v2
-    [*] --> Lobby
-    Lobby --> ChoosingWord: Start
-    Lobby --> [*]: 120s timeout (room expires)
-    ChoosingWord --> Drawing: PickWord / timeout
-    Drawing --> RoundEnd: all guessed / timeout
-    RoundEnd --> ChoosingWord: next turn
-    RoundEnd --> GameOver: last turn
-    GameOver --> ChoosingWord: rematch
-```
-
-Each room is one `tokio` task that owns its state. Lock-free hot path:
-
-- `mpsc::Receiver<RoomCmd>` inbox from connection tasks
-- `broadcast::Sender<Arc<ServerMsg>>` for room-wide fanout (slow consumers
-  get dropped, not back-pressured)
-- Per-player `mpsc` for unicast (drawer's word, word options, drawing feedback)
-- `Arc<ServerMsg>` so fanout is O(subscribers x atomic-inc)
-
-Biased select gives commands strict priority over deadlines.
-
-<p align="center">
-  <img alt="Room actor internals" src="assets/room-actor.png" width="800" />
-</p>
-
-### Avatar wire format
-
-7 bytes per player. Each field is a `u8` index into the client-side parts
-table. The server validates ranges but treats the bytes as opaque. Art
-source can change without touching the wire.
-
-```rust
-struct Avatar { skin: u8, hat: u8, hair: u8, eyes: u8, mouth: u8, specs: u8, earrings: u8 }
-```
-
-### Bot architecture
-
-No fake AI. No LLM. No image recognition. The bot is a real game client
-that runs as a tokio task inside the server process, talking directly to
-its `RoomHandle`. Zero WebSocket overhead, zero serialization.
-
-**Drawing.** 295 words have real human sketches from
-[Google Quick Draw](https://quickdraw.withgoogle.com/data). A Python script
-fetches one recognized drawing per word, encodes stroke coordinates into
-a compact binary (word + stroke count + per-stroke u8 x/y deltas), and
-writes `drawings.bin` (30KB total). The server `include_bytes!` it at
-compile time. At runtime the bot scales Quick Draw's 0-255 coords to the
-960x600 canvas with padding, emitting intermediate points when deltas
-exceed `i8` range. Strokes replay with human-like timing (300-700ms
-between strokes, 60-150ms between batches).
-
-**Guessing.** The bot reads the `word_mask` from `RoundStart`
-(e.g. `_ _ _ _ _`), filters the full word pool by character count,
-shuffles, and tries candidates one at a time. On each `HintReveal` it
-narrows by checking revealed letters. One guess, wait for response,
-schedule the next. Pace slows naturally as attempts pile up.
-
-**Words.** Bot drawers are restricted to a curated bot-friendly word list
-(easy / medium / hard tiers) so they never pick a word with no drawing.
-
-### Same-browser rejoin
-
-Each browser persists a `client_token` UUID in localStorage. The room
-keeps a `departed: HashMap<token, PlayerId>` that records voluntary
-disconnections. On the next `Hello` with that token the join path
-recovers the original `PlayerId` before allocating a new one. Kicked
-tokens never enter `departed`; they continue to flow through the
-host-approval path.
-
-### Room lifecycle
-
-```
-spawn_room          -> lobby_deadline = now + 120s, on_close set
-handle_leave        -> if humans_left == 0: closing = true
-handle_deadline     -> if Lobby and deadline elapsed: closing = true
-finalize_close      -> send Bye(RoomClosed) to every slot, run on_close
-on_close (Rooms)    -> DashMap::remove(&code)
-```
-
-The frontend treats `Bye(RoomClosed)` as a fatal screen so a timed-out
-or abandoned room sends every participant a "this room is gone" card.
-
-### Voice
-
-LiveKit Cloud handles the WebRTC; we just mint JWTs. The token endpoint
-(`crates/pastel-server/src/voice.rs`) signs with `jsonwebtoken` using
-HS256 and the claims LiveKit expects: `iss` is your API key, `sub` is
-`name-XXXXXX`, `video` grant maps `room` to the pastel room code,
-`roomJoin / canPublish / canSubscribe` all true.
-
-The frontend dynamic-imports `livekit-client` only on first mic tap.
-That keeps the main bundle at ~360KB / 105KB gzip. The voice chunk is
-500KB / 132KB gzip and only loaded for users who actually want voice.
-
-If you opt into voice on the landing page, both the chunk and the
-LiveKit room connection are warmed in parallel with the avatar picker
-so the only post-tap cost is the browser mic permission and the publish.
-
-### Canvas rendering
-
-Fixed logical 960x600 coordinate space. Backing store sized to
-`cssSize x devicePixelRatio` for crisp Retina rendering. Pointer events
-converted CSS to logical via `getBoundingClientRect`. Quadratic Bezier
-midpoint smoothing, velocity-modulated width. Strokes chunked at 64
-points per batch. A persistent `completedStrokes` model lets the canvas
-survive resize, DPI change, and reload.
-
----
-
-## Repo layout
-
-```
-crates/
-  pastel-proto/        wire types, codec, validation, proptest fixtures
-  pastel-room/         per-room actor, game state machine, scoring, lifecycle
-  pastel-server/       axum + WS, room registry, bot spawner, LiveKit tokens
-  pastel-loadtest/     simulated WS clients, standalone bot, Quick Draw data
-frontend/
-  public/music/        three CC0 lofi tracks (landing / lobby / game)
-  src/main.ts          the wire-up
-  src/proto.ts         ClientMsg / ServerMsg codec + types
-  src/canvas.ts        pointer capture, Bezier, DPI, replay model
-  src/avatar.ts        DiceBear big-smile render + parts table
-  src/avatarPicker.ts  name + avatar picker modal, hasStoredIdentity helpers
-  src/voice.ts         LiveKit client wrapper (lazy-loaded)
-  src/music.ts         HTMLAudioElement bg scene switcher + procedural sfx
-  src/chat.ts          chat panel with avatar chips + guess mode
-  src/game.ts          client game state + mode options
-  src/gameUI.ts        lobby, word pick, round end, game over overlays + countdown
-  src/roundIntro.ts    animated round-start card with scoreboard
-  src/canvasEvent.ts   floating event pills over the canvas
-  src/toast.ts         transient notifications
-  src/dialog.ts        custom confirm dialogs
-  src/kicked.ts        fatal + pending screens
-  src/landing.ts       centered landing with mode tiles + voice opt-in
-  src/toolbar.ts       brushes, palette, clear (single-pen on mobile)
-  src/ws.ts            WebSocket client, backoff, resume_from
-```
-
----
-
-## Tests
+## Tests & quality checks
 
 ```sh
+# Correctness
 cargo test --workspace        # 75+ tests
 cd frontend && npm test       # 48 tests
+
+# Lint, format, typecheck
+cargo fmt --all
+cargo clippy --workspace --all-targets -- -D warnings
+cd frontend && npm run typecheck && npm run build
 ```
 
-Highlights:
+Pre-commit hook runs `cargo fmt --check` on `.rs` files.
+
+Test highlights:
 - Cross-codec hex fixtures (Rust + TS must agree on bytes)
 - Proptest round-trip on every wire variant
 - Virtual-time game tests (`tokio::time::pause` + `advance`)
@@ -396,7 +258,7 @@ setup and fanout both held to zero errors across every phase. One single
 Cloud Run instance comfortably supports ~200 concurrent players spread
 over 25 rooms while sustaining a 280-handshake/sec join burst.
 
-### What's working
+#### What's working
 
 - **100% connection success across every phase.** 50, 200, and 500
   TLS + WebSocket handshakes all landed cleanly. No dropped joins, no
@@ -420,7 +282,7 @@ over 25 rooms while sustaining a 280-handshake/sec join burst.
   rates while still having headroom for join bursts. The current
   deployment is production-ready as-is for an early-launch audience.
 
-### What still needs work
+#### What still needs work
 
 - **The p99 tail at 5 strokes/s** (5.0 s in the steady-state phase). The
   server delivers every frame, but writes queue under high contention on
@@ -445,18 +307,6 @@ over 25 rooms while sustaining a 280-handshake/sec join burst.
 
 ---
 
-## Lint, format, typecheck
-
-```sh
-cargo fmt --all
-cargo clippy --workspace --all-targets -- -D warnings
-cd frontend && npm run typecheck && npm run build
-```
-
-Pre-commit hook runs `cargo fmt --check` on `.rs` files.
-
----
-
 ## Deploy
 
 The repo ships a multi-stage `Dockerfile` (Rust builder + Node builder +
@@ -473,7 +323,169 @@ For production:
 
 ---
 
-## How we're better than skribble
+## Engineering deep dives
+
+### Screw JSON
+
+The wire is `postcard`-encoded binary. Each direction is one enum:
+
+```rust
+pub enum ClientMsg { Hello, Stroke, Chat, Guess, Game, Pong, React }
+pub enum ServerMsg { Welcome, Stroke, Chat, Guess, Presence, Game, Ping, Bye, WordOptions, DrawerWord, JoinPending, DrawingFeedback }
+```
+
+A 30-point stroke batch is about 130 bytes. The JSON equivalent is about
+600. Across 10 rooms at 60 Hz that is the difference between "fine" and
+"you should worry about egress".
+
+The TypeScript codec is hand-written (~300 lines). Both sides assert the
+same fixture hex. If either drifts, both builds break.
+
+### One actor per room, no locks
+
+```mermaid
+stateDiagram-v2
+    [*] --> Lobby
+    Lobby --> ChoosingWord: Start
+    Lobby --> [*]: 120s timeout (room expires)
+    ChoosingWord --> Drawing: PickWord / timeout
+    Drawing --> RoundEnd: all guessed / timeout
+    RoundEnd --> ChoosingWord: next turn
+    RoundEnd --> GameOver: last turn
+    GameOver --> ChoosingWord: rematch
+```
+
+Each room is one `tokio` task that owns its state. Lock-free hot path:
+
+- `mpsc::Receiver<RoomCmd>` inbox from connection tasks
+- `broadcast::Sender<Arc<ServerMsg>>` for room-wide fanout (slow consumers
+  get dropped, not back-pressured)
+- Per-player `mpsc` for unicast (drawer's word, word options, drawing feedback)
+- `Arc<ServerMsg>` so fanout is O(subscribers x atomic-inc)
+
+Biased select gives commands strict priority over deadlines.
+
+<p align="center">
+  <img alt="Room actor internals" src="assets/room-actor.png" width="800" />
+</p>
+
+### Avatar wire format
+
+7 bytes per player. Each field is a `u8` index into the client-side parts
+table. The server validates ranges but treats the bytes as opaque. Art
+source can change without touching the wire.
+
+```rust
+struct Avatar { skin: u8, hat: u8, hair: u8, eyes: u8, mouth: u8, specs: u8, earrings: u8 }
+```
+
+### Bots: real sketches, no AI
+
+No fake AI. No LLM. No image recognition. The bot is a real game client
+that runs as a tokio task inside the server process, talking directly to
+its `RoomHandle`. Zero WebSocket overhead, zero serialization.
+
+**Drawing.** 295 words have real human sketches from
+[Google Quick Draw](https://quickdraw.withgoogle.com/data). A Python script
+fetches one recognized drawing per word, encodes stroke coordinates into
+a compact binary (word + stroke count + per-stroke u8 x/y deltas), and
+writes `drawings.bin` (30KB total). The server `include_bytes!` it at
+compile time. At runtime the bot scales Quick Draw's 0-255 coords to the
+960x600 canvas with padding, emitting intermediate points when deltas
+exceed `i8` range. Strokes replay with human-like timing (300-700ms
+between strokes, 60-150ms between batches).
+
+**Guessing.** The bot reads the `word_mask` from `RoundStart`
+(e.g. `_ _ _ _ _`), filters the full word pool by character count,
+shuffles, and tries candidates one at a time. On each `HintReveal` it
+narrows by checking revealed letters. One guess, wait for response,
+schedule the next. Pace slows naturally as attempts pile up.
+
+**Words.** Bot drawers are restricted to a curated bot-friendly word list
+(easy / medium / hard tiers) so they never pick a word with no drawing.
+
+### Reload as the same player
+
+Each browser persists a `client_token` UUID in localStorage. The room
+keeps a `departed: HashMap<token, PlayerId>` that records voluntary
+disconnections. On the next `Hello` with that token the join path
+recovers the original `PlayerId` before allocating a new one. Kicked
+tokens never enter `departed`; they continue to flow through the
+host-approval path.
+
+### Room lifecycle
+
+```
+spawn_room          -> lobby_deadline = now + 120s, on_close set
+handle_leave        -> if humans_left == 0: closing = true
+handle_deadline     -> if Lobby and deadline elapsed: closing = true
+finalize_close      -> send Bye(RoomClosed) to every slot, run on_close
+on_close (Rooms)    -> DashMap::remove(&code)
+```
+
+The frontend treats `Bye(RoomClosed)` as a fatal screen so a timed-out
+or abandoned room sends every participant a "this room is gone" card.
+
+### Voice: JWTs + lazy SDK
+
+LiveKit Cloud handles the WebRTC; we just mint JWTs. The token endpoint
+(`crates/pastel-server/src/voice.rs`) signs with `jsonwebtoken` using
+HS256 and the claims LiveKit expects: `iss` is your API key, `sub` is
+`name-XXXXXX`, `video` grant maps `room` to the pastel room code,
+`roomJoin / canPublish / canSubscribe` all true.
+
+The frontend dynamic-imports `livekit-client` only on first mic tap.
+That keeps the main bundle at ~360KB / 105KB gzip. The voice chunk is
+500KB / 132KB gzip and only loaded for users who actually want voice.
+
+If you opt into voice on the landing page, both the chunk and the
+LiveKit room connection are warmed in parallel with the avatar picker
+so the only post-tap cost is the browser mic permission and the publish.
+
+### Canvas rendering
+
+Fixed logical 960x600 coordinate space. Backing store sized to
+`cssSize x devicePixelRatio` for crisp Retina rendering. Pointer events
+converted CSS to logical via `getBoundingClientRect`. Quadratic Bezier
+midpoint smoothing, velocity-modulated width. Strokes chunked at 64
+points per batch. A persistent `completedStrokes` model lets the canvas
+survive resize, DPI change, and reload.
+
+---
+
+## Repo layout
+
+```
+crates/
+  pastel-proto/        wire types, codec, validation, proptest fixtures
+  pastel-room/         per-room actor, game state machine, scoring, lifecycle
+  pastel-server/       axum + WS, room registry, bot spawner, LiveKit tokens
+  pastel-loadtest/     simulated WS clients, standalone bot, Quick Draw data
+frontend/
+  public/music/        three CC0 lofi tracks (landing / lobby / game)
+  src/main.ts          the wire-up
+  src/proto.ts         ClientMsg / ServerMsg codec + types
+  src/canvas.ts        pointer capture, Bezier, DPI, replay model
+  src/avatar.ts        DiceBear big-smile render + parts table
+  src/avatarPicker.ts  name + avatar picker modal, hasStoredIdentity helpers
+  src/voice.ts         LiveKit client wrapper (lazy-loaded)
+  src/music.ts         HTMLAudioElement bg scene switcher + procedural sfx
+  src/chat.ts          chat panel with avatar chips + guess mode
+  src/game.ts          client game state + mode options
+  src/gameUI.ts        lobby, word pick, round end, game over overlays + countdown
+  src/roundIntro.ts    animated round-start card with scoreboard
+  src/canvasEvent.ts   floating event pills over the canvas
+  src/toast.ts         transient notifications
+  src/dialog.ts        custom confirm dialogs
+  src/kicked.ts        fatal + pending screens
+  src/landing.ts       centered landing with mode tiles + voice opt-in
+  src/toolbar.ts       brushes, palette, clear (single-pen on mobile)
+  src/ws.ts            WebSocket client, backoff, resume_from
+```
+
+---
+
+## How it stacks up against skribble
 
 skribble.io is great. We just wanted a version with the things that always
 nagged us:
