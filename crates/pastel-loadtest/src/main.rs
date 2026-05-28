@@ -48,6 +48,18 @@ struct Args {
     /// Suppress the every-2-seconds progress lines.
     #[arg(long)]
     quiet: bool,
+
+    /// Connect, send Hello, await Welcome, then disconnect immediately. No
+    /// stroke loop. Useful for measuring pure connect-handshake throughput
+    /// against TLS + load balancer + room creation.
+    #[arg(long)]
+    connect_only: bool,
+
+    /// Skip TLS certificate verification. Use for self-signed clusters or
+    /// debugging. Never use this against a production endpoint you don't
+    /// own; it disables MITM detection entirely.
+    #[arg(long)]
+    insecure: bool,
 }
 
 #[derive(Default)]
@@ -106,6 +118,24 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Build the TLS connector once and share it across all clients. Default
+    // path (rustls-webpki-roots, full verification) is in-built so we only
+    // need to override when --insecure was passed.
+    let connector = if args.insecure {
+        eprintln!("  [insecure] TLS certificate verification disabled for this run");
+        Some(tokio_tungstenite::Connector::Rustls(
+            insecure_rustls_config(),
+        ))
+    } else {
+        None
+    };
+
+    let connect_only = args.connect_only;
+    if connect_only {
+        println!("  mode:      connect-only (no stroke loop)");
+    }
+    println!();
+
     let mut client_handles = Vec::with_capacity(args.clients);
     let test_started = Instant::now();
     for i in 0..args.clients {
@@ -116,8 +146,18 @@ async fn main() -> Result<()> {
         );
         let name = format!("load-{i}");
         let shared = shared.clone();
+        let connector_for_client = connector.clone();
         client_handles.push(tokio::spawn(async move {
-            let _ = run_client(url, name, test_duration, send_interval, shared).await;
+            let _ = run_client(
+                url,
+                name,
+                test_duration,
+                send_interval,
+                shared,
+                connector_for_client,
+                connect_only,
+            )
+            .await;
         }));
         tokio::time::sleep(stagger).await;
     }
@@ -254,14 +294,96 @@ async fn print_report(shared: &Shared, args: Args, elapsed: Duration) {
     );
 }
 
+/// Build a rustls config that accepts any server cert. Only used when the
+/// operator opted in with --insecure. Trades MITM detection for the ability
+/// to hit self-signed dev clusters; never for production verification.
+fn insecure_rustls_config() -> Arc<rustls::ClientConfig> {
+    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+    use rustls::{DigitallySignedStruct, Error as RustlsError, SignatureScheme};
+
+    #[derive(Debug)]
+    struct NoVerify;
+
+    impl ServerCertVerifier for NoVerify {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &CertificateDer<'_>,
+            _intermediates: &[CertificateDer<'_>],
+            _server_name: &ServerName<'_>,
+            _ocsp_response: &[u8],
+            _now: UnixTime,
+        ) -> Result<ServerCertVerified, RustlsError> {
+            Ok(ServerCertVerified::assertion())
+        }
+
+        fn verify_tls12_signature(
+            &self,
+            _message: &[u8],
+            _cert: &CertificateDer<'_>,
+            _dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, RustlsError> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn verify_tls13_signature(
+            &self,
+            _message: &[u8],
+            _cert: &CertificateDer<'_>,
+            _dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, RustlsError> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+            vec![
+                SignatureScheme::RSA_PKCS1_SHA256,
+                SignatureScheme::RSA_PKCS1_SHA384,
+                SignatureScheme::RSA_PKCS1_SHA512,
+                SignatureScheme::ECDSA_NISTP256_SHA256,
+                SignatureScheme::ECDSA_NISTP384_SHA384,
+                SignatureScheme::ECDSA_NISTP521_SHA512,
+                SignatureScheme::RSA_PSS_SHA256,
+                SignatureScheme::RSA_PSS_SHA384,
+                SignatureScheme::RSA_PSS_SHA512,
+                SignatureScheme::ED25519,
+            ]
+        }
+    }
+
+    // rustls 0.22 has no process-level default provider; pass ring's
+    // explicitly via builder_with_provider so we don't depend on whatever
+    // the embedding application may or may not have installed.
+    Arc::new(
+        rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .expect("safe default protocol versions")
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(NoVerify))
+        .with_no_client_auth(),
+    )
+}
+
 async fn run_client(
     url: String,
     name: String,
     duration: Duration,
     send_interval: Duration,
     shared: Arc<Shared>,
+    connector: Option<tokio_tungstenite::Connector>,
+    connect_only: bool,
 ) -> Result<()> {
-    let (ws, _) = match tokio_tungstenite::connect_async(&url).await {
+    let req = match url.parse::<tokio_tungstenite::tungstenite::http::Uri>() {
+        Ok(u) => u,
+        Err(_) => {
+            shared.stats.failed_connect.fetch_add(1, Ordering::Relaxed);
+            return Ok(());
+        }
+    };
+    let connect = tokio_tungstenite::connect_async_tls_with_config(req, None, false, connector);
+    let (ws, _) = match connect.await {
         Ok(x) => x,
         Err(_) => {
             shared.stats.failed_connect.fetch_add(1, Ordering::Relaxed);
@@ -312,6 +434,14 @@ async fn run_client(
             }
         }
     };
+
+    // Connect-only mode: we've measured the full TLS+WS+Hello+Welcome
+    // round-trip by reaching this point. Drop the connection and return so
+    // the caller can fire the next handshake.
+    if connect_only {
+        let _ = sink.close().await;
+        return Ok(());
+    }
 
     let send_times: Arc<std::sync::Mutex<HashMap<u32, Instant>>> =
         Arc::new(std::sync::Mutex::new(HashMap::new()));

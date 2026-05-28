@@ -21,3 +21,7 @@ anyhow = { workspace = true }
 clap = { workspace = true }
 hdrhistogram = { workspace = true }
 rand = "0.8"
+# tokio-tungstenite 0.21 with the rustls-tls-webpki-roots feature pins rustls
+# 0.22 transitively. We bring it in directly so --insecure can swap in a
+# no-verify ServerCertVerifier without forking the connector.
+rustls = { version = "0.22", features = ["ring"] }

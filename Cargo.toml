@@ -27,7 +27,7 @@ rand = "0.8"
 
 # server-only
 axum = { version = "0.7", features = ["ws", "macros"] }
-tokio-tungstenite = "0.21"
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-webpki-roots"] }
 dashmap = "6"
 
 # test
