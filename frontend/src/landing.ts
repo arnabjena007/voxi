@@ -2,6 +2,12 @@
 // a mode before generating a room code, or join an existing room by code.
 // Name + avatar are collected by the picker once the user lands in a room.
 
+import { renderAvatar } from "./avatar";
+import {
+  hasStoredIdentity,
+  loadStoredIdentity,
+  pickNameAndAvatar,
+} from "./avatarPicker";
 import { MODE_OPTIONS } from "./game";
 import {
   enableBg,
@@ -46,6 +52,11 @@ export function showLanding(): void {
       <div class="landing-inner">
         <h1 class="logo"><span class="logo-text landing-logo">pastel</span></h1>
         <p class="landing-tag">draw. guess. laugh.</p>
+
+        <button type="button" class="landing-identity" id="landingIdentity"
+                aria-label="Change name and avatar">
+          <span class="landing-identity-slot" id="landingIdentitySlot"></span>
+        </button>
 
         <form class="landing-form" id="landingForm">
           <div class="mode-grid-landing">
@@ -152,6 +163,48 @@ export function showLanding(): void {
   });
 
   refreshMuteBtn();
+
+  // Identity chip: small "playing as [avatar] name" pill; tap to open the
+  // picker. Renders an "pick your look" state for first-time visitors.
+  const identityBtn = document.getElementById("landingIdentity") as HTMLButtonElement | null;
+  const identitySlot = document.getElementById("landingIdentitySlot");
+
+  function escapeText(s: string): string {
+    return s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  }
+  function refreshIdentityChip(): void {
+    if (!identityBtn || !identitySlot) return;
+    if (hasStoredIdentity()) {
+      const { name, avatar } = loadStoredIdentity();
+      identityBtn.classList.remove("landing-identity--empty");
+      identityBtn.title = `Change name and avatar (currently ${name})`;
+      identitySlot.innerHTML = `
+        <span class="landing-identity-avatar">${renderAvatar(avatar)}</span>
+        <span class="landing-identity-text">playing as <strong>${escapeText(name)}</strong></span>
+        <i class="ph ph-pencil-simple landing-identity-edit" aria-hidden="true"></i>
+      `;
+    } else {
+      identityBtn.classList.add("landing-identity--empty");
+      identityBtn.title = "Pick a name and avatar";
+      identitySlot.innerHTML = `
+        <i class="ph ph-user-circle-plus" aria-hidden="true"></i>
+        <span>pick your look</span>
+      `;
+    }
+  }
+
+  identityBtn?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      await pickNameAndAvatar();
+    } catch {
+      return;
+    }
+    refreshIdentityChip();
+  });
+
+  refreshIdentityChip();
 
   for (const tile of document.querySelectorAll<HTMLLabelElement>(".mode-tile")) {
     tile.addEventListener("click", () => {

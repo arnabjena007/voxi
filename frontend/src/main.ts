@@ -452,21 +452,6 @@ sfxBtn?.addEventListener("click", async () => {
   refreshAudioBtns();
 });
 
-// Settings: change name + avatar mid-session. Reopens the same picker the
-// user saw on first join; on save we reload the page so the WS reconnects
-// using the new identity. The persistent client_token means the server's
-// "departed" map restores our PlayerId, so other players see only a name
-// + avatar update rather than a fresh join.
-const profileBtn = document.getElementById("profileEdit") as HTMLButtonElement | null;
-profileBtn?.addEventListener("click", async () => {
-  try {
-    await pickNameAndAvatar();
-    // Picker has already persisted the new name + avatar to localStorage.
-    window.location.reload();
-  } catch {
-    // user dismissed the picker; do nothing.
-  }
-});
 if (loadBgPreference() || loadSfxPreference()) {
   const armOnFirstClick = async () => {
     if (loadBgPreference()) await enableBg();
