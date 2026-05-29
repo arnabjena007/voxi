@@ -199,14 +199,18 @@ h1 {
   50% { box-shadow: 0 0 0 6px rgba(90, 171, 110, 0); }
 }
 
-/* Active-speaker ring on player rows. Subtle glow + soft pulse. */
+/* Active-speaker ring on player rows. Drawn as an inset overlay (sits
+   INSIDE the avatar circle) plus a soft outer glow only on desktop where
+   horizontal headroom is plenty. On mobile the outer glow drops out -- the
+   floating-avatar row's overflow:auto would clip it -- and an extra
+   scale-pulse on the wrap carries the "alive" signal instead. */
 .players-li--speaking .players-avatar-wrap::after {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: 0;
   border-radius: 50%;
   box-shadow:
-    0 0 0 2px #5aab6e,
+    inset 0 0 0 2px #5aab6e,
     0 0 12px 2px rgba(90, 171, 110, 0.45);
   animation: speaking-ring 1.4s ease-in-out infinite;
   pointer-events: none;
@@ -228,8 +232,16 @@ h1 {
 }
 
 @keyframes speaking-ring {
-  0%, 100% { box-shadow: 0 0 0 2px #5aab6e, 0 0 10px 1px rgba(90, 171, 110, 0.35); }
-  50% { box-shadow: 0 0 0 3px #5aab6e, 0 0 18px 4px rgba(90, 171, 110, 0.55); }
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 2px #5aab6e,
+      0 0 10px 1px rgba(90, 171, 110, 0.35);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2.5px #5aab6e,
+      0 0 18px 4px rgba(90, 171, 110, 0.55);
+  }
 }
 
 @keyframes speaking-bars {
@@ -2517,6 +2529,36 @@ canvas {
   .players li:has(.players-you) .players-avatar-wrap {
     box-shadow: 0 0 0 2px var(--ink);
     border-radius: 50%;
+  }
+  /* Active-speaker indicator on mobile: drop the outer green glow (it
+     clips against the overflow:auto strip and bleeds into neighbours) and
+     carry the "talking right now" signal with an inset green ring plus a
+     gentle scale pulse on the avatar wrap. Stays fully inside bounds. */
+  .players-li--speaking .players-avatar-wrap::after {
+    box-shadow: inset 0 0 0 2.5px #5aab6e;
+    animation: none;
+  }
+  .players-li--speaking .players-avatar-wrap {
+    animation: speaking-mobile-pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes speaking-mobile-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  /* Tiny green corner dot at the bottom-left -- the only corner not used
+     by host (top-right) or bot (bottom-right). Extra redundancy so even a
+     glance picks up who's talking. */
+  .players-li--speaking .players-avatar-wrap::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #5aab6e;
+    box-shadow: 0 0 0 1.5px var(--bg);
+    z-index: 2;
   }
 
   h1 { font-size: 18px; }
