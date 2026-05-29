@@ -2386,8 +2386,26 @@ canvas {
   .clear-btn { padding: 4px 8px; gap: 0; }
   .clear-btn > span:not(.clear-x) { display: none; }
   .swatch-btn { width: 24px; height: 24px; }
-  .swatches { gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .swatches {
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Padding-block buys room for the active-swatch ring inside the
+       overflow:auto scroll container; negative margin keeps the row's
+       outer height unchanged. */
+    padding: 3px 0;
+    margin: -3px 0;
+  }
   .swatches::-webkit-scrollbar { display: none; }
+  /* The desktop active state uses transform: scale(1.05) + border colour.
+     Scaling out of an overflow:auto container clips the top/bottom of the
+     swatch on mobile, so swap to an inset ring that draws inside the
+     circle -- same visual signal, zero overflow. */
+  .swatch-btn[aria-pressed="true"] {
+    transform: none;
+    box-shadow: inset 0 0 0 2px var(--ink);
+  }
 
   /* Players panel becomes a floating avatar dock: room code/invite header
      hidden, each row collapsed to just the avatar with a tiny score badge
@@ -2408,8 +2426,11 @@ canvas {
     gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 0;
-    margin: 0;
+    /* Same padding/negative-margin trick so the avatar's "you" ring and
+       host/bot corner pips have headroom inside the overflow:auto box
+       without changing the strip's outer height. */
+    padding: 4px 0;
+    margin: -4px 0;
   }
   .players ul::-webkit-scrollbar { display: none; }
   .players li {

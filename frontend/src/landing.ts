@@ -162,6 +162,12 @@ export function showLanding(): void {
     });
   }
 
+  // Set a session flag the room boot reads to decide whether to show the
+  // "playing as X -- change anything?" confirm. Set on real new-game
+  // entries (Start a room / Jump in) but not on URL reloads. SessionStorage
+  // dies when the tab closes so it won't linger across sessions.
+  const SESSION_PROMPT_FLAG = "pastel.confirm-identity-next-join";
+
   createForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const mode =
@@ -169,6 +175,7 @@ export function showLanding(): void {
     window.localStorage.setItem(STORAGE_MODE, mode);
     const voiceOn = (document.getElementById("landingVoice") as HTMLInputElement | null)?.checked;
     const code = randomCode();
+    window.sessionStorage.setItem(SESSION_PROMPT_FLAG, "1");
     const url = new URL(window.location.href);
     url.searchParams.set("room", code);
     url.searchParams.set("mode", mode);
@@ -188,6 +195,7 @@ export function showLanding(): void {
       codeInput.reportValidity();
       return;
     }
+    window.sessionStorage.setItem(SESSION_PROMPT_FLAG, "1");
     const url = new URL(window.location.href);
     url.searchParams.set("room", code);
     window.location.href = url.toString();

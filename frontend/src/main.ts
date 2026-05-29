@@ -111,9 +111,32 @@ const voicePrefetch: Promise<typeof import("./voice")> | null = voiceRequested
 // from a previous session. Paired with the persistent client_token below, a
 // reload (or any return visit) lands on the server as the same player, with
 // the same scoreboard row, instead of a fresh duplicate.
-const { name, avatar } = hasStoredIdentity()
-  ? loadStoredIdentity()
-  : await pickNameAndAvatar();
+//
+// Exception: when landing.ts sets the "confirm-identity-next-join" session
+// flag (real new-game entries, not reloads/rejoins), show a soft confirm
+// that lets the user keep the saved identity or change it before joining.
+const PROMPT_FLAG = "pastel.confirm-identity-next-join";
+async function pickOrConfirmIdentity() {
+  if (!hasStoredIdentity()) {
+    return pickNameAndAvatar();
+  }
+  const wantsConfirm = window.sessionStorage.getItem(PROMPT_FLAG) === "1";
+  window.sessionStorage.removeItem(PROMPT_FLAG); // one-shot
+  if (!wantsConfirm) {
+    return loadStoredIdentity();
+  }
+  const stored = loadStoredIdentity();
+  const keep = await showConfirm({
+    title: `playing as ${stored.name}`,
+    message:
+      "want to keep this name and avatar, or change them before joining?",
+    confirmLabel: "Looks good!",
+    cancelLabel: "Change",
+  });
+  if (keep) return stored;
+  return pickNameAndAvatar();
+}
+const { name, avatar } = await pickOrConfirmIdentity();
 const clientToken = pickClientToken();
 document.title = `pastel -- room ${room}`;
 
@@ -427,6 +450,22 @@ bgBtn?.addEventListener("click", async () => {
 sfxBtn?.addEventListener("click", async () => {
   await toggleSfx();
   refreshAudioBtns();
+});
+
+// Settings: change name + avatar mid-session. Reopens the same picker the
+// user saw on first join; on save we reload the page so the WS reconnects
+// using the new identity. The persistent client_token means the server's
+// "departed" map restores our PlayerId, so other players see only a name
+// + avatar update rather than a fresh join.
+const profileBtn = document.getElementById("profileEdit") as HTMLButtonElement | null;
+profileBtn?.addEventListener("click", async () => {
+  try {
+    await pickNameAndAvatar();
+    // Picker has already persisted the new name + avatar to localStorage.
+    window.location.reload();
+  } catch {
+    // user dismissed the picker; do nothing.
+  }
 });
 if (loadBgPreference() || loadSfxPreference()) {
   const armOnFirstClick = async () => {
