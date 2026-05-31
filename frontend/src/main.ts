@@ -571,6 +571,30 @@ async function copyInviteLink(): Promise<void> {
   }
 }
 
+// One-shot feedback nudge after a player's very first game in this browser.
+// Surfaces a soft confirm with a "share feedback" CTA that opens the GitHub
+// issues page in a new tab. localStorage keys make it idempotent: once
+// dismissed or actioned, it never appears again from this browser.
+const FEEDBACK_SHOWN_KEY = "pastel.feedback-prompted";
+const FEEDBACK_URL = "https://github.com/pixperk/pastel/issues/new";
+async function maybeAskForFeedback(): Promise<void> {
+  if (window.localStorage.getItem(FEEDBACK_SHOWN_KEY) === "1") return;
+  window.localStorage.setItem(FEEDBACK_SHOWN_KEY, "1");
+  // Tiny delay so the GameOver podium animates in first and the popup
+  // doesn't fight for attention with the score reveal.
+  await new Promise((r) => window.setTimeout(r, 1200));
+  const wantsToShare = await showConfirm({
+    title: "Thanks for playing!",
+    message:
+      "You're one of the first to try pastel. Got 30 seconds to share what worked and what didn't? It really helps shape the launch.",
+    confirmLabel: "Share feedback on GitHub",
+    cancelLabel: "Maybe later",
+  });
+  if (wantsToShare) {
+    window.open(FEEDBACK_URL, "_blank", "noopener,noreferrer");
+  }
+}
+
 function updateBanner(): void {
   const phase = gameState.phase;
   if (phase.kind !== "Drawing" && phase.kind !== "ChoosingWord") {
@@ -986,6 +1010,10 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       };
       renderPlayers();
       renderGameUI();
+      // First completed game ever in this browser: show a one-shot
+      // feedback prompt that links to GitHub issues. Skipped on
+      // every subsequent game-over.
+      void maybeAskForFeedback();
       return;
     case "JoinRequest":
       pendingJoiners.set(event.candidate, event.name);
