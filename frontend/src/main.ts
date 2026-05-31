@@ -38,7 +38,8 @@ import {
   type Player,
   type ServerMsg,
 } from "./proto";
-import { loadInitialColor, loadInitialTool, mountToolbar } from "./toolbar";
+import { isPhoneViewport, loadInitialColor, loadInitialTool, mountToolbar } from "./toolbar";
+import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
 
 // Show the landing screen if no room is in the URL. The landing form
@@ -417,11 +418,55 @@ const gameUI = mountGameUI(overlayEl, {
   },
 });
 
+// Drawing-phase semantics: the shared canvas belongs to the drawer. Their
+// Clear wipes everyone via server broadcast. Non-drawers may have scribbled
+// locally (server rejected their strokes); their Clear wipes only their own
+// local doodles via surface.clearLocal(), leaving the drawer's work alone.
+// In Lobby/RoundEnd/GameOver the canvas is freely shared, so any Clear
+// broadcasts to everyone like before.
+async function clearCanvas(): Promise<void> {
+  const phase = gameState.phase;
+  const inDrawing = phase.kind === "Drawing";
+  const isDrawer = inDrawing && phase.drawer === youId;
+
+  if (inDrawing && !isDrawer) {
+    const ok = await showConfirm({
+      title: "Clear your doodles?",
+      message:
+        "Only your own scribbles vanish. The drawer's canvas stays.",
+      confirmLabel: "Clear mine",
+      destructive: true,
+    });
+    if (ok) surface.clearLocal();
+    return;
+  }
+
+  const ok = await showConfirm({
+    title: "Clear the canvas?",
+    message: "Everyone in the room will lose what's been drawn.",
+    confirmLabel: "Clear it",
+    destructive: true,
+  });
+  if (ok) conn.send({ kind: "Game", action: { kind: "Clear" } });
+}
+
 mountToolbar(toolbarEl, {
   onColor: (rgb) => surface.setColor(rgb),
   onTool: (tool) => surface.setWidth(tool.width),
-  onClear: () => conn.send({ kind: "Game", action: { kind: "Clear" } }),
+  onClear: () => {
+    void clearCanvas();
+  },
 });
+
+if (isPhoneViewport()) {
+  mountMobileTools({
+    onColor: (rgb) => surface.setColor(rgb),
+    onTool: (tool) => surface.setWidth(tool.width),
+    onClear: () => {
+      void clearCanvas();
+    },
+  });
+}
 
 renderPlayers();
 renderGameUI();
@@ -470,13 +515,18 @@ function refreshMicBtn(state: MicState): void {
   if (!micBtn) return;
   micBtn.classList.toggle("canvas-setting--on", state === "live");
   micBtn.classList.toggle("canvas-setting--busy", state === "connecting");
+  micBtn.classList.toggle("canvas-setting--muted", state === "muted");
   const icon = micBtn.querySelector("i");
   if (icon) {
     if (state === "live") icon.className = "ph-fill ph-microphone";
-    else if (state === "muted") icon.className = "ph ph-microphone";
+    else if (state === "muted") icon.className = "ph-fill ph-microphone-slash";
     else if (state === "connecting") icon.className = "ph ph-circle-notch";
     else icon.className = "ph ph-microphone-slash";
   }
+  if (state === "live") micBtn.title = "You're live - tap to mute";
+  else if (state === "muted") micBtn.title = "You're muted - tap to unmute";
+  else if (state === "connecting") micBtn.title = "Connecting...";
+  else micBtn.title = "Join voice chat";
 }
 
 function applySpeakingClasses(): void {

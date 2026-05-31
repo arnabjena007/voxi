@@ -67,6 +67,12 @@ interface CompletedRecord {
   color: number;
   width: number;
   points: Point[];
+  // "local" = this client drew it (and, if accepted by server, the server
+  // echoes it through the snapshot path, not the stroke handler);
+  // "remote" = received from another player via TrackSubscribed / snapshot.
+  // Used by clearLocal() to wipe only this client's own doodles while
+  // preserving the drawer's strokes during a guessing round.
+  source: "local" | "remote";
 }
 
 export class DrawingSurface {
@@ -125,6 +131,16 @@ export class DrawingSurface {
   clear(): void {
     this.completedStrokes = [];
     this.remoteStrokes.clear();
+    this.repaint();
+  }
+
+  // Wipe only strokes this client drew locally. Used when a non-drawer hits
+  // Clear during a Drawing round: the shared canvas (drawer's strokes) must
+  // stay intact, but their own local doodles vanish.
+  clearLocal(): void {
+    this.completedStrokes = this.completedStrokes.filter(
+      (s) => s.source !== "local",
+    );
     this.repaint();
   }
 
@@ -216,6 +232,7 @@ export class DrawingSurface {
       color: s.color,
       width: s.width,
       points: s.points,
+      source: "remote",
     }));
     this.remoteStrokes.clear();
     this.repaint();
@@ -239,6 +256,7 @@ export class DrawingSurface {
           color: stroke.color,
           width: stroke.baseWidth,
           points: stroke.allPoints,
+          source: "remote",
         });
         this.remoteStrokes.delete(key);
       }
@@ -339,6 +357,7 @@ export class DrawingSurface {
       color: stroke.color,
       width: stroke.baseWidth,
       points: stroke.allPoints,
+      source: "local",
     });
   };
 

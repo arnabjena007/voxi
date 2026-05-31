@@ -830,6 +830,15 @@ impl Room {
     }
 
     fn handle_clear(&mut self, player: PlayerId) {
+        // During an active Drawing phase the shared canvas belongs to the
+        // drawer; other players doodle locally and the server never accepted
+        // their strokes in the first place. Their Clear is a local-only
+        // intent (handled client-side) and must not wipe the drawer's work.
+        if let GamePhase::Drawing { drawer, .. } = self.game.phase {
+            if drawer != player {
+                return;
+            }
+        }
         self.completed.clear();
         self.in_progress.clear();
         let seq = self.next_seq();

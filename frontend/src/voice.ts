@@ -26,7 +26,11 @@ const speakingHandlers = new Set<SpeakingHandler>();
 // server or other peers anything. Volume 0 silences the audio element but the
 // participant still appears in active-speakers (their mic is still hot), so
 // the muting client just chooses not to listen.
-const mutedIdentities = new Set<string>();
+//
+// Tracked by display NAME (not LiveKit identity) so the user can mute someone
+// before that remote has published a track; intent is then re-applied in
+// TrackSubscribed when the audio actually arrives.
+const mutedNames = new Set<string>();
 const remoteAudioByIdentity = new Map<string, RemoteAudioTrack[]>();
 
 type MicStateHandler = (state: MicState) => void;
@@ -98,7 +102,7 @@ async function connect(roomCode: string, name: string): Promise<void> {
         const list = remoteAudioByIdentity.get(id) ?? [];
         list.push(track);
         remoteAudioByIdentity.set(id, list);
-        if (mutedIdentities.has(id)) track.setVolume(0);
+        if (mutedNames.has(identityToName(id))) track.setVolume(0);
       }
     });
 
@@ -192,6 +196,8 @@ export async function disconnect(): Promise<void> {
   micPublished = false;
   muted = true;
   localIdentity = null;
+  mutedNames.clear();
+  remoteAudioByIdentity.clear();
   setMicState("off");
 }
 
@@ -206,35 +212,28 @@ export function identityToName(identity: string): string {
   return dash > 0 ? identity.slice(0, dash) : identity;
 }
 
-// Find the LiveKit identity for a given display name. Identity is unique
-// per-session; if multiple players had the same display name we'd pick one
-// arbitrarily, but the avatar picker already enforces unique names per room.
-function identityForName(name: string): string | null {
-  for (const id of remoteAudioByIdentity.keys()) {
-    if (identityToName(id) === name) return id;
+// Iterate every currently-subscribed audio track that belongs to the given
+// display name. There can be more than one identity sharing a display name
+// across reconnects; we apply intent to all of them.
+function tracksForName(name: string): RemoteAudioTrack[] {
+  const out: RemoteAudioTrack[] = [];
+  for (const [id, tracks] of remoteAudioByIdentity) {
+    if (identityToName(id) === name) out.push(...tracks);
   }
-  return null;
+  return out;
 }
 
-// Toggle local-only mute for a remote player by display name. Affects nothing
-// on the server or other clients; just silences that participant's audio for
-// the calling client. New audio tracks from the same participant (e.g. on a
-// republish) are auto-silenced via the TrackSubscribed handler above.
+// Toggle local-only mute for a remote player by display name. Tracked by name
+// so it works even before the remote publishes a track; intent is reapplied
+// on TrackSubscribed. Affects nothing on the server or other clients.
 export function toggleRemoteMute(name: string): boolean {
-  const id = identityForName(name);
-  if (!id) return false;
-  const now = !mutedIdentities.has(id);
-  if (now) {
-    mutedIdentities.add(id);
-    for (const t of remoteAudioByIdentity.get(id) ?? []) t.setVolume(0);
-  } else {
-    mutedIdentities.delete(id);
-    for (const t of remoteAudioByIdentity.get(id) ?? []) t.setVolume(1);
-  }
-  return now;
+  const nowMuted = !mutedNames.has(name);
+  if (nowMuted) mutedNames.add(name);
+  else mutedNames.delete(name);
+  for (const t of tracksForName(name)) t.setVolume(nowMuted ? 0 : 1);
+  return nowMuted;
 }
 
 export function isRemoteMutedByName(name: string): boolean {
-  const id = identityForName(name);
-  return id !== null && mutedIdentities.has(id);
+  return mutedNames.has(name);
 }

@@ -1,4 +1,3 @@
-import { showConfirm } from "./dialog";
 import {
   PALETTES,
   TOOLS,
@@ -42,22 +41,16 @@ export function loadInitialColor(): number {
   return PALETTES[0].colors[0].rgb;
 }
 
-// Phones get a single fixed tool (pen) regardless of whatever was saved on
-// a previous desktop visit, since the alternate brushes/eraser are hidden
-// from the mobile UI to reduce toolbar height.
-function isPhoneViewport(): boolean {
+export function isPhoneViewport(): boolean {
   return typeof window.matchMedia === "function"
     && window.matchMedia("(max-width: 760px)").matches;
 }
 
 export function loadInitialTool(): Tool {
-  if (isPhoneViewport()) {
-    return findTool("pen")!;
-  }
   const stored = window.localStorage.getItem(STORAGE_TOOL);
   if (stored) {
     const t = findTool(stored);
-    if (t && t.forcedColor === undefined) return t;
+    if (t) return t;
   }
   return findTool("pencil")!;
 }
@@ -131,16 +124,9 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
 
   renderSwatches();
 
-  clearBtn.addEventListener("click", () => {
-    void showConfirm({
-      title: "Clear the canvas?",
-      message: "Everyone in the room will lose what's been drawn.",
-      confirmLabel: "Clear it",
-      destructive: true,
-    }).then((ok) => {
-      if (ok) handlers.onClear();
-    });
-  });
+  // The confirmation dialog + drawer/non-drawer routing lives in main.ts so
+  // the message can adapt to game phase. Just delegate the click.
+  clearBtn.addEventListener("click", () => handlers.onClear());
 
   function renderSwatches(): void {
     swatchesEl.innerHTML = "";
