@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Star pastel on GitHub
+    url: https://github.com/pixperk/pastel
+    about: If you're just enjoying the game, a star helps a lot. Thanks!
+  - name: Sponsor on GitHub
+    url: https://github.com/sponsors/pixperk
+    about: Keep the lights on so pastel stays free for everyone.

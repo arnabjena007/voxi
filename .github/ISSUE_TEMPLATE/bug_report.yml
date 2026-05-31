@@ -1,0 +1,64 @@
+name: Bug report
+description: Something broken, frozen, missing, or doing the wrong thing.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: One or two sentences is fine.
+      placeholder: e.g. clicking "Start" did nothing after I joined a second tab.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
+      placeholder: |
+        1. open playpastel.com
+        2. create a room in Sprint mode
+        3. open the invite link in a second tab
+        4. click Start - nothing happens
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen instead?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Where did this happen?
+      multiple: true
+      options:
+        - Desktop (Chrome / Edge)
+        - Desktop (Firefox)
+        - Desktop (Safari)
+        - Mobile (iOS)
+        - Mobile (Android)
+        - Other
+    validations:
+      required: false
+
+  - type: input
+    id: room
+    attributes:
+      label: Room code (if you remember)
+      placeholder: e.g. K2P7HX
+    validations:
+      required: false
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console errors (optional)
+      description: Open devtools (F12 or right-click then Inspect), Console tab, paste any red text.
+      render: shell
+    validations:
+      required: false

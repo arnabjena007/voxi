@@ -1,0 +1,27 @@
+name: Idea or feature request
+description: A new mode, a tweak, a wild experiment - drop it here.
+title: "[idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What's the idea?
+      placeholder: e.g. a "themed" mode where every word comes from a category you pick.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would this be fun or useful?
+    validations:
+      required: false
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: Rough shape (optional)
+      description: Mockups, examples from other games, anything that helps me picture it.
+    validations:
+      required: false

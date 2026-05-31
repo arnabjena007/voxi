@@ -121,6 +121,21 @@ export function showLanding(): void {
             <span>buy me a coffee</span>
           </a>
         </div>
+        <div class="landing-support landing-bug">
+          <span>found a bug?</span>
+          <a href="https://github.com/pixperk/pastel/issues/new?template=bug_report.yml"
+             target="_blank" rel="noopener"
+             class="landing-support-link landing-bug-link" title="Report a bug on GitHub">
+            <i class="ph ph-bug" aria-hidden="true"></i>
+            <span>report a bug</span>
+          </a>
+          <a href="https://github.com/pixperk/pastel/issues/new?template=idea.yml"
+             target="_blank" rel="noopener"
+             class="landing-support-link landing-idea-link" title="Share an idea on GitHub">
+            <i class="ph ph-lightbulb" aria-hidden="true"></i>
+            <span>share an idea</span>
+          </a>
+        </div>
         <a href="https://github.com/pixperk/pastel" target="_blank" rel="noopener"
            class="landing-star" title="Star pastel on GitHub">
           <i class="ph-fill ph-star" aria-hidden="true"></i>

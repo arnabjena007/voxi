@@ -1,0 +1,74 @@
+name: Feedback from a player
+description: Share what worked, what didn't, and what you'd like to see next.
+title: "[feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for playing pastel! Your notes shape how this evolves.
+        Skip any fields that don't apply.
+
+  - type: textarea
+    id: liked
+    attributes:
+      label: What worked?
+      description: Anything that felt fun, smooth, or just right.
+      placeholder: e.g. the bot was actually competitive, the round-end animations are cute, voice chat just worked.
+    validations:
+      required: false
+
+  - type: textarea
+    id: friction
+    attributes:
+      label: What didn't work?
+      description: Anything confusing, broken, or annoying. Be brutal.
+      placeholder: e.g. the timer felt too short, mobile canvas dropped strokes, I couldn't tell whose turn it was.
+    validations:
+      required: false
+
+  - type: textarea
+    id: wishlist
+    attributes:
+      label: What would you want next?
+      description: A feature, a mode, a vibe shift, anything.
+      placeholder: e.g. custom word lists, a "stats" screen at the end, sound packs, dark mode.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: What did you play on?
+      multiple: true
+      options:
+        - Desktop (Chrome / Edge)
+        - Desktop (Firefox)
+        - Desktop (Safari)
+        - Mobile (iOS)
+        - Mobile (Android)
+        - Tablet
+        - Other
+    validations:
+      required: false
+
+  - type: dropdown
+    id: players
+    attributes:
+      label: How many of you were playing?
+      options:
+        - Just me + bot
+        - 2 to 3 humans
+        - 4 to 6 humans
+        - 7 or more
+    validations:
+      required: false
+
+  - type: input
+    id: room
+    attributes:
+      label: Room code (optional)
+      description: If something specific broke, the room code helps us trace it.
+      placeholder: e.g. K2P7HX
+    validations:
+      required: false

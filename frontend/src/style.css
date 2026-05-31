@@ -3028,6 +3028,20 @@ canvas {
   box-shadow: 0 3px 8px rgba(201, 154, 58, 0.18);
 }
 
+.landing-bug {
+  margin-top: 4px;
+}
+
+.landing-bug-link:hover {
+  border-color: #c96b5e;
+  box-shadow: 0 3px 8px rgba(201, 107, 94, 0.18);
+}
+
+.landing-idea-link:hover {
+  border-color: #8ecac4;
+  box-shadow: 0 3px 8px rgba(142, 202, 196, 0.22);
+}
+
 /* Subtle "drop a star" line below the support pills. Smaller and quieter
    than the sponsor/coffee row since starring is the cheapest ask. */
 .landing-star {
