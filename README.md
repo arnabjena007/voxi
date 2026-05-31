@@ -15,7 +15,7 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 
 
 <p align="center">
-  <img alt="pastel architecture" src="assets/architecture.png" width="900" />
+  <img alt="pastel architecture" src="https://raw.githubusercontent.com/pixperk/pastel/main/assets/architecture.png" width="900" />
 </p>
 
 ---
@@ -366,7 +366,7 @@ Each room is one `tokio` task that owns its state. Lock-free hot path:
 Biased select gives commands strict priority over deadlines.
 
 <p align="center">
-  <img alt="Room actor internals" src="assets/room-actor.png" width="800" />
+  <img alt="Room actor internals" src="https://raw.githubusercontent.com/pixperk/pastel/main/assets/room-actor.png" width="800" />
 </p>
 
 ### Avatar wire format
