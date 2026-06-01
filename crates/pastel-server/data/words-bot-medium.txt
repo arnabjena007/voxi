@@ -1,4 +1,5 @@
 airplane
+asparagus
 backpack
 banana
 bandage
@@ -6,10 +7,13 @@ baseball
 basket
 bathtub
 bicycle
+binoculars
+bottlecap
 bracelet
 bridge
 broccoli
 bucket
+bulldozer
 cactus
 calendar
 camera
@@ -18,13 +22,16 @@ candle
 cannon
 carrot
 castle
+cello
 church
 circle
+clarinet
 compass
 computer
 cookie
 crayon
 diamond
+dishwasher
 dolphin
 dragon
 dumbbell
@@ -40,6 +47,7 @@ giraffe
 grapes
 guitar
 hammer
+hedgehog
 helmet
 hexagon
 hospital
@@ -64,6 +72,7 @@ mushroom
 necklace
 octagon
 octopus
+paint can
 parrot
 passport
 peanut
@@ -82,7 +91,9 @@ scissors
 scorpion
 shorts
 shovel
+skyscraper
 snowman
+speedboat
 spider
 square
 squirrel
@@ -92,6 +103,7 @@ sweater
 syringe
 t-shirt
 teapot
+teddy-bear
 toaster
 toilet
 tornado
