@@ -1,5 +1,6 @@
 angel
 ant
+anvil
 apple
 arm
 axe
@@ -11,8 +12,10 @@ beard
 bed
 bee
 belt
+bench
 bird
 book
+bowtie
 brain
 bread
 broom
@@ -26,6 +29,7 @@ cat
 chair
 clock
 cloud
+cooler
 couch
 cow
 crab
@@ -34,12 +38,14 @@ cup
 dog
 donut
 door
+dresser
 drill
 drums
 duck
 ear
 elbow
 eye
+eyeglasses
 fan
 fence
 fish
@@ -48,8 +54,10 @@ fork
 frog
 grass
 hand
+harp
 hat
 horse
+hourglass
 house
 jail
 key
@@ -60,6 +68,7 @@ leg
 line
 lion
 map
+matches
 moon
 mouse
 mouth
@@ -72,11 +81,15 @@ oven
 owl
 panda
 pants
+pear
+peas
 piano
 pig
 pizza
 pond
 pool
+postcard
+purse
 radio
 rain
 rake
@@ -89,10 +102,12 @@ sink
 skull
 snail
 snake
+snorkel
 sock
 spoon
 star
 steak
+stereo
 stove
 sun
 swan
@@ -109,5 +124,6 @@ van
 vase
 whale
 wheel
+wristwatch
 yoga
 zebra

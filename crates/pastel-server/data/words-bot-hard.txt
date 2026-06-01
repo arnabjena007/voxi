@@ -14,6 +14,8 @@ cell phone
 chandelier
 coffee cup
 crocodile
+cruise ship
+diving board
 fire hydrant
 fireplace
 firetruck
@@ -22,12 +24,16 @@ flip flops
 floor lamp
 flying saucer
 frying pan
+garden hose
 golf club
 hamburger
 headphones
 helicopter
+hockey puck
 hockey stick
 hot air balloon
+hot tub
+house plant
 hurricane
 ice cream
 light bulb
@@ -43,15 +49,19 @@ palm tree
 paper clip
 parachute
 pickup truck
+picture frame
 pineapple
+police car
 power outlet
 remote control
 rhinoceros
 roller coaster
 rollerskates
 saxophone
+school bus
 screwdriver
 sea turtle
+see saw
 skateboard
 sleeping bag
 snowflake
@@ -67,6 +77,9 @@ teddy bear
 telephone
 television
 tennis racquet
+The Eiffel Tower
+The Great Wall of China
+The Mona Lisa
 toothbrush
 toothpaste
 traffic light
