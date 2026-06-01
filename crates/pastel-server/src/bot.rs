@@ -117,6 +117,18 @@ static BOT_NAMES: &[&str] = &[
     "hue",
     "palette",
     "swatch",
+    "noodle",
+    "stipple",
+    "gouache",
+    "speckle",
+    "mochi",
+    "pebble",
+    "canvas",
+    "fuzzy",
+    "ribbon",
+    "linty",
+    "pip",
+    "bristly",
 ];
 
 static GREETINGS: &[&str] = &[
