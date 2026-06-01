@@ -1,3 +1,4 @@
+use crate::tracker::Tracker;
 use crate::AppState;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
@@ -21,10 +22,12 @@ pub async fn ws_handler(
         }
     };
     let handle = state.rooms.get_or_create(room_code);
-    ws.on_upgrade(move |socket| connection_task(socket, handle))
+    let tracker = state.tracker.clone();
+    let code_str = code;
+    ws.on_upgrade(move |socket| connection_task(socket, handle, tracker, code_str))
 }
 
-async fn connection_task(mut socket: WebSocket, room: RoomHandle) {
+async fn connection_task(mut socket: WebSocket, room: RoomHandle, tracker: Tracker, code: String) {
     let hello = match recv_hello(&mut socket).await {
         Ok(h) => h,
         Err(err) => {
@@ -33,6 +36,10 @@ async fn connection_task(mut socket: WebSocket, room: RoomHandle) {
             return;
         }
     };
+
+    // Capture identifying fields before `hello` is consumed by `join`.
+    let client_token = hello.client_token.clone();
+    let player_name = hello.name.clone();
 
     let outcome = match room.join(hello).await {
         Ok(j) => j,
@@ -62,6 +69,14 @@ async fn connection_task(mut socket: WebSocket, room: RoomHandle) {
         mut unicast_rx,
         mut broadcast_rx,
     } = join;
+
+    // Player is now admitted to the room — record the play off the hot path
+    // so the remote Turso write never delays gameplay.
+    tokio::spawn(async move {
+        tracker
+            .record_join(client_token.as_deref(), &player_name, &code)
+            .await;
+    });
 
     loop {
         tokio::select! {

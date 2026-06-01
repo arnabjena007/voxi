@@ -4242,3 +4242,49 @@ canvas {
 .dialog-confirm--destructive {
   background: #c96b5e;
 }
+
+/* --- stats page --- */
+.stats-page {
+  max-width: 640px;
+  gap: 16px;
+  justify-content: center;
+}
+
+.stats-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow);
+  padding: 28px 20px;
+}
+
+.stat { text-align: center; }
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stats-foot {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .stats-card { grid-template-columns: 1fr; gap: 18px; }
+}

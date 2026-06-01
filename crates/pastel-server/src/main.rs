@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let app = build_router(AppState::new(wordlists));
+    let app = build_router(AppState::new(wordlists).await);
 
     let port: u16 = std::env::var("PORT")
         .ok()

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fdfbf7" />
+    <title>pastel -- stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <main class="stats-page">
+      <header>
+        <h1 class="logo"><span class="logo-text">pastel</span></h1>
+        <div class="status">stats</div>
+      </header>
+      <section class="stats-card">
+        <div class="stat">
+          <div class="stat-value" id="unique">--</div>
+          <div class="stat-label">players</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="plays">--</div>
+          <div class="stat-label">total plays</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="rooms">--</div>
+          <div class="stat-label">rooms live now</div>
+        </div>
+      </section>
+      <p class="stats-foot" id="foot">loading...</p>
+    </main>
+    <script type="module" src="./src/stats.ts"></script>
+  </body>
+</html>
