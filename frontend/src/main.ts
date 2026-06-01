@@ -464,12 +464,80 @@ async function clearCanvas(): Promise<void> {
   if (ok) conn.send({ kind: "Game", action: { kind: "Clear" } });
 }
 
+// Undo / redo. Local-only for non-drawer doodles during Drawing; server
+// round-trips for the shared canvas (drawer in Drawing, anyone in Lobby).
+// Buttons + Ctrl+Z keyboard call performUndo / performRedo; toolbar UI
+// reads canUndo() / canRedo() to enable / disable themselves on render.
+function strokeIsShared(): boolean {
+  const phase = gameState.phase;
+  if (phase.kind === "Lobby") return true;
+  if (phase.kind === "Drawing" && phase.drawer === youId) return true;
+  return false;
+}
+
+function performUndo(): void {
+  if (!surface.canUndo()) return;
+  if (strokeIsShared()) {
+    // Move the record from undo to redo stack locally so we keep its data
+    // for a potential redo. The actual removal from completedStrokes
+    // happens when the server's StrokeRemoved broadcast lands.
+    const popped = surface.undoLocal();
+    if (popped !== null) {
+      conn.send({ kind: "Undo" });
+    }
+  } else {
+    surface.undoLocal();
+  }
+  refreshUndoButtons();
+}
+
+function performRedo(): void {
+  if (!surface.canRedo()) return;
+  const record = surface.popRedo();
+  if (record === null) return;
+  if (strokeIsShared()) {
+    // Fresh stroke id so the server treats it as a new stroke rather than
+    // a replay of the one we just undid. Same color, width, points.
+    const newStrokeId = surface.allocateStrokeId();
+    conn.send({
+      kind: "Stroke",
+      stroke_id: newStrokeId,
+      origin: record.origin,
+      color: record.color,
+      width: record.width,
+      points: record.points,
+      finished: true,
+    });
+    surface.redoLocalApply(record, newStrokeId);
+  } else {
+    surface.redoLocalApply(record, record.strokeId);
+  }
+  refreshUndoButtons();
+}
+
+// Lets the desktop toolbar + mobile panel react to undo state changes
+// without having to poll. Both implementations register here.
+type UndoStateListener = (canUndo: boolean, canRedo: boolean) => void;
+const undoStateListeners = new Set<UndoStateListener>();
+function refreshUndoButtons(): void {
+  const u = surface.canUndo();
+  const r = surface.canRedo();
+  for (const fn of undoStateListeners) fn(u, r);
+}
+function onUndoState(fn: UndoStateListener): void {
+  undoStateListeners.add(fn);
+  fn(surface.canUndo(), surface.canRedo());
+}
+
 mountToolbar(toolbarEl, {
   onColor: (rgb) => surface.setColor(rgb),
   onTool: (tool) => surface.setWidth(tool.width),
   onClear: () => {
     void clearCanvas();
   },
+  onUndo: () => performUndo(),
+  onRedo: () => performRedo(),
+  onHistoryChange: (cb) => onUndoState(cb),
 });
 
 if (isPhoneViewport()) {
@@ -479,6 +547,9 @@ if (isPhoneViewport()) {
     onClear: () => {
       void clearCanvas();
     },
+    onUndo: () => performUndo(),
+    onRedo: () => performRedo(),
+    onHistoryChange: (cb) => onUndoState(cb),
   });
 }
 
@@ -1032,6 +1103,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
   switch (event.kind) {
     case "Cleared":
       surface.clear();
+      refreshUndoButtons();
       chat.appendSystem(`${nameOf(event.by)} wiped the canvas clean`, avatarOf(event.by));
       showCanvasEvent({
         avatarHtml: avatarOf(event.by),
@@ -1076,6 +1148,10 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       playRoundStart();
       myReaction = null;
       drawerFeedback = null;
+      // Each round starts with empty history -- you can't undo strokes
+      // from a previous round (the canvas got reset anyway).
+      surface.resetHistory();
+      refreshUndoButtons();
       const deadline = performance.now() + event.duration_ms;
       gameState.phase = {
         kind: "Drawing",
@@ -1130,6 +1206,9 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       };
       chat.appendSystem(`the word was "${event.word}"`);
       playRoundEnd();
+      // Reveal phase: no more strokes accepted, undo history irrelevant.
+      surface.resetHistory();
+      refreshUndoButtons();
       renderPlayers();
       renderGameUI();
       return;
@@ -1178,6 +1257,14 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       chat.appendSystem(line, avatarOf(event.player));
       return;
     }
+    case "StrokeRemoved":
+      // Server broadcast of someone's undo. Drop the matching stroke from
+      // our canvas. For the player who issued the undo this is the actual
+      // removal -- their undoLocal earlier only moved the record to the
+      // redo stack so the data survives for a potential redo.
+      surface.applyStrokeRemoved(event.player, event.stroke_id);
+      refreshUndoButtons();
+      return;
   }
 }
 
@@ -1216,6 +1303,30 @@ const conn = new Conn({
 });
 
 surface.attachSender((msg) => conn.send(msg));
+surface.setHistoryListener(() => refreshUndoButtons());
+
+// Keyboard: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) = redo. Skip
+// when the user is typing in the chat or any other input/textarea so we
+// don't fight with native text undo.
+window.addEventListener("keydown", (e) => {
+  const target = e.target as HTMLElement | null;
+  if (target) {
+    const tag = target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+      return;
+    }
+  }
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  if (e.key === "z" || e.key === "Z") {
+    e.preventDefault();
+    if (e.shiftKey) performRedo();
+    else performUndo();
+  } else if (e.key === "y" || e.key === "Y") {
+    e.preventDefault();
+    performRedo();
+  }
+});
 
   // Avoid an unused-import lint when game.ts re-exports types we only use as
   // types at call sites.

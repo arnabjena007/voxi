@@ -733,6 +733,7 @@ impl Room {
                 self.handle_reject_join(player, candidate)
             }
             ClientMsg::React { mood } => self.handle_react(player, mood),
+            ClientMsg::Undo => self.handle_undo(player),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
             }
@@ -828,6 +829,38 @@ impl Room {
         if let Some(d) = feedback_to_send {
             self.unicast(drawer_id, ServerMsg::DrawingFeedback { mood: d });
         }
+    }
+
+    /// Drop the sender's most recent completed stroke from the shared
+    /// canvas and tell everyone. Allowed during Drawing only for the
+    /// active drawer (others doodle locally, server never accepted those
+    /// strokes), and during Lobby for anyone (free-draw is shared there).
+    fn handle_undo(&mut self, player: PlayerId) {
+        match &self.game.phase {
+            GamePhase::Drawing { drawer, .. } if *drawer != player => return,
+            GamePhase::ChoosingWord { .. }
+            | GamePhase::RoundEnd { .. }
+            | GamePhase::GameOver => return,
+            _ => {}
+        }
+        // Find last completed stroke owned by this player (newest first).
+        let idx = self
+            .completed
+            .iter()
+            .rposition(|s| s.player == player);
+        let Some(idx) = idx else { return };
+        let removed = self.completed.remove(idx);
+        let Some(removed) = removed else { return };
+        // Drop any matching in-progress stroke too (covers undo mid-stroke).
+        self.in_progress.remove(&(player, removed.stroke_id));
+        let seq = self.next_seq();
+        self.broadcast(ServerMsg::Game {
+            seq,
+            event: GameEvent::StrokeRemoved {
+                player,
+                stroke_id: removed.stroke_id,
+            },
+        });
     }
 
     fn handle_clear(&mut self, player: PlayerId) {

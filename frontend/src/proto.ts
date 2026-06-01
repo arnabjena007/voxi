@@ -432,7 +432,8 @@ export type GameEvent =
   | { kind: "JoinRequest"; candidate: number; name: string }
   | { kind: "JoinCanceled"; candidate: number }
   | { kind: "HostChanged"; new_host: number }
-  | { kind: "Reaction"; player: number; mood: DrawingMood };
+  | { kind: "Reaction"; player: number; mood: DrawingMood }
+  | { kind: "StrokeRemoved"; player: number; stroke_id: number };
 
 function writeScores(w: Writer, scores: [number, number][]): void {
   w.varint(scores.length);
@@ -490,6 +491,9 @@ function writeGameEvent(w: Writer, e: GameEvent): void {
       w.variant(9).varint(e.player);
       writeDrawingMood(w, e.mood);
       return;
+    case "StrokeRemoved":
+      w.variant(10).varint(e.player).varint(e.stroke_id);
+      return;
   }
 }
 
@@ -529,6 +533,8 @@ function readGameEvent(r: Reader): GameEvent {
       return { kind: "HostChanged", new_host: r.varint() };
     case 9:
       return { kind: "Reaction", player: r.varint(), mood: readDrawingMood(r) };
+    case 10:
+      return { kind: "StrokeRemoved", player: r.varint(), stroke_id: r.varint() };
     default:
       throw new Error(`unknown GameEvent variant: ${v}`);
   }
@@ -635,7 +641,8 @@ export type ClientMsg =
   | { kind: "Guess"; text: string }
   | { kind: "Game"; action: GameAction }
   | { kind: "Pong"; nonce: number }
-  | { kind: "React"; mood: DrawingMood };
+  | { kind: "React"; mood: DrawingMood }
+  | { kind: "Undo" };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -671,6 +678,9 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
       w.variant(6);
       writeDrawingMood(w, msg.mood);
       break;
+    case "Undo":
+      w.variant(7);
+      break;
   }
   return w.bytes();
 }
@@ -701,6 +711,8 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
       return { kind: "Pong", nonce: r.varint() };
     case 6:
       return { kind: "React", mood: readDrawingMood(r) };
+    case 7:
+      return { kind: "Undo" };
     default:
       throw new Error(`unknown ClientMsg variant: ${v}`);
   }

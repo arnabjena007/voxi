@@ -1286,7 +1286,55 @@ canvas {
   min-height: 44px;
 }
 
-.toolbar-row--swatches { min-height: 36px; }
+.toolbar-row--swatches {
+  min-height: 36px;
+  /* Swatch row owns the horizontal axis: colours hug the left, the
+     history pill (undo / redo) anchors to the right. */
+  justify-content: space-between;
+}
+
+/* Undo / Redo pill sitting at the right end of the swatch row, in line
+   with the colour buttons. Quiet by default; springs to ink on hover. */
+.tb-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.history-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 14px;
+  transition: color 120ms, border-color 120ms, background 120ms, transform 80ms;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.history-btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: #ffffff;
+}
+
+.history-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.history-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 .tb-group {
   display: flex;
@@ -3004,6 +3052,46 @@ canvas {
 .mtool-size--eraser[aria-pressed="true"] .mtool-size-icon,
 .mtool-size--eraser[aria-pressed="true"] .mtool-size-label {
   color: #c96b5e;
+}
+
+.mtool-history {
+  display: flex;
+  gap: 8px;
+}
+
+.mtool-history-btn {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.mtool-history-btn i {
+  font-size: 14px;
+}
+
+.mtool-history-btn:hover:not(:disabled),
+.mtool-history-btn:active:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.mtool-history-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .mtool-actions {

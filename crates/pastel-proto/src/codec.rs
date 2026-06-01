@@ -66,7 +66,10 @@ pub fn validate_client(msg: &ClientMsg) -> Result<(), CodecError> {
         ClientMsg::Guess { text } => {
             check_len("guess.text", text.len(), MAX_GUESS_LEN)?;
         }
-        ClientMsg::Game(_) | ClientMsg::Pong { .. } | ClientMsg::React { .. } => {}
+        ClientMsg::Game(_)
+        | ClientMsg::Pong { .. }
+        | ClientMsg::React { .. }
+        | ClientMsg::Undo => {}
     }
     Ok(())
 }
@@ -156,6 +159,7 @@ pub fn validate_server(msg: &ServerMsg, depth: u8) -> Result<(), CodecError> {
             crate::msg::GameEvent::JoinCanceled { .. } => {}
             crate::msg::GameEvent::HostChanged { .. } => {}
             crate::msg::GameEvent::Reaction { .. } => {}
+            crate::msg::GameEvent::StrokeRemoved { .. } => {}
         },
         ServerMsg::WordOptions { words, .. } => {
             check_len("word_options.words", words.len(), MAX_WORD_OPTIONS)?;

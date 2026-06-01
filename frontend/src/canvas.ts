@@ -10,6 +10,10 @@ const JITTER_BUFFER_MS = 50;
 const BATCH_INTERVAL_MS = 16;
 const I8_MAX = 127;
 const I8_MIN = -128;
+// Hard cap on per-side history. A round of skribble rarely hits double
+// digits in strokes; 50 is plenty to undo back through a whole round, and
+// bounded so a runaway scribbler can't grow the array forever.
+const UNDO_STACK_CAP = 50;
 
 const ERASER_COLOR = 0xffffff;
 
@@ -73,6 +77,11 @@ interface CompletedRecord {
   // Used by clearLocal() to wipe only this client's own doodles while
   // preserving the drawer's strokes during a guessing round.
   source: "local" | "remote";
+  // Used by undo/redo to identify and remove specific strokes. For local
+  // strokes this is the stroke_id we sent on the wire (or would have for
+  // non-drawer doodles). For remote strokes it's the originator's id.
+  player: number;
+  strokeId: number;
 }
 
 export class DrawingSurface {
@@ -89,6 +98,15 @@ export class DrawingSurface {
   private cssWidth = 0;
   private cssHeight = 0;
   private completedStrokes: CompletedRecord[] = [];
+  // Local undo/redo history for THIS client's own strokes only. Newest at
+  // the end of undoStack. A new stroke clears redoStack. Cleared on
+  // resetHistory() at round / clear boundaries.
+  private undoStack: CompletedRecord[] = [];
+  private redoStack: CompletedRecord[] = [];
+  // Fires whenever undo/redo availability changes (new stroke, undo, redo,
+  // reset, snapshot, etc.). main.ts uses this to re-render the toolbar
+  // buttons without polling.
+  private historyListener: (() => void) | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -128,10 +146,23 @@ export class DrawingSurface {
     this.currentWidth = Math.max(1, Math.min(255, Math.round(width)));
   }
 
+  // Subscribe to history-changed events (undo/redo availability flipped).
+  // Just one slot; the latest caller wins. Fires after each mutation.
+  setHistoryListener(fn: () => void): void {
+    this.historyListener = fn;
+  }
+
+  private notifyHistory(): void {
+    this.historyListener?.();
+  }
+
   clear(): void {
     this.completedStrokes = [];
+    this.undoStack = [];
+    this.redoStack = [];
     this.remoteStrokes.clear();
     this.repaint();
+    this.notifyHistory();
   }
 
   // Wipe only strokes this client drew locally. Used when a non-drawer hits
@@ -141,7 +172,111 @@ export class DrawingSurface {
     this.completedStrokes = this.completedStrokes.filter(
       (s) => s.source !== "local",
     );
+    // Clearing makes the prior history meaningless.
+    this.undoStack = [];
+    this.redoStack = [];
     this.repaint();
+    this.notifyHistory();
+  }
+
+  // True if there's an undoable local stroke. Used to enable/disable the
+  // toolbar button without exposing the stack itself.
+  canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  canRedo(): boolean {
+    return this.redoStack.length > 0;
+  }
+
+  // Peek the next-to-undo stroke without popping. main.ts uses this to
+  // decide whether a drawer's undo needs a server round trip or can stay
+  // local (e.g. non-drawer doodles during a Drawing round).
+  peekUndo(): CompletedRecord | null {
+    return this.undoStack[this.undoStack.length - 1] ?? null;
+  }
+
+  // Local-only undo: pop the most recent of our strokes from the canvas
+  // and push it onto redoStack. Caller (main.ts) is responsible for
+  // routing this through the server when the stroke is shared (drawer in
+  // Drawing, anyone in Lobby) -- in those cases the server's
+  // StrokeRemoved broadcast does the actual canvas removal via
+  // applyStrokeRemoved, and undoLocal isn't called.
+  undoLocal(): CompletedRecord | null {
+    const top = this.undoStack.pop();
+    if (!top) return null;
+    // Remove the matching record from completedStrokes (newest match wins).
+    for (let i = this.completedStrokes.length - 1; i >= 0; i--) {
+      const s = this.completedStrokes[i];
+      if (s.strokeId === top.strokeId && s.player === top.player) {
+        this.completedStrokes.splice(i, 1);
+        break;
+      }
+    }
+    this.redoStack.push(top);
+    if (this.redoStack.length > UNDO_STACK_CAP) this.redoStack.shift();
+    this.repaint();
+    this.notifyHistory();
+    return top;
+  }
+
+  // Peek/pop for redo. The caller emits a fresh Stroke message when the
+  // stroke is shared (so other clients see it), then calls redoLocalApply
+  // to actually paint it back; for purely local strokes they call
+  // redoLocalApply directly which re-pushes onto completedStrokes.
+  popRedo(): CompletedRecord | null {
+    return this.redoStack.pop() ?? null;
+  }
+
+  // Re-push a previously-undone stroke into completedStrokes (with a new
+  // strokeId so the server treats it as a fresh emission) and put it on
+  // top of the undo stack. Used for the local half of a redo.
+  redoLocalApply(record: CompletedRecord, newStrokeId: number): void {
+    const replayed: CompletedRecord = { ...record, strokeId: newStrokeId };
+    this.completedStrokes.push(replayed);
+    this.undoStack.push(replayed);
+    if (this.undoStack.length > UNDO_STACK_CAP) this.undoStack.shift();
+    this.repaint();
+    this.notifyHistory();
+  }
+
+  // Server told us a stroke (ours or someone else's) just got undone:
+  // drop it from completedStrokes + any in-progress entry and repaint.
+  // If it was ours, also prune the matching record from undoStack so a
+  // local "undo" doesn't try to remove it twice.
+  applyStrokeRemoved(player: number, strokeId: number): void {
+    for (let i = this.completedStrokes.length - 1; i >= 0; i--) {
+      const s = this.completedStrokes[i];
+      if (s.player === player && s.strokeId === strokeId) {
+        this.completedStrokes.splice(i, 1);
+        break;
+      }
+    }
+    const inProgressKey = `${player}/${strokeId}`;
+    this.remoteStrokes.delete(inProgressKey);
+    for (let i = this.undoStack.length - 1; i >= 0; i--) {
+      const s = this.undoStack[i];
+      if (s.player === player && s.strokeId === strokeId) {
+        this.undoStack.splice(i, 1);
+        break;
+      }
+    }
+    this.repaint();
+    this.notifyHistory();
+  }
+
+  // Drop both stacks. Called by main.ts at round boundaries so a fresh
+  // round starts with a clean history.
+  resetHistory(): void {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.notifyHistory();
+  }
+
+  // Allocate a stroke id for the redo path (which needs a fresh id on the
+  // wire) without going through the normal pointer-input pipeline.
+  allocateStrokeId(): number {
+    return this.nextStrokeId++;
   }
 
   private repaint(): void {
@@ -233,9 +368,16 @@ export class DrawingSurface {
       width: s.width,
       points: s.points,
       source: "remote",
+      player: s.player,
+      strokeId: s.stroke_id,
     }));
+    // Snapshots are authoritative state; the undo history we'd built up so
+    // far doesn't apply to a fresh reload, so drop both stacks too.
+    this.undoStack = [];
+    this.redoStack = [];
     this.remoteStrokes.clear();
     this.repaint();
+    this.notifyHistory();
   }
 
   private drainJitterBuffer = (): void => {
@@ -257,6 +399,8 @@ export class DrawingSurface {
           width: stroke.baseWidth,
           points: stroke.allPoints,
           source: "remote",
+          player: stroke.player,
+          strokeId: stroke.strokeId,
         });
         this.remoteStrokes.delete(key);
       }
@@ -352,13 +496,23 @@ export class DrawingSurface {
     }
 
     finishStrokeAt(this.ctx, stroke.render, stroke.lastX, stroke.lastY);
-    this.completedStrokes.push({
+    const record: CompletedRecord = {
       origin: [Math.round(stroke.originX), Math.round(stroke.originY)],
       color: stroke.color,
       width: stroke.baseWidth,
       points: stroke.allPoints,
       source: "local",
-    });
+      player: this.youId ?? 0,
+      strokeId: stroke.strokeId,
+    };
+    this.completedStrokes.push(record);
+    // Drawing forward invalidates the redo branch; track this as the new
+    // top of the undo stack (newest = last). Cap so a frantic scribbler
+    // doesn't grow the array unbounded.
+    this.undoStack.push(record);
+    if (this.undoStack.length > UNDO_STACK_CAP) this.undoStack.shift();
+    this.redoStack = [];
+    this.notifyHistory();
   };
 
   private consumeLocalPoint(stroke: LocalStroke, x: number, y: number): void {

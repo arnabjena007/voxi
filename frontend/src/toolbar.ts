@@ -15,6 +15,11 @@ export interface ToolbarHandlers {
   onColor: (rgb: number) => void;
   onTool: (tool: Tool) => void;
   onClear: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  // Register to be told when undo/redo availability flips. Caller invokes
+  // the returned function once immediately with current state.
+  onHistoryChange: (cb: (canUndo: boolean, canRedo: boolean) => void) => void;
 }
 
 const DRAWING_TOOLS = TOOLS.filter((t) => t.forcedColor === undefined);
@@ -87,6 +92,16 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
     </div>
     <div class="toolbar-row toolbar-row--swatches">
       <div class="swatches" role="listbox" aria-label="Colours"></div>
+      <div class="tb-history" role="group" aria-label="Undo / Redo">
+        <button type="button" class="history-btn history-undo"
+                title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+          <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="history-btn history-redo"
+                title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+          <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
   `;
 
@@ -127,6 +142,18 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
   // The confirmation dialog + drawer/non-drawer routing lives in main.ts so
   // the message can adapt to game phase. Just delegate the click.
   clearBtn.addEventListener("click", () => handlers.onClear());
+
+  // History row: undo / redo. Buttons start disabled; reflect availability
+  // from the surface via the registered listener so they enable / disable
+  // as the user draws, undoes, redoes, or a round resets.
+  const undoBtn = root.querySelector<HTMLButtonElement>(".history-undo")!;
+  const redoBtn = root.querySelector<HTMLButtonElement>(".history-redo")!;
+  undoBtn.addEventListener("click", () => handlers.onUndo());
+  redoBtn.addEventListener("click", () => handlers.onRedo());
+  handlers.onHistoryChange((canUndo, canRedo) => {
+    undoBtn.disabled = !canUndo;
+    redoBtn.disabled = !canRedo;
+  });
 
   function renderSwatches(): void {
     swatchesEl.innerHTML = "";

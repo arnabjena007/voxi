@@ -35,6 +35,9 @@ export interface MobileToolsHandlers {
   onColor: (rgb: number) => void;
   onTool: (tool: Tool) => void;
   onClear: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onHistoryChange: (cb: (canUndo: boolean, canRedo: boolean) => void) => void;
 }
 
 export function mountMobileTools(handlers: MobileToolsHandlers): void {
@@ -75,6 +78,18 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
     <nav class="mtool-section mtool-tabs" role="tablist" aria-label="Palette"></nav>
     <div class="mtool-section mtool-swatches" role="listbox" aria-label="Colours"></div>
     <div class="mtool-section mtool-sizes" role="toolbar" aria-label="Thickness"></div>
+    <div class="mtool-section mtool-history" role="group" aria-label="Undo / Redo">
+      <button class="mtool-history-btn mtool-undo" type="button"
+              aria-label="Undo" disabled>
+        <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+        <span>undo</span>
+      </button>
+      <button class="mtool-history-btn mtool-redo" type="button"
+              aria-label="Redo" disabled>
+        <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+        <span>redo</span>
+      </button>
+    </div>
     <div class="mtool-section mtool-actions">
       <button class="mtool-clear" type="button">
         <span class="mtool-clear-x" aria-hidden="true">×</span>
@@ -91,6 +106,14 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
   const swatchesEl = panel.querySelector<HTMLDivElement>(".mtool-swatches")!;
   const sizesEl = panel.querySelector<HTMLDivElement>(".mtool-sizes")!;
   const clearBtn = panel.querySelector<HTMLButtonElement>(".mtool-clear")!;
+  const undoBtn = panel.querySelector<HTMLButtonElement>(".mtool-undo")!;
+  const redoBtn = panel.querySelector<HTMLButtonElement>(".mtool-redo")!;
+  undoBtn.addEventListener("click", () => handlers.onUndo());
+  redoBtn.addEventListener("click", () => handlers.onRedo());
+  handlers.onHistoryChange((canUndo, canRedo) => {
+    undoBtn.disabled = !canUndo;
+    redoBtn.disabled = !canRedo;
+  });
 
   for (const p of PALETTES) {
     const tab = document.createElement("button");

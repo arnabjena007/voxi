@@ -76,6 +76,12 @@ pub enum GameEvent {
         player: PlayerId,
         mood: DrawingMood,
     },
+    /// A specific stroke just got undone. Clients drop the stroke from
+    /// their local canvas and repaint without it.
+    StrokeRemoved {
+        player: PlayerId,
+        stroke_id: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -134,6 +140,11 @@ pub enum ClientMsg {
     React {
         mood: DrawingMood,
     },
+    /// Undo: remove the sender's most recent completed stroke from the
+    /// shared canvas. Allowed for the drawer in a Drawing phase and for
+    /// anyone in Lobby free-draw. Server broadcasts `StrokeRemoved` to
+    /// every client so the stroke disappears for everyone.
+    Undo,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
