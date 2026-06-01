@@ -838,16 +838,13 @@ impl Room {
     fn handle_undo(&mut self, player: PlayerId) {
         match &self.game.phase {
             GamePhase::Drawing { drawer, .. } if *drawer != player => return,
-            GamePhase::ChoosingWord { .. }
-            | GamePhase::RoundEnd { .. }
-            | GamePhase::GameOver => return,
+            GamePhase::ChoosingWord { .. } | GamePhase::RoundEnd { .. } | GamePhase::GameOver => {
+                return
+            }
             _ => {}
         }
         // Find last completed stroke owned by this player (newest first).
-        let idx = self
-            .completed
-            .iter()
-            .rposition(|s| s.player == player);
+        let idx = self.completed.iter().rposition(|s| s.player == player);
         let Some(idx) = idx else { return };
         let removed = self.completed.remove(idx);
         let Some(removed) = removed else { return };
