@@ -4319,6 +4319,16 @@ canvas {
   font-size: 13px;
 }
 
+.stats-note {
+  margin: 0;
+  max-width: 420px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.75;
+}
+
 .stats-foot {
   margin: 0;
   text-align: center;
