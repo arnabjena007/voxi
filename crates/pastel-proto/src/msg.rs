@@ -82,6 +82,10 @@ pub enum GameEvent {
 pub enum GuessKind {
     Correct,
     Close,
+    /// Unicast to a player whose chat tried to leak the secret word (drawer
+    /// or a player who already guessed correctly). The original message is
+    /// dropped; the sender sees a "don't spoil it" nudge instead.
+    Spoiler,
 }
 
 /// What a guesser thinks of the drawing in progress. Aggregated server-side

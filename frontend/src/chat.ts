@@ -18,6 +18,7 @@ export interface ChatPanel {
   appendSystem(text: string, avatarHtml?: string): void;
   appendCorrectGuess(author: string, color: number, avatarHtml?: string): void;
   appendCloseGuess(): void;
+  appendSpoilerWarning(): void;
   setGuessMode(on: boolean): void;
   focus(): void;
   clear(): void;
@@ -185,6 +186,15 @@ export function mountChat(root: HTMLElement, handlers: ChatHandlers): ChatPanel 
       const pill = document.createElement("span");
       pill.className = "chat-pill chat-pill--close";
       pill.textContent = "so close!";
+      wrap.appendChild(pill);
+      append(wrap);
+    },
+    appendSpoilerWarning() {
+      const wrap = document.createElement("div");
+      wrap.className = "chat-system";
+      const pill = document.createElement("span");
+      pill.className = "chat-pill chat-pill--spoiler";
+      pill.textContent = "hey! don't spoil it - others are still guessing";
       wrap.appendChild(pill);
       append(wrap);
     },

@@ -2248,6 +2248,12 @@ canvas {
   color: #8a6c0e;
 }
 
+.chat-pill--spoiler {
+  background: #fde2dd;
+  color: #c96b5e;
+  font-weight: 600;
+}
+
 .chat-form {
   flex: 0 0 auto;
   display: flex;

@@ -396,11 +396,16 @@ const chatBucket = new TokenBucket(CHAT_BUCKET_CAPACITY, CHAT_BUCKET_REFILL_PER_
 const chat: ChatPanel = mountChat(chatEl, {
   onSend: (text) => {
     if (!chatBucket.tryTake()) return false;
-    // During Drawing phase as a non-drawer, treat input as a guess. The
-    // server treats both as text; this is just routing semantic. Cache the
-    // text so the Correct event handler can render it back as the revealed
-    // word without the server having to echo the secret.
-    if (gameState.phase.kind === "Drawing" && gameState.phase.drawer !== youId) {
+    // During Drawing, only still-guessing players send as Guess. Once you've
+    // guessed correctly (or you're the drawer) your input is chat -- still
+    // visible to the room, but the server intercepts any attempt to leak
+    // the word and replies with a Spoiler nudge instead of broadcasting.
+    const phase = gameState.phase;
+    const inDrawing = phase.kind === "Drawing";
+    const isDrawer = inDrawing && phase.drawer === youId;
+    const youAlreadyGuessed =
+      youId !== null && correctGuessers.has(youId);
+    if (inDrawing && !isDrawer && !youAlreadyGuessed) {
       lastSubmittedGuess = text;
       conn.send({ kind: "Guess", text });
     } else {
@@ -601,8 +606,14 @@ function renderGameUI(): void {
     onCopyInvite: copyInviteLink,
   });
   updateBanner();
+  // "Guessing" UI (badge + placeholder) only while you still need to guess.
+  // Once you've gotten the word right, your input goes through the chat
+  // path; flip the badge off so the placeholder reverts to "Say something".
+  const youAlreadyGuessed = youId !== null && correctGuessers.has(youId);
   const isGuessing =
-    gameState.phase.kind === "Drawing" && gameState.phase.drawer !== youId;
+    gameState.phase.kind === "Drawing" &&
+    gameState.phase.drawer !== youId &&
+    !youAlreadyGuessed;
   chat.setGuessMode(isGuessing);
 }
 
@@ -969,6 +980,9 @@ function handleMessage(msg: ServerMsg): void {
         // Server unicasts Close only to the guesser, but we still gate
         // here for safety.
         chat.appendCloseGuess();
+      } else if (msg.guess === "Spoiler" && msg.player === youId) {
+        // Server unicasts Spoiler when our chat would have leaked the word.
+        chat.appendSpoilerWarning();
       }
       return;
     case "Resume":

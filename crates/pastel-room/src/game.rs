@@ -126,6 +126,31 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
     prev[b.len()]
 }
 
+/// Does `text` leak the secret `word`? Used to block spoilers from players
+/// who already know the answer (drawer + correct guessers) when they chat.
+/// Tokenises on non-letter boundaries and checks each token against the
+/// word exactly or via the tight close-guess threshold. "rocks" doesn't
+/// leak "rock", but "i think it's rock!" does.
+pub fn message_leaks_word(text: &str, word: &str) -> bool {
+    let target = word.trim().to_lowercase();
+    if target.is_empty() {
+        return false;
+    }
+    for token in text.split(|c: char| !c.is_alphabetic()) {
+        if token.is_empty() {
+            continue;
+        }
+        let lower = token.to_lowercase();
+        if lower == target {
+            return true;
+        }
+        if is_close_guess(&lower, &target) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Is `guess` close (but not exact) to `word`? Threshold scales with length:
 /// short words must be off by exactly 1, longer words tolerate 2.
 /// Case-insensitive, whitespace-trimmed.

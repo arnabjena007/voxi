@@ -534,7 +534,7 @@ function readGameEvent(r: Reader): GameEvent {
   }
 }
 
-export type GuessKind = "Correct" | "Close";
+export type GuessKind = "Correct" | "Close" | "Spoiler";
 
 export type DrawingMood = "Loved" | "Confused";
 
@@ -550,13 +550,14 @@ function readDrawingMood(r: Reader): DrawingMood {
 }
 
 function writeGuessKind(w: Writer, k: GuessKind): void {
-  w.variant(k === "Correct" ? 0 : 1);
+  w.variant(k === "Correct" ? 0 : k === "Close" ? 1 : 2);
 }
 
 function readGuessKind(r: Reader): GuessKind {
   const v = r.variant();
   if (v === 0) return "Correct";
   if (v === 1) return "Close";
+  if (v === 2) return "Spoiler";
   throw new Error(`unknown GuessKind: ${v}`);
 }
 

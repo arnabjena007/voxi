@@ -1,7 +1,8 @@
 use crate::bucket::TokenBucket;
 use crate::game::{
-    build_mask, drawer_bonus, guess_score, is_close_guess, max_hints, pick_hint_index,
-    ranked_scores, reveal_at, DRAW_WINDOW, HINT_REMAINING_SECS, PICK_WINDOW, ROUND_REVEAL,
+    build_mask, drawer_bonus, guess_score, is_close_guess, max_hints, message_leaks_word,
+    pick_hint_index, ranked_scores, reveal_at, DRAW_WINDOW, HINT_REMAINING_SECS, PICK_WINDOW,
+    ROUND_REVEAL,
 };
 use crate::words::{Difficulty, SharedWords};
 use crate::{
@@ -917,6 +918,31 @@ impl Room {
         };
         if !slot.chat_bucket.try_take() {
             return;
+        }
+        // During Drawing, players who already know the word (drawer or
+        // anyone who's guessed correctly) can chat freely, except any
+        // attempt to drop the word in plaintext is intercepted and nudged
+        // back to the sender so still-guessing players don't see it.
+        if let GamePhase::Drawing {
+            drawer,
+            word,
+            correct_guessers,
+            ..
+        } = &self.game.phase
+        {
+            let knows_word = *drawer == player || correct_guessers.contains(&player);
+            if knows_word && message_leaks_word(&text, word) {
+                let seq = self.next_seq();
+                self.unicast(
+                    player,
+                    ServerMsg::Guess {
+                        seq,
+                        player,
+                        kind: GuessKind::Spoiler,
+                    },
+                );
+                return;
+            }
         }
         let seq = self.next_seq();
         self.chat.push_back((seq, player, text.clone()));
