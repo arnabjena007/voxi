@@ -125,6 +125,11 @@ static GREETINGS: &[&str] = &[
     "ready to play!",
     "lets gooo",
     "hello hello",
+    "sup",
+    "yo",
+    "hey what's up",
+    "ready when you are",
+    "ohhh new game",
 ];
 
 static REACT_CORRECT: &[&str] = &[
@@ -134,6 +139,11 @@ static REACT_CORRECT: &[&str] = &[
     "how??",
     "big brain",
     "too easy",
+    "okayyy",
+    "i was just about to guess that",
+    "lucky",
+    "show off",
+    "noted",
 ];
 
 static REACT_ROUND_END: &[&str] = &[
@@ -143,6 +153,11 @@ static REACT_ROUND_END: &[&str] = &[
     "should have got that",
     "lol",
     "interesting",
+    "i was thinking the same",
+    "nooo i had it",
+    "good one",
+    "haha",
+    "wait what",
 ];
 
 static REACT_MY_TURN: &[&str] = &[
@@ -151,6 +166,65 @@ static REACT_MY_TURN: &[&str] = &[
     "watch this",
     "i got this",
     "easy one",
+    "hmm let me think",
+    "this is fine",
+    "do not laugh",
+    "art incoming",
+    "give me a sec",
+];
+
+// First hint just dropped and we're still guessing. Quick "ohh" beat.
+static REACT_HINT: &[&str] = &[
+    "ohh",
+    "ahh",
+    "wait...",
+    "now i see",
+    "oh okay",
+    "yeah maybe",
+    "interesting",
+    "hmm",
+];
+
+// Bot itself just guessed correctly. Self-congratulatory.
+static SELF_CORRECT: &[&str] = &[
+    "yesss",
+    "got it",
+    "haha",
+    "called it",
+    "knew it",
+    "easy",
+    "finally",
+];
+
+// Bot got a close guess. The server unicasts Close to the guesser only.
+static SELF_CLOSE: &[&str] = &[
+    "so close",
+    "off by one ugh",
+    "almost!",
+    "darn",
+    "i'm right there",
+];
+
+// Mid-round banter while still trying to guess. Used at most once per round.
+static GUESSING_BANTER: &[&str] = &[
+    "hmm",
+    "is that a...",
+    "wait wait",
+    "no clue tbh",
+    "lemme think",
+    "i swear i know this",
+    "could be anything",
+    "uhhh",
+];
+
+// Drawer talking mid-round while bot is drawing. Used at most once per round.
+static DRAWING_BANTER: &[&str] = &[
+    "this is harder than it looks",
+    "okay almost there",
+    "bear with me",
+    "trust the process",
+    "art is hard",
+    "guess faster",
 ];
 
 fn random_from(list: &[&str]) -> String {
@@ -246,6 +320,11 @@ async fn run_bot(
     let mut guess_sent = false;
     let mut next_guess_at: Option<tokio::time::Instant> = None;
     let mut hints_revealed: u32 = 0;
+    // At most one mid-round banter line per round to keep chat from spamming
+    // when several bots are in the same room.
+    let mut banter_used = false;
+    // Drop a guessing banter once we've tried `banter_after` attempts.
+    let banter_after: usize = rand::thread_rng().gen_range(4..9);
 
     // Drain welcome, then greet
     let _ = unicast_rx.recv().await;
@@ -270,11 +349,31 @@ async fn run_bot(
 
                         bot_chat(&room, my_id, random_from(REACT_MY_TURN)).await;
                         let word_lower = word.to_lowercase();
+                        // Schedule one banter line a few seconds into the
+                        // drawing so the bot feels chatty while sketching.
+                        // Cloned RoomHandle is cheap (mpsc Sender clone).
+                        if !banter_used && rand::thread_rng().gen_bool(0.55) {
+                            banter_used = true;
+                            let room_c = room.clone();
+                            let line = random_from(DRAWING_BANTER);
+                            // ThreadRng is !Send: pre-roll the delay here
+                            // and move the Duration into the spawned task.
+                            let delay_ms = rand::thread_rng().gen_range(4000..10_000);
+                            tokio::spawn(async move {
+                                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                                room_c.send(my_id, ClientMsg::Chat { text: line }).await;
+                            });
+                        }
                         if let Some(drawing) = drawings.get(&word_lower) {
                             replay_drawing(&room, my_id, &drawing.strokes).await;
                         } else {
                             bot_chat(&room, my_id, "hmm this is a tough one".into()).await;
                             replay_drawing(&room, my_id, &[]).await;
+                        }
+                    }
+                    ServerMsg::Guess { player, kind: GuessKind::Close, .. } if *player == my_id => {
+                        if rand::thread_rng().gen_bool(0.7) {
+                            bot_chat(&room, my_id, random_from(SELF_CLOSE)).await;
                         }
                     }
                     ServerMsg::Bye { .. } => break,
@@ -292,6 +391,8 @@ async fn run_bot(
                         guess_candidates.clear();
                         next_guess_at = None;
                         hints_revealed = 0;
+                        // Fresh round, fresh banter budget.
+                        banter_used = false;
                         if !is_drawer {
                             let mask_len = word_mask.chars().filter(|c| *c != ' ').count();
                             let mut candidates: Vec<String> = all_words.iter()
@@ -309,8 +410,15 @@ async fn run_bot(
                     ServerMsg::Guess { player, kind: GuessKind::Correct, .. } if *player == my_id => {
                         guess_sent = true;
                         next_guess_at = None;
+                        if rand::thread_rng().gen_bool(0.7) {
+                            bot_chat(&room, my_id, random_from(SELF_CORRECT)).await;
+                        }
                     }
                     ServerMsg::Game { event: GameEvent::HintReveal { mask }, .. } => {
+                        // Brief "ohh" before the candidate-pool filter runs.
+                        if !is_drawer && !guess_sent && rand::thread_rng().gen_bool(0.45) {
+                            bot_chat(&room, my_id, random_from(REACT_HINT)).await;
+                        }
                         if !is_drawer && !guess_sent {
                             let mask_chars: Vec<char> = mask.chars().collect();
                             guess_candidates.retain(|w| {
@@ -374,6 +482,20 @@ async fn run_bot(
                     let guess = guess_candidates[guess_index].clone();
                     guess_index += 1;
                     room.send(my_id, ClientMsg::Guess { text: guess }).await;
+                    // After a handful of failed attempts, drop one mid-round
+                    // banter line so the bot reads as "thinking", not silent.
+                    if !banter_used && guess_index >= banter_after {
+                        banter_used = true;
+                        let room_c = room.clone();
+                        let line = random_from(GUESSING_BANTER);
+                        // ThreadRng is !Send, so roll the delay here and move
+                        // only the resulting Duration into the spawned task.
+                        let delay_ms = rand::thread_rng().gen_range(300..900);
+                        tokio::spawn(async move {
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                            room_c.send(my_id, ClientMsg::Chat { text: line }).await;
+                        });
+                    }
                     // Slow when no hints have fired, fast after hints arrive
                     // (candidate pool is much smaller post-hint).
                     let (lo, hi) = if hints_revealed == 0 {

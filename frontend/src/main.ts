@@ -234,6 +234,12 @@ const mutedSpeakerNames = new Set<string>();
 // server pushed so the banner can render their feedback.
 let myReaction: import("./proto").DrawingMood | null = null;
 let drawerFeedback: import("./proto").DrawingMood | null = null;
+// Mask-reveal state. Module-level (NOT inside updateBanner) because the boot
+// path calls renderGameUI() before any function below would have a chance to
+// initialise a `let` in its body. Declared up here next to the other game
+// state so it lands in the TDZ-safe zone before line 472.
+let lastSubmittedGuess: string | null = null;
+let lastRevealedWord: string | null = null;
 
 function nameOf(id: number, fallback = "anon"): string {
   return players.get(id)?.name ?? nameHistory.get(id) ?? fallback;
@@ -391,8 +397,11 @@ const chat: ChatPanel = mountChat(chatEl, {
   onSend: (text) => {
     if (!chatBucket.tryTake()) return false;
     // During Drawing phase as a non-drawer, treat input as a guess. The
-    // server treats both as text; this is just routing semantic.
+    // server treats both as text; this is just routing semantic. Cache the
+    // text so the Correct event handler can render it back as the revealed
+    // word without the server having to echo the secret.
     if (gameState.phase.kind === "Drawing" && gameState.phase.drawer !== youId) {
+      lastSubmittedGuess = text;
       conn.send({ kind: "Guess", text });
     } else {
       conn.send({ kind: "Chat", text });
@@ -646,10 +655,39 @@ async function maybeAskForFeedback(): Promise<void> {
   }
 }
 
+// Render the mask as per-character spans so each underscore can flip to its
+// real letter independently. Called only from updateBanner; declared above
+// it so hoisting order is irrelevant.
+function buildMaskHtml(mask: string, revealed: string | null, animate: boolean): string {
+  const maskChars = mask.split("");
+  const wordChars = revealed ? revealed.split("") : null;
+  return maskChars
+    .map((m, i) => {
+      if (m !== "_") {
+        // Spaces, hyphens, digits etc. stay as-is and don't animate.
+        const safe = m === " " ? "&nbsp;" : escapeHtml(m);
+        return `<span class="banner-mask-char banner-mask-char--literal">${safe}</span>`;
+      }
+      const w = wordChars?.[i];
+      if (w === undefined) {
+        return `<span class="banner-mask-char">_</span>`;
+      }
+      const cls = animate
+        ? "banner-mask-char banner-mask-char--reveal"
+        : "banner-mask-char banner-mask-char--known";
+      const style = animate ? ` style="animation-delay:${i * 55}ms"` : "";
+      return `<span class="${cls}"${style}>${escapeHtml(w)}</span>`;
+    })
+    .join("");
+}
+
 function updateBanner(): void {
   const phase = gameState.phase;
   if (phase.kind !== "Drawing" && phase.kind !== "ChoosingWord") {
     bannerEl.classList.add("banner--hidden");
+    // Reset reveal memory so the next round's first reveal animates fresh
+    // instead of skipping straight to the static "known" state.
+    lastRevealedWord = null;
     return;
   }
   bannerEl.classList.remove("banner--hidden");
@@ -688,13 +726,26 @@ function updateBanner(): void {
       <span>${text}</span>
     </div>`;
   }
+  // Mask + reveal: if the local player knows the word (drawer always, or
+  // a non-drawer who just guessed correctly), animate the underscore → letter
+  // swap on the first render only. lastRevealedWord stays sticky so any
+  // re-renders from reactions / mood updates don't replay the stagger.
+  let maskHtml: string;
+  if (phase.kind === "Drawing") {
+    const revealed = phase.myWord ?? null;
+    const justRevealed = revealed !== null && revealed !== lastRevealedWord;
+    if (revealed !== lastRevealedWord) lastRevealedWord = revealed;
+    maskHtml = buildMaskHtml(phase.mask, revealed, justRevealed);
+  } else {
+    maskHtml = escapeHtml(text);
+  }
   bannerEl.innerHTML = `
     <div class="banner-main">
       <div class="banner-drawer" title="${escapeHtml(nameOf(phase.drawer))}">
         ${avatarOf(phase.drawer)}
       </div>
       <div class="banner-round">${escapeHtml(round)}</div>
-      <div class="banner-mask">${escapeHtml(text)}</div>
+      <div class="banner-mask">${maskHtml}</div>
       <div class="banner-timer" id="bannerTimer">--</div>
     </div>
     ${hint}
@@ -885,7 +936,24 @@ function handleMessage(msg: ServerMsg): void {
     case "Guess":
       if (msg.guess === "Correct") {
         correctGuessers.add(msg.player);
+        // For the local player only: stash the secret onto the Drawing phase
+        // so the banner mask reveals into the real word. We reuse the text
+        // they just typed (server match is case/whitespace-insensitive, so
+        // it's functionally the word) and lowercase it to line up with the
+        // mask's letter casing.
+        if (
+          msg.player === youId &&
+          gameState.phase.kind === "Drawing" &&
+          gameState.phase.myWord == null &&
+          lastSubmittedGuess !== null
+        ) {
+          gameState.phase = {
+            ...gameState.phase,
+            myWord: lastSubmittedGuess.trim().toLowerCase(),
+          };
+        }
         renderPlayers();
+        renderGameUI();
         playCorrect();
         chat.appendCorrectGuess(
           nameOf(msg.player),
