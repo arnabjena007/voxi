@@ -5,6 +5,7 @@ Thanks for wanting to help out! pastel is a small, opinionated codebase, and the
 ## Quick links
 
 - [Repo layout](#repo-layout)
+- [Core files (discuss first)](#core-files-discuss-first)
 - [Local dev setup](#local-dev-setup)
 - [Branch and PR flow](#branch-and-pr-flow)
 - [What should work before you open a PR](#what-should-work-before-you-open-a-pr)
@@ -26,6 +27,16 @@ frontend/
   tests/             vitest specs
   scripts/og.mjs     Satori OG image generator
 ```
+
+## Core files (discuss first)
+
+A few files encode tuned, cross-cutting invariants that a well-meaning refactor can break invisibly: the change looks clean, the tests still pass, and the game quietly desyncs in production. These are off-limits for drive-by PRs. If you have a real reason to touch them, open an issue first; changes here merge only with maintainer sign-off.
+
+- `frontend/src/canvas.ts`: the drawing + stroke pipeline. It holds the 960x600 logical-coordinate contract that every client and the server snapshot replay agree on, the per-point signed-byte (i8) delta encoding, and the jitter-buffer (50ms) plus batch (16ms) timings. Those three are tuned together; nudging one in isolation degrades every player's experience without failing a test.
+- `frontend/src/proto.ts` and `crates/pastel-proto/`: the binary wire format. The canvas delta encoding is coupled to this. Change one side without the other and strokes corrupt on the wire.
+- Stroke handling and snapshots in `crates/pastel-room/`: the server has to store and replay strokes in the same coordinate space clients draw in.
+
+Genuine bug fixes (a real crash, a correctness fix) are still welcome. What needs a prior conversation is reworking *how* any of this functions: "I rewrote the canvas layer to use X" without a scoped issue will get bounced on process, not quality.
 
 ## Local dev setup
 
