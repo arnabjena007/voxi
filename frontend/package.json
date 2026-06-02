@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
-    "og": "node scripts/og.mjs"
+    "og": "node scripts/og.mjs",
+    "blog-thumb": "node scripts/blog-thumb.mjs"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
