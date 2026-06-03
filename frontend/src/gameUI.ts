@@ -187,11 +187,11 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
         <div class="overlay-card overlay-card--wide">
           ${musicChip(ctx)}
           <div class="word-pick-head">
-            <span class="word-pick-eyebrow">Round ${phase.roundIndex + 1} of ${phase.totalRounds} -- your turn to draw!</span>
-            <h2>What do you want to draw?</h2>
+            <span class="round-badge">Round ${phase.roundIndex + 1} / ${phase.totalRounds}</span>
+            <h2>Your turn: pick a word to draw</h2>
           </div>
           <div class="word-pick-grid">${cards}</div>
-          <p class="overlay-hint">Take too long and we'll pick for you.</p>
+          <p class="overlay-hint">Take too long and we'll pick one for you.</p>
           <button type="button" class="invite-secondary">Share invite link</button>
         </div>
       `;
@@ -206,8 +206,8 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
         <div class="overlay-card">
           ${musicChip(ctx)}
           <div class="word-pick-head">
-            <span class="word-pick-eyebrow">Round ${phase.roundIndex + 1} of ${phase.totalRounds}</span>
-            <h2>${escapeHtml(nameOf(phase.drawer))} is choosing what to draw</h2>
+            <span class="round-badge">Round ${phase.roundIndex + 1} / ${phase.totalRounds}</span>
+            <h2>${escapeHtml(nameOf(phase.drawer))} is picking a word</h2>
           </div>
           <p class="overlay-hint">Get your guessing hat on.</p>
           <button type="button" class="invite-secondary">Share invite link</button>

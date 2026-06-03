@@ -1012,8 +1012,25 @@ canvas {
   margin-bottom: 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
   align-items: center;
+}
+
+.word-pick-head h2 { margin: 0; }
+
+/* Prominent round indicator (replaces the easy-to-miss muted eyebrow). */
+.round-badge {
+  display: inline-block;
+  padding: 4px 13px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fce4ec, #e0f2f1);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .word-pick-eyebrow {
@@ -2741,20 +2758,40 @@ canvas {
   .overlay-card--lobby { max-width: 96%; }
   .overlay-card--gameover { max-width: 96%; }
 
+  /* Two tidy columns of compact cards; the 1-col chunky-shadow stack read as
+     a cramped mess on a phone. */
   .word-pick-grid {
-    grid-template-columns: 1fr;
-    gap: 6px;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
   .word-pick-card {
-    padding: 10px 12px;
-    border-radius: 10px;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    border-width: 1.5px;
+    box-shadow: 0 2px 0 #e0949e;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 56px;
+    justify-content: center;
   }
-  .word-pick-word { font-size: 15px; }
-  .word-pick-num { font-size: 10px; }
-  .word-pick-head { margin-bottom: 10px; }
+  .word-pick-card:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 #e0949e;
+  }
+  .word-pick-word { font-size: 15px; line-height: 1.15; }
+  .word-pick-num { font-size: 9.5px; }
+  .word-pick-head { margin-bottom: 12px; gap: 8px; }
+  .word-pick-head h2 { font-size: 17px; }
+  .round-badge { font-size: 11px; padding: 3px 11px; }
+
+  /* Keep the overlay's music chip inside the card on small screens so it
+     doesn't clip against the viewport edge. */
+  .overlay-music { top: 8px; right: 8px; width: 34px; height: 34px; }
+
+  /* Round-intro card: clear of the players strip, sized to the phone. */
+  .round-intro-host { top: 66px; width: calc(100vw - 24px); }
+  .round-intro { padding: 13px 15px; }
 
   .picker-card {
     width: 100%;
@@ -2784,10 +2821,19 @@ canvas {
 
   /* banner: shrink mask so it fits without horizontal scroll */
   .banner { padding: 8px 10px; }
-  .banner-main { gap: 8px; }
+  .banner-main { gap: 7px; }
   .banner-drawer { width: 26px; height: 26px; }
+  /* Keep the round visible on phones (was hidden) -- as a compact badge so it
+     fits alongside the word and timer. */
   .banner-round {
-    display: none;
+    display: inline-block;
+    flex-shrink: 0;
+    font-size: 9px;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--muted);
   }
   .banner-mask {
     font-size: 15px;
