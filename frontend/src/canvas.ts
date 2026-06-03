@@ -686,6 +686,75 @@ export function renderDrawing(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+// Animate a drawing onto an arbitrary white-backed canvas, stroke by stroke,
+// over `durationMs`. Resolves when finished. Used by the game-over replay.
+export function replayDrawing(
+  target: HTMLCanvasElement,
+  records: DrawingRecord[],
+  durationMs = 2200,
+): Promise<void> {
+  return new Promise((resolve) => {
+    const ctx = target.getContext("2d");
+    if (!ctx) {
+      resolve();
+      return;
+    }
+    const W = target.width;
+    const H = target.height;
+    const scale = Math.min(W / LOGICAL_WIDTH, H / LOGICAL_HEIGHT);
+    const offX = (W - LOGICAL_WIDTH * scale) / 2;
+    const offY = (H - LOGICAL_HEIGHT * scale) / 2;
+    const totalPoints = Math.max(
+      1,
+      records.reduce((n, r) => n + r.points.length, 0),
+    );
+    const setup = (): void => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, W, H);
+      ctx.setTransform(scale, 0, 0, scale, offX, offY);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.imageSmoothingEnabled = true;
+    };
+    const start = performance.now();
+    const tick = (): void => {
+      const frac = Math.min(1, (performance.now() - start) / durationMs);
+      const targetN = Math.floor(frac * totalPoints);
+      setup();
+      let drawn = 0;
+      for (const rec of records) {
+        if (rec.points.length === 0 || drawn >= targetN) continue;
+        const isEraser = rec.color === ERASER_COLOR;
+        const render = newRender(
+          isEraser ? "#ffffff" : rgbToCss(rec.color),
+          rec.width,
+          rec.origin[0],
+          rec.origin[1],
+          false,
+        );
+        let curX = rec.origin[0];
+        let curY = rec.origin[1];
+        let curT = 0;
+        let drew = false;
+        for (const p of rec.points) {
+          if (drawn >= targetN) break;
+          curX += p.dx;
+          curY += p.dy;
+          curT += p.dt;
+          drawSegment(ctx, render, curX, curY, curT);
+          drawn++;
+          drew = true;
+        }
+        if (drew && drawn < targetN) finishStrokeAt(ctx, render, curX, curY);
+      }
+      if (frac < 1) requestAnimationFrame(tick);
+      else resolve();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
 function paintRecordTo(
   ctx: CanvasRenderingContext2D,
   rec: DrawingRecord,

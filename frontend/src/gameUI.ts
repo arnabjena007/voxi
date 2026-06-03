@@ -23,10 +23,8 @@ export interface RenderContext {
   // the floating canvas control cluster is hidden while an overlay is up.
   musicOn: boolean;
   onToggleMusic: () => void;
-  // Result-card / replay / gallery actions (wired from main.ts).
-  onReplayRound: () => void;
-  onShareRound: () => void;
-  onOpenGallery: () => void;
+  // Game-over actions (wired from main.ts).
+  onShareScorecard: () => void;
   galleryCount: number;
 }
 
@@ -245,22 +243,8 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
         ${musicChip(ctx)}
         <h2>It was <em>${escapeHtml(phase.word)}</em>!</h2>
         <ul class="score-list">${rows}</ul>
-        <div class="result-actions">
-          <button type="button" class="result-action result-replay">
-            <i class="ph ph-play-circle" aria-hidden="true"></i><span>Replay</span>
-          </button>
-          <button type="button" class="result-action result-share">
-            <i class="ph ph-share-network" aria-hidden="true"></i><span>Share</span>
-          </button>
-        </div>
       </div>
     `;
-    root
-      .querySelector<HTMLButtonElement>(".result-replay")
-      ?.addEventListener("click", () => ctx.onReplayRound());
-    root
-      .querySelector<HTMLButtonElement>(".result-share")
-      ?.addEventListener("click", () => ctx.onShareRound());
   }
 
   function renderGameOver(
@@ -305,13 +289,20 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
         ${subtext}
         <ol class="go-board">${rows}</ol>
         <div class="gameover-actions">
+          ${
+            !abandoned
+              ? `<div class="gameover-share">
+                   <button type="button" class="go-share-btn go-share-score">
+                     <i class="ph ph-trophy" aria-hidden="true"></i>
+                     <span>Share scorecard</span>
+                   </button>
+                 </div>`
+              : ""
+          }
           <button type="button" class="rematch-btn">One more round?</button>
           ${
-            ctx.galleryCount > 0
-              ? `<button type="button" class="gallery-btn">
-                   <i class="ph ph-images" aria-hidden="true"></i>
-                   <span>See the drawings (${ctx.galleryCount})</span>
-                 </button>`
+            !abandoned && ctx.galleryCount > 0
+              ? `<p class="gameover-countdown">opening the gallery in 5</p>`
               : ""
           }
         </div>
@@ -321,8 +312,8 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
       .querySelector<HTMLButtonElement>(".rematch-btn")
       ?.addEventListener("click", handlers.onRematch);
     root
-      .querySelector<HTMLButtonElement>(".gallery-btn")
-      ?.addEventListener("click", () => ctx.onOpenGallery());
+      .querySelector<HTMLButtonElement>(".go-share-score")
+      ?.addEventListener("click", () => ctx.onShareScorecard());
   }
 
   function render(phase: GamePhase, ctx: RenderContext): void {

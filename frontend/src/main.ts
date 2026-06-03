@@ -5,7 +5,7 @@ import { DrawingSurface } from "./canvas";
 import { showCanvasEvent } from "./canvasEvent";
 import { confettiBurst } from "./celebrate";
 import { makeSettingsDraggable } from "./dragSettings";
-import { openShareCard } from "./share";
+import { openScoreCardShare } from "./share";
 import { openGallery, type GalleryItem } from "./gallery";
 import { mountEmoteBar, floatEmote } from "./emotes";
 import {
@@ -257,6 +257,8 @@ let currentDrawerId: number | null = null;
 // Every round's drawing, accumulated for the end-of-game gallery. Cleared when
 // a fresh game starts.
 const galleryItems: GalleryItem[] = [];
+// Game-over -> gallery auto-open countdown.
+let galleryCountdownTimer: ReturnType<typeof setTimeout> | null = null;
 // Emoji-reaction bar. Declared up here (not at its mount site below) because
 // renderGameUI() reads it during the boot render, before the mount line runs;
 // a `const` there would be in the temporal dead zone and throw, halting boot.
@@ -457,6 +459,10 @@ const gameUI = mountGameUI(overlayEl, {
   onPickWord: (index) =>
     conn.send({ kind: "Game", action: { kind: "PickWord", index } }),
   onRematch: () => {
+    if (galleryCountdownTimer) {
+      clearTimeout(galleryCountdownTimer);
+      galleryCountdownTimer = null;
+    }
     gameState.phase = { kind: "Lobby" };
     renderGameUI();
   },
@@ -723,6 +729,29 @@ function modeBadge(): string {
   return `${m.label} · ${m.rounds} rounds`;
 }
 
+// Tick down the scorecard countdown, then auto-open the drawing gallery. Bails
+// out if the player has already left the game-over screen (rematch, etc.).
+function startGalleryCountdown(): void {
+  if (galleryCountdownTimer) clearTimeout(galleryCountdownTimer);
+  let n = 5;
+  const step = (): void => {
+    if (gameState.phase.kind !== "GameOver") {
+      galleryCountdownTimer = null;
+      return;
+    }
+    if (n <= 0) {
+      galleryCountdownTimer = null;
+      openGallery(galleryItems);
+      return;
+    }
+    const node = document.querySelector<HTMLElement>(".gameover-countdown");
+    if (node) node.textContent = `opening the gallery in ${n}`;
+    n -= 1;
+    galleryCountdownTimer = setTimeout(step, 1000);
+  };
+  step();
+}
+
 function renderGameUI(): void {
   gameUI.render(gameState.phase, {
     you: youId,
@@ -746,25 +775,12 @@ function renderGameUI(): void {
       })();
     },
     galleryCount: galleryItems.length,
-    onReplayRound: () => {
-      // Hide the round-end card so the replay is visible on the canvas, then
-      // restore it when the animation settles.
-      const overlay = document.getElementById("gameOverlay");
-      overlay?.classList.add("game-overlay--replaying");
-      void surface
-        .replay(2600, currentDrawerId ?? undefined)
-        .finally(() => overlay?.classList.remove("game-overlay--replaying"));
+    onShareScorecard: () => {
+      const standings = Array.from(players.values())
+        .map((p) => ({ name: p.name, score: gameState.scores.get(p.id) ?? 0 }))
+        .sort((a, b) => b.score - a.score);
+      void openScoreCardShare(standings);
     },
-    onShareRound: () => {
-      const phase = gameState.phase;
-      if (phase.kind !== "RoundEnd") return;
-      void openShareCard({
-        records: surface.snapshot(currentDrawerId ?? undefined),
-        word: phase.word,
-        drawerName: currentDrawerId !== null ? nameOf(currentDrawerId) : undefined,
-      });
-    },
-    onOpenGallery: () => openGallery(galleryItems),
   });
   updateBanner();
   // "Guessing" UI (badge + placeholder) only while you still need to guess.
@@ -1389,7 +1405,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       renderGameUI();
       return;
     }
-    case "GameOver":
+    case "GameOver": {
       void setBgScene("lobby");
       playGameOver();
       applyScores(gameState, event.final_scores);
@@ -1399,13 +1415,17 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       };
       renderPlayers();
       renderGameUI();
-      // Celebrate the finish unless the game fizzled out (everyone left).
-      if (players.size >= 2) confettiBurst({ count: 130, originY: window.innerHeight / 4 });
-      // First completed game ever in this browser: show a one-shot
-      // feedback prompt that links to GitHub issues. Skipped on
-      // every subsequent game-over.
+      if (players.size >= 2) {
+        confettiBurst({ count: 130, originY: window.innerHeight / 4 });
+      }
+      // One-shot feedback prompt on the first ever completed game.
       void maybeAskForFeedback();
+      // After a short countdown on the scorecard, auto-open the gallery.
+      if (players.size >= 2 && galleryItems.length > 0) {
+        startGalleryCountdown();
+      }
       return;
+    }
     case "JoinRequest":
       pendingJoiners.set(event.candidate, event.name);
       recordName(event.candidate, event.name);

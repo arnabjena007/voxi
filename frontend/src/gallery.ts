@@ -3,6 +3,7 @@
 
 import { renderDrawing, type DrawingRecord } from "./canvas";
 import { openShareCard } from "./share";
+import { openDrawingReplay } from "./reveal";
 
 export interface GalleryItem {
   word: string;
@@ -23,12 +24,20 @@ export function openGallery(items: GalleryItem[]): void {
     <div class="gallery-sheet">
       <header class="gallery-head">
         <h2>The gallery</h2>
-        <button class="gallery-close" type="button" aria-label="Close">×</button>
+        <div class="gallery-head-actions">
+          <button class="gallery-replay" type="button">
+            <i class="ph ph-play-circle" aria-hidden="true"></i><span>Replay</span>
+          </button>
+          <button class="gallery-close" type="button" aria-label="Close">×</button>
+        </div>
       </header>
       <div class="gallery-grid"></div>
     </div>
   `;
   const grid = overlay.querySelector<HTMLElement>(".gallery-grid")!;
+  overlay
+    .querySelector(".gallery-replay")
+    ?.addEventListener("click", () => openDrawingReplay(items));
 
   if (items.length === 0) {
     grid.innerHTML = `<p class="gallery-empty">No drawings this game.</p>`;
