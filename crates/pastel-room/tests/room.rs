@@ -246,7 +246,13 @@ async fn correct_guesser_chatting_the_word_is_blocked_as_spoiler() {
 
     // bob guesses correctly. carol hasn't, so the round stays in Drawing and
     // bob is now a "knower".
-    h.send(b.you, ClientMsg::Guess { text: "apple".into() }).await;
+    h.send(
+        b.you,
+        ClientMsg::Guess {
+            text: "apple".into(),
+        },
+    )
+    .await;
     match next(&mut c.broadcast_rx).await.as_ref() {
         ServerMsg::Guess { kind, .. } => assert_eq!(*kind, GuessKind::Correct),
         other => panic!("expected Correct guess, got {other:?}"),
@@ -285,7 +291,13 @@ async fn correct_guesser_can_chat_without_the_word() {
     drain_presence(&mut c.broadcast_rx, 1).await;
 
     h.set_secret(a.you, "apple").await;
-    h.send(b.you, ClientMsg::Guess { text: "apple".into() }).await;
+    h.send(
+        b.you,
+        ClientMsg::Guess {
+            text: "apple".into(),
+        },
+    )
+    .await;
     match next(&mut c.broadcast_rx).await.as_ref() {
         ServerMsg::Guess { kind, .. } => assert_eq!(*kind, GuessKind::Correct),
         other => panic!("expected Correct guess, got {other:?}"),
