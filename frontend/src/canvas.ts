@@ -179,6 +179,79 @@ export class DrawingSurface {
     this.notifyHistory();
   }
 
+  // A read-only copy of completed strokes, for exporting an image or building
+  // a per-round gallery. Pass a player id to keep only that player's strokes
+  // (e.g. the drawer's, so a guesser's own doodles don't leak in). Points are
+  // shared by reference (read-only).
+  snapshot(filterPlayer?: number): DrawingRecord[] {
+    const recs =
+      filterPlayer == null
+        ? this.completedStrokes
+        : this.completedStrokes.filter((s) => s.player === filterPlayer);
+    return recs.map((s) => ({
+      origin: s.origin,
+      color: s.color,
+      width: s.width,
+      points: s.points,
+    }));
+  }
+
+  // Animate the current drawing being re-drawn from a blank canvas ("watch how
+  // they drew it"). Resolves when the replay finishes; the canvas settles back
+  // to the full picture.
+  replay(durationMs = 2600, filterPlayer?: number): Promise<void> {
+    const records = this.snapshot(filterPlayer);
+    const totalPoints = Math.max(
+      1,
+      records.reduce((n, r) => n + r.points.length, 0),
+    );
+    return new Promise((resolve) => {
+      const start = performance.now();
+      const tick = (): void => {
+        const frac = Math.min(1, (performance.now() - start) / durationMs);
+        const target = Math.floor(frac * totalPoints);
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.restore();
+        this.applyTransform();
+        let drawn = 0;
+        for (const rec of records) {
+          if (rec.points.length === 0 || drawn >= target) continue;
+          const isEraser = rec.color === ERASER_COLOR;
+          const render = newRender(
+            rgbToCss(rec.color),
+            rec.width,
+            rec.origin[0],
+            rec.origin[1],
+            isEraser,
+          );
+          let curX = rec.origin[0];
+          let curY = rec.origin[1];
+          let curT = 0;
+          let drewAny = false;
+          for (const p of rec.points) {
+            if (drawn >= target) break;
+            curX += p.dx;
+            curY += p.dy;
+            curT += p.dt;
+            drawSegment(this.ctx, render, curX, curY, curT);
+            drawn++;
+            drewAny = true;
+          }
+          if (drewAny && drawn < target) finishStrokeAt(this.ctx, render, curX, curY);
+        }
+        if (frac < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          this.repaint();
+          resolve();
+        }
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
   // True if there's an undoable local stroke. Used to enable/disable the
   // toolbar button without exposing the stack itself.
   canUndo(): boolean {
@@ -291,24 +364,7 @@ export class DrawingSurface {
   }
 
   private paintRecord(rec: CompletedRecord): void {
-    if (rec.points.length === 0) return;
-    const render = newRender(
-      rgbToCss(rec.color),
-      rec.width,
-      rec.origin[0],
-      rec.origin[1],
-      rec.color === ERASER_COLOR,
-    );
-    let curX = rec.origin[0];
-    let curY = rec.origin[1];
-    let curT = 0;
-    for (const p of rec.points) {
-      curX += p.dx;
-      curY += p.dy;
-      curT += p.dt;
-      drawSegment(this.ctx, render, curX, curY, curT);
-    }
-    finishStrokeAt(this.ctx, render, curX, curY);
+    paintRecordTo(this.ctx, rec, false);
   }
 
   handleStrokeMessage(
@@ -593,6 +649,68 @@ export class DrawingSurface {
     this.ctx.imageSmoothingEnabled = true;
   }
 
+}
+
+// Minimal shape of a finished stroke, for off-canvas rendering (share/gallery).
+export interface DrawingRecord {
+  origin: [number, number];
+  color: number;
+  width: number;
+  points: Point[];
+}
+
+// Render a set of completed strokes onto an arbitrary canvas, white-backed by
+// default. Maps the logical 960x600 space onto the target, preserving aspect.
+// Eraser strokes are painted as white (not destination-out) so the exported
+// image keeps a solid background. Used by the shareable card + gallery thumbs.
+export function renderDrawing(
+  target: HTMLCanvasElement,
+  records: DrawingRecord[],
+  opts: { background?: string } = {},
+): void {
+  const ctx = target.getContext("2d");
+  if (!ctx) return;
+  const W = target.width;
+  const H = target.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = opts.background ?? "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  const scale = Math.min(W / LOGICAL_WIDTH, H / LOGICAL_HEIGHT);
+  const offX = (W - LOGICAL_WIDTH * scale) / 2;
+  const offY = (H - LOGICAL_HEIGHT * scale) / 2;
+  ctx.setTransform(scale, 0, 0, scale, offX, offY);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.imageSmoothingEnabled = true;
+  for (const rec of records) paintRecordTo(ctx, rec, true);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function paintRecordTo(
+  ctx: CanvasRenderingContext2D,
+  rec: DrawingRecord,
+  eraserAsWhite: boolean,
+): void {
+  if (rec.points.length === 0) return;
+  const isEraser = rec.color === ERASER_COLOR;
+  const color = isEraser && eraserAsWhite ? "#ffffff" : rgbToCss(rec.color);
+  const render = newRender(
+    color,
+    rec.width,
+    rec.origin[0],
+    rec.origin[1],
+    isEraser && !eraserAsWhite,
+  );
+  let curX = rec.origin[0];
+  let curY = rec.origin[1];
+  let curT = 0;
+  for (const p of rec.points) {
+    curX += p.dx;
+    curY += p.dy;
+    curT += p.dt;
+    drawSegment(ctx, render, curX, curY, curT);
+  }
+  finishStrokeAt(ctx, render, curX, curY);
 }
 
 function newRender(
