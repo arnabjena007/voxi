@@ -1,5 +1,9 @@
-// Floating, draggable tool panel for phones. Exposes palette tabs, the full
-// swatch grid, a thickness selector (via tool widths), and the clear action.
+// Floating drawing tools for phones. A small draggable puck (like iOS
+// AssistiveTouch) snaps to the nearest screen edge and fades when idle; tapping
+// it expands a compact tool sheet that opens inward (away from the docked edge)
+// and closes on tap-outside. Exposes palette tabs, the full swatch grid, a
+// thickness selector (via tool widths), undo/redo, and the clear action.
+//
 // On desktop the inline toolbar already provides all of this; this module is
 // only mounted under the (max-width: 760px) breakpoint.
 //
@@ -20,6 +24,14 @@ const STORAGE_TOOL = "pastel.tool";
 const STORAGE_PALETTE = "pastel.palette";
 const STORAGE_POS = "pastel.mtool.pos";
 const STORAGE_OPEN = "pastel.mtool.open";
+
+// Puck diameter (keep in sync with .mtool-puck in style.css). Used for
+// clamping, edge-snapping, and anchoring the panel.
+const PUCK = 52;
+const EDGE = 8; // gap from the viewport edge
+const PANEL_GAP = 10; // gap between puck and panel
+const TAP_SLOP = 6; // movement under this (px) counts as a tap, not a drag
+const IDLE_MS = 2500; // fade the puck after this much inactivity
 
 const DISPLAY_DOT: Record<string, number> = {
   pen: 6,
@@ -48,19 +60,20 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
     open: window.localStorage.getItem(STORAGE_OPEN) === "1",
     pos: loadPos(),
   };
+  // Declared up here (not in the idle section below) so the early wake() call
+  // isn't reading a `let` still in its temporal dead zone.
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const fab = document.createElement("button");
-  fab.className = "mtool-fab";
-  fab.type = "button";
-  fab.setAttribute("aria-label", "Open drawing tools");
-  fab.setAttribute("aria-expanded", String(state.open));
-  fab.innerHTML = `
-    <span class="mtool-fab-ring"></span>
-    <span class="mtool-fab-dot"></span>
-    <span class="mtool-fab-label">tools</span>
+  const puck = document.createElement("button");
+  puck.className = "mtool-puck";
+  puck.type = "button";
+  puck.setAttribute("aria-label", "Drawing tools");
+  puck.setAttribute("aria-expanded", String(state.open));
+  puck.innerHTML = `
+    <span class="mtool-puck-ring"></span>
+    <span class="mtool-puck-dot"></span>
   `;
-  const canvasWrap = document.querySelector<HTMLElement>(".canvas-wrap");
-  (canvasWrap ?? document.body).appendChild(fab);
+  document.body.appendChild(puck);
 
   const panel = document.createElement("div");
   panel.className = "mtool-panel";
@@ -69,9 +82,6 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
   panel.dataset.open = String(state.open);
   panel.innerHTML = `
     <header class="mtool-head">
-      <span class="mtool-grip" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </span>
       <span class="mtool-title">tools</span>
       <button class="mtool-close" type="button" aria-label="Close">×</button>
     </header>
@@ -98,9 +108,7 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
     </div>
   `;
   document.body.appendChild(panel);
-  applyPanelPos();
 
-  const head = panel.querySelector<HTMLElement>(".mtool-head")!;
   const closeBtn = panel.querySelector<HTMLButtonElement>(".mtool-close")!;
   const tabsEl = panel.querySelector<HTMLElement>(".mtool-tabs")!;
   const swatchesEl = panel.querySelector<HTMLDivElement>(".mtool-swatches")!;
@@ -136,24 +144,61 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
 
   renderSwatches();
   renderSizes();
-  refreshFab();
+  refreshPuck();
+  applyPuckPos();
+  wake();
+  if (state.open) setOpen(true);
 
-  fab.addEventListener("click", () => {
-    setOpen(!state.open);
-  });
   closeBtn.addEventListener("click", () => setOpen(false));
 
   // Confirmation + drawer/non-drawer routing happens in main.ts. Delegate.
   clearBtn.addEventListener("click", () => handlers.onClear());
 
-  attachDrag(head, panel);
+  attachPuckDrag();
+
+  // Tap-outside closes the panel. Capture phase so we react before the canvas
+  // handles the same pointerdown; we never preventDefault, so starting a stroke
+  // both draws and dismisses the panel.
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!state.open) return;
+      const t = e.target as Node;
+      if (panel.contains(t) || puck.contains(t)) return;
+      setOpen(false);
+    },
+    true,
+  );
+
+  window.addEventListener("resize", () => {
+    snapToEdge(); // re-clamp and re-dock to the nearest edge
+    if (state.open) positionPanel();
+  });
+
+  // --- idle fade ---
+  function wake(): void {
+    puck.classList.remove("mtool-puck--idle");
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = null;
+    if (!state.open) {
+      idleTimer = setTimeout(() => puck.classList.add("mtool-puck--idle"), IDLE_MS);
+    }
+  }
 
   function setOpen(o: boolean): void {
     state.open = o;
     panel.dataset.open = String(o);
-    fab.setAttribute("aria-expanded", String(o));
-    fab.classList.toggle("mtool-fab--active", o);
+    puck.setAttribute("aria-expanded", String(o));
+    puck.classList.toggle("mtool-puck--active", o);
     window.localStorage.setItem(STORAGE_OPEN, o ? "1" : "0");
+    if (o) {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
+      puck.classList.remove("mtool-puck--idle");
+      positionPanel();
+    } else {
+      wake();
+    }
   }
 
   function renderSwatches(): void {
@@ -177,7 +222,7 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
           syncSizes();
           handlers.onTool(state.tool);
         }
-        refreshFab();
+        refreshPuck();
         handlers.onColor(c.rgb);
       });
       swatchesEl.appendChild(btn);
@@ -212,7 +257,7 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
         } else {
           handlers.onColor(state.color);
         }
-        refreshFab();
+        refreshPuck();
         handlers.onTool(t);
       });
       sizesEl.appendChild(btn);
@@ -234,75 +279,103 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
     }
   }
 
-  function refreshFab(): void {
-    const ring = fab.querySelector<HTMLElement>(".mtool-fab-ring")!;
-    const dot = fab.querySelector<HTMLElement>(".mtool-fab-dot")!;
+  function refreshPuck(): void {
+    const ring = puck.querySelector<HTMLElement>(".mtool-puck-ring")!;
+    const dot = puck.querySelector<HTMLElement>(".mtool-puck-dot")!;
     const color =
-      state.tool.forcedColor !== undefined
-        ? "#ffffff"
-        : rgbToCss(state.color);
+      state.tool.forcedColor !== undefined ? "#ffffff" : rgbToCss(state.color);
     ring.style.background = color;
     const size = DISPLAY_DOT[state.tool.id] ?? 12;
     dot.style.width = `${size}px`;
     dot.style.height = `${size}px`;
-    if (state.tool.forcedColor !== undefined) {
-      fab.classList.add("mtool-fab--eraser");
-    } else {
-      fab.classList.remove("mtool-fab--eraser");
-    }
+    puck.classList.toggle("mtool-puck--eraser", state.tool.forcedColor !== undefined);
   }
 
-  function applyPanelPos(): void {
+  // Place the puck from state.pos, clamped to the viewport.
+  function applyPuckPos(): void {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const px = Math.max(8, Math.min(vw - 260 - 8, state.pos.x));
-    const py = Math.max(8, Math.min(vh - 80, state.pos.y));
-    panel.style.left = `${px}px`;
-    panel.style.top = `${py}px`;
+    state.pos.x = clamp(state.pos.x, EDGE, vw - PUCK - EDGE);
+    state.pos.y = clamp(state.pos.y, EDGE, vh - PUCK - EDGE);
+    puck.style.left = `${state.pos.x}px`;
+    puck.style.top = `${state.pos.y}px`;
   }
 
-  function attachDrag(handle: HTMLElement, target: HTMLElement): void {
+  // Snap horizontally to whichever edge the puck's centre is nearest.
+  function snapToEdge(): void {
+    const vw = window.innerWidth;
+    const center = state.pos.x + PUCK / 2;
+    state.pos.x = center < vw / 2 ? EDGE : vw - PUCK - EDGE;
+    applyPuckPos();
+    window.localStorage.setItem(STORAGE_POS, JSON.stringify(state.pos));
+  }
+
+  // Anchor the panel beside the puck, opening toward screen centre and clamped
+  // fully on-screen. Reading offsetWidth/Height forces the layout we need.
+  function positionPanel(): void {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const pw = panel.offsetWidth;
+    const ph = panel.offsetHeight;
+    const dockedLeft = state.pos.x + PUCK / 2 < vw / 2;
+    const rawLeft = dockedLeft
+      ? state.pos.x + PUCK + PANEL_GAP
+      : state.pos.x - PANEL_GAP - pw;
+    const left = clamp(rawLeft, EDGE, vw - pw - EDGE);
+    const top = clamp(state.pos.y, EDGE, vh - ph - EDGE);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  }
+
+  function attachPuckDrag(): void {
     let startX = 0;
     let startY = 0;
     let origX = 0;
     let origY = 0;
+    let moved = 0;
     let dragging = false;
 
-    handle.addEventListener("pointerdown", (e) => {
-      const t = e.target as HTMLElement;
-      if (t.closest(".mtool-close")) return;
+    puck.addEventListener("pointerdown", (e) => {
       dragging = true;
-      handle.setPointerCapture(e.pointerId);
+      moved = 0;
+      puck.setPointerCapture(e.pointerId);
       startX = e.clientX;
       startY = e.clientY;
       origX = state.pos.x;
       origY = state.pos.y;
-      panel.classList.add("mtool-panel--dragging");
+      puck.classList.add("mtool-puck--dragging");
+      wake();
     });
-    handle.addEventListener("pointermove", (e) => {
+    puck.addEventListener("pointermove", (e) => {
       if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      moved = Math.max(moved, Math.hypot(dx, dy));
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const tw = target.offsetWidth;
-      const th = target.offsetHeight;
-      const nx = Math.max(8, Math.min(vw - tw - 8, origX + (e.clientX - startX)));
-      const ny = Math.max(8, Math.min(vh - th - 8, origY + (e.clientY - startY)));
-      state.pos.x = nx;
-      state.pos.y = ny;
-      target.style.left = `${nx}px`;
-      target.style.top = `${ny}px`;
+      state.pos.x = clamp(origX + dx, EDGE, vw - PUCK - EDGE);
+      state.pos.y = clamp(origY + dy, EDGE, vh - PUCK - EDGE);
+      puck.style.left = `${state.pos.x}px`;
+      puck.style.top = `${state.pos.y}px`;
+      if (state.open) positionPanel();
     });
-    const stop = (e: PointerEvent) => {
+    const end = (e: PointerEvent) => {
       if (!dragging) return;
       dragging = false;
-      panel.classList.remove("mtool-panel--dragging");
+      puck.classList.remove("mtool-puck--dragging");
       try {
-        handle.releasePointerCapture(e.pointerId);
+        puck.releasePointerCapture(e.pointerId);
       } catch {}
-      window.localStorage.setItem(STORAGE_POS, JSON.stringify(state.pos));
+      if (moved < TAP_SLOP) {
+        setOpen(!state.open);
+      } else {
+        snapToEdge();
+        if (state.open) positionPanel();
+      }
+      wake();
     };
-    handle.addEventListener("pointerup", stop);
-    handle.addEventListener("pointercancel", stop);
+    puck.addEventListener("pointerup", end);
+    puck.addEventListener("pointercancel", end);
   }
 }
 
@@ -338,7 +411,14 @@ function loadPos(): { x: number; y: number } {
       // fall through to default
     }
   }
+  // Default: docked to the right edge, in the lower third for thumb reach.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
   const vh = typeof window !== "undefined" ? window.innerHeight : 640;
-  return { x: Math.max(8, vw - 260 - 16), y: Math.max(60, vh - 420) };
+  return { x: vw - PUCK - EDGE, y: Math.round(vh * 0.6) };
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  // hi can fall below lo on very small viewports; prefer the low edge.
+  if (hi < lo) return lo;
+  return v < lo ? lo : v > hi ? hi : v;
 }
