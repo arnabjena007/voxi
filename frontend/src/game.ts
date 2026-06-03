@@ -25,7 +25,13 @@ export type GamePhase =
       roundIndex: number;
       totalRounds: number;
     }
-  | { kind: "RoundEnd"; word: string; scores: [number, number][] }
+  | {
+      kind: "RoundEnd";
+      word: string;
+      scores: [number, number][];
+      // Per-player points earned *this* round (id -> delta), for the recap.
+      deltas?: Map<number, number>;
+    }
   | { kind: "GameOver"; finalScores: [number, number][] };
 
 export interface GameState {

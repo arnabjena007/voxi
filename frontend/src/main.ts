@@ -3,6 +3,7 @@ import { hasStoredIdentity, loadStoredIdentity, pickNameAndAvatar } from "./avat
 import { CHAT_BUCKET_CAPACITY, CHAT_BUCKET_REFILL_PER_SEC, TokenBucket } from "./bucket";
 import { DrawingSurface } from "./canvas";
 import { showCanvasEvent } from "./canvasEvent";
+import { confettiBurst } from "./celebrate";
 import {
   enableBg,
   enableSfx,
@@ -240,6 +241,9 @@ let drawerFeedback: import("./proto").DrawingMood | null = null;
 // state so it lands in the TDZ-safe zone before line 472.
 let lastSubmittedGuess: string | null = null;
 let lastRevealedWord: string | null = null;
+// Set true for one banner render when a guess lands while you're the drawer,
+// so the guess-count pill pulses once instead of on every re-render.
+let drawerGuessPulse = false;
 
 function nameOf(id: number, fallback = "anon"): string {
   return players.get(id)?.name ?? nameHistory.get(id) ?? fallback;
@@ -808,6 +812,21 @@ function updateBanner(): void {
       <span>${text}</span>
     </div>`;
   }
+  // Drawer-only live guess tally, so the person drawing actually sees that
+  // people are getting it. Pulses once when a new guess lands.
+  let countPill = "";
+  if (isDrawer) {
+    const guessed = correctGuessers.size;
+    const totalGuessers = Math.max(0, players.size - 1);
+    if (guessed > 0) {
+      const pulse = drawerGuessPulse ? " banner-guesscount--pulse" : "";
+      countPill = `<div class="banner-guesscount${pulse}">
+        <i class="ph-fill ph-check-circle" aria-hidden="true"></i>
+        <span>${guessed} of ${totalGuessers} guessed</span>
+      </div>`;
+    }
+  }
+  drawerGuessPulse = false;
   // Mask + reveal: if the local player knows the word (drawer always, or
   // a non-drawer who just guessed correctly), animate the underscore → letter
   // swap on the first render only. lastRevealedWord stays sticky so any
@@ -828,6 +847,7 @@ function updateBanner(): void {
       </div>
       <div class="banner-round">${escapeHtml(round)}</div>
       <div class="banner-mask">${maskHtml}</div>
+      ${countPill}
       <div class="banner-timer" id="bannerTimer">--</div>
     </div>
     ${hint}
@@ -1018,13 +1038,16 @@ function handleMessage(msg: ServerMsg): void {
     case "Guess":
       if (msg.guess === "Correct") {
         correctGuessers.add(msg.player);
+        const guessedByMe = msg.player === youId;
+        const iAmDrawer =
+          gameState.phase.kind === "Drawing" && gameState.phase.drawer === youId;
         // For the local player only: stash the secret onto the Drawing phase
         // so the banner mask reveals into the real word. We reuse the text
         // they just typed (server match is case/whitespace-insensitive, so
         // it's functionally the word) and lowercase it to line up with the
         // mask's letter casing.
         if (
-          msg.player === youId &&
+          guessedByMe &&
           gameState.phase.kind === "Drawing" &&
           gameState.phase.myWord == null &&
           lastSubmittedGuess !== null
@@ -1034,6 +1057,8 @@ function handleMessage(msg: ServerMsg): void {
             myWord: lastSubmittedGuess.trim().toLowerCase(),
           };
         }
+        // Pulse the drawer's guess-count pill once on this render.
+        if (iAmDrawer) drawerGuessPulse = true;
         renderPlayers();
         renderGameUI();
         playCorrect();
@@ -1042,11 +1067,21 @@ function handleMessage(msg: ServerMsg): void {
           colorOf(msg.player),
           avatarOf(msg.player),
         );
-        showCanvasEvent({
-          avatarHtml: avatarOf(msg.player),
-          message: `${nameOf(msg.player)} got it!`,
-          kind: "celebrate",
-        });
+        if (guessedByMe) {
+          // Personal moment: confetti + a celebratory card just for you.
+          confettiBurst();
+          showCanvasEvent({
+            avatarHtml: avatarOf(msg.player),
+            message: "You got it! 🎉",
+            kind: "celebrate",
+          });
+        } else {
+          showCanvasEvent({
+            avatarHtml: avatarOf(msg.player),
+            message: `${nameOf(msg.player)} got it!`,
+            kind: "celebrate",
+          });
+        }
       } else if (msg.guess === "Close" && msg.player === youId) {
         // Server unicasts Close only to the guesser, but we still gate
         // here for safety.
@@ -1196,13 +1231,20 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
         renderGameUI();
       }
       return;
-    case "RoundEnd":
+    case "RoundEnd": {
+      // Points earned this round = new cumulative total minus the prior total.
+      // Compute BEFORE applyScores overwrites gameState.scores.
+      const deltas = new Map<number, number>();
+      for (const [id, total] of event.scores) {
+        deltas.set(id, total - (gameState.scores.get(id) ?? 0));
+      }
       correctGuessers.clear();
       applyScores(gameState, event.scores);
       gameState.phase = {
         kind: "RoundEnd",
         word: event.word,
         scores: event.scores,
+        deltas,
       };
       chat.appendSystem(`the word was "${event.word}"`);
       playRoundEnd();
@@ -1212,6 +1254,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       renderPlayers();
       renderGameUI();
       return;
+    }
     case "GameOver":
       void setBgScene("lobby");
       playGameOver();
@@ -1222,6 +1265,8 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       };
       renderPlayers();
       renderGameUI();
+      // Celebrate the finish unless the game fizzled out (everyone left).
+      if (players.size >= 2) confettiBurst({ count: 130, originY: window.innerHeight / 4 });
       // First completed game ever in this browser: show a one-shot
       // feedback prompt that links to GitHub issues. Skipped on
       // every subsequent game-over.

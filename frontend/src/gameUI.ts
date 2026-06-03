@@ -199,14 +199,17 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
   ): void {
     visible();
     const rows = phase.scores
-      .map(
-        ([id, score]) =>
-          `<li>
+      .map(([id, score], i) => {
+        const delta = phase.deltas?.get(id) ?? 0;
+        const deltaTag =
+          delta > 0 ? `<span class="score-delta">+${delta}</span>` : "";
+        return `<li style="--row-i: ${i};">
              <span class="score-avatar">${ctx.avatarOf(id)}</span>
              <span class="score-name">${escapeHtml(ctx.nameOf(id))}</span>
+             ${deltaTag}
              <span class="score-points">${score}</span>
-           </li>`,
-      )
+           </li>`;
+      })
       .join("");
     root.innerHTML = `
       <div class="overlay-card">
@@ -235,8 +238,12 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
       .map(([id, score], i) => {
         const pct = Math.max(12, (score / maxScore) * 100);
         const bg = RANK_COLORS[Math.min(i, RANK_COLORS.length - 1)];
-        return `<li class="go-row" style="--row-i: ${i};">
-          <span class="go-rank" style="background: ${bg};">${i + 1}</span>
+        const isChamp = i === 0 && !abandoned;
+        const rankInner = isChamp
+          ? '<i class="ph-fill ph-crown" aria-hidden="true"></i>'
+          : `${i + 1}`;
+        return `<li class="go-row${isChamp ? " go-row--champion" : ""}" style="--row-i: ${i};">
+          <span class="go-rank" style="background: ${bg};">${rankInner}</span>
           <span class="go-avatar">${ctx.avatarOf(id)}</span>
           <span class="go-name">${escapeHtml(ctx.nameOf(id))}</span>
           <span class="go-bar-wrap">
