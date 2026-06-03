@@ -242,6 +242,9 @@ let drawerFeedback: import("./proto").DrawingMood | null = null;
 // state so it lands in the TDZ-safe zone before line 472.
 let lastSubmittedGuess: string | null = null;
 let lastRevealedWord: string | null = null;
+// Previous mask string, so a hint that unlocks a new letter can animate just
+// that character in (rather than popping in silently).
+let lastMask: string | null = null;
 // Set true for one banner render when a guess lands while you're the drawer,
 // so the guess-count pill pulses once instead of on every re-render.
 let drawerGuessPulse = false;
@@ -328,9 +331,15 @@ function renderPlayers(): void {
     : "";
   playersEl.innerHTML = `
     <div class="players-head">
-      <h2>Room <span class="room-code">${room}</span></h2>
-      <button class="players-invite" type="button" title="Copy invite link">
-        Invite
+      <button class="invite-pill" type="button" title="Copy the invite link">
+        <span class="invite-pill-main">
+          <span class="invite-pill-label">room</span>
+          <span class="invite-pill-code">${room}</span>
+        </span>
+        <span class="invite-pill-cta">
+          <i class="ph ph-link invite-pill-icon" aria-hidden="true"></i>
+          <span class="invite-pill-text">invite</span>
+        </span>
       </button>
     </div>
     ${pendingSection}
@@ -351,11 +360,20 @@ function renderPlayers(): void {
       });
     });
   }
-  playersEl
-    .querySelector<HTMLButtonElement>(".players-invite")
-    ?.addEventListener("click", () => {
-      void copyInviteLink();
-    });
+  const invitePill = playersEl.querySelector<HTMLButtonElement>(".invite-pill");
+  invitePill?.addEventListener("click", () => {
+    void copyInviteLink();
+    const cta = invitePill.querySelector<HTMLElement>(".invite-pill-cta");
+    if (cta && !invitePill.classList.contains("invite-pill--copied")) {
+      const prev = cta.innerHTML;
+      invitePill.classList.add("invite-pill--copied");
+      cta.innerHTML = '<i class="ph ph-check" aria-hidden="true"></i><span>copied!</span>';
+      window.setTimeout(() => {
+        cta.innerHTML = prev;
+        invitePill.classList.remove("invite-pill--copied");
+      }, 1500);
+    }
+  });
   for (const btn of playersEl.querySelectorAll<HTMLButtonElement>(".players-mute")) {
     btn.addEventListener("click", async () => {
       const target = btn.dataset.targetName ?? "";
@@ -659,6 +677,16 @@ if (voiceRequested) {
   void loadVoice();
 } else {
   refreshMicBtn("off");
+  // Voice is icon-only, so first-timers don't know it exists. Nudge once.
+  if (window.localStorage.getItem("pastel.voicehint.seen") !== "1") {
+    window.setTimeout(() => {
+      showToast("Tap the mic to talk with your room 🎙️", {
+        kind: "info",
+        durationMs: 4500,
+      });
+      window.localStorage.setItem("pastel.voicehint.seen", "1");
+    }, 3000);
+  }
 }
 
 const wsUrl = (() => {
@@ -758,15 +786,22 @@ async function maybeAskForFeedback(): Promise<void> {
 // Render the mask as per-character spans so each underscore can flip to its
 // real letter independently. Called only from updateBanner; declared above
 // it so hoisting order is irrelevant.
-function buildMaskHtml(mask: string, revealed: string | null, animate: boolean): string {
+function buildMaskHtml(
+  mask: string,
+  revealed: string | null,
+  animate: boolean,
+  newlyHinted?: Set<number>,
+): string {
   const maskChars = mask.split("");
   const wordChars = revealed ? revealed.split("") : null;
   return maskChars
     .map((m, i) => {
       if (m !== "_") {
-        // Spaces, hyphens, digits etc. stay as-is and don't animate.
+        // Spaces, hyphens, digits etc. stay as-is and don't animate. A letter
+        // freshly unlocked by a hint pops in via the --hint variant.
         const safe = m === " " ? "&nbsp;" : escapeHtml(m);
-        return `<span class="banner-mask-char banner-mask-char--literal">${safe}</span>`;
+        const hintCls = newlyHinted?.has(i) ? " banner-mask-char--hint" : "";
+        return `<span class="banner-mask-char banner-mask-char--literal${hintCls}">${safe}</span>`;
       }
       const w = wordChars?.[i];
       if (w === undefined) {
@@ -788,6 +823,7 @@ function updateBanner(): void {
     // Reset reveal memory so the next round's first reveal animates fresh
     // instead of skipping straight to the static "known" state.
     lastRevealedWord = null;
+    lastMask = null;
     return;
   }
   bannerEl.classList.remove("banner--hidden");
@@ -850,7 +886,17 @@ function updateBanner(): void {
     const revealed = phase.myWord ?? null;
     const justRevealed = revealed !== null && revealed !== lastRevealedWord;
     if (revealed !== lastRevealedWord) lastRevealedWord = revealed;
-    maskHtml = buildMaskHtml(phase.mask, revealed, justRevealed);
+    // When we don't know the full word yet, diff the mask so a hint that
+    // unlocks a letter animates just that character.
+    const newlyHinted = new Set<number>();
+    if (revealed === null && lastMask !== null) {
+      for (let i = 0; i < phase.mask.length; i++) {
+        const wasHidden = i >= lastMask.length || lastMask[i] === "_";
+        if (wasHidden && phase.mask[i] !== "_") newlyHinted.add(i);
+      }
+    }
+    lastMask = phase.mask;
+    maskHtml = buildMaskHtml(phase.mask, revealed, justRevealed, newlyHinted);
   } else {
     maskHtml = escapeHtml(text);
   }
@@ -1189,6 +1235,12 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       chat.appendSystem(
         `Round ${event.round_index + 1}/${event.total_rounds} -- ${nameOf(event.drawer)} is up next`,
       );
+      // A clear personal cue at the round boundary -- you're on deck.
+      if (event.drawer === youId) {
+        showToast("Your turn to draw! Pick a word.", { kind: "success" });
+      } else {
+        showToast(`${nameOf(event.drawer)} is drawing -- get ready to guess!`);
+      }
       renderGameUI();
       return;
     }
@@ -1327,6 +1379,33 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
   }
 }
 
+// A prominent reconnect banner (the status-bar text alone is easy to miss
+// mid-game). Created lazily, slides in from the top while reconnecting.
+function setReconnectBar(show: boolean, attempt = 0): void {
+  let bar = document.getElementById("reconnectBar");
+  if (show) {
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "reconnectBar";
+      bar.className = "reconnect-bar";
+      bar.innerHTML = `
+        <span class="reconnect-spinner" aria-hidden="true"></span>
+        <span class="reconnect-text"></span>
+      `;
+      document.body.appendChild(bar);
+      void bar.offsetWidth;
+    }
+    bar.classList.add("reconnect-bar--in");
+    const t = bar.querySelector(".reconnect-text");
+    if (t) {
+      t.textContent =
+        attempt > 1 ? `Reconnecting… (attempt ${attempt})` : "Reconnecting…";
+    }
+  } else if (bar) {
+    bar.classList.remove("reconnect-bar--in");
+  }
+}
+
 function handleState(s: ConnState): void {
   switch (s.kind) {
     case "connecting":
@@ -1334,13 +1413,16 @@ function handleState(s: ConnState): void {
       return;
     case "open":
       statusEl.textContent = `room ${room} -- playing as ${name}`;
+      setReconnectBar(false);
       void setBgScene("lobby");
       return;
     case "reconnecting":
       statusEl.textContent = `reconnecting... (try ${s.attempt})`;
+      setReconnectBar(true, s.attempt);
       return;
     case "closed":
       statusEl.textContent = `lost connection: ${s.reason}`;
+      setReconnectBar(false);
       return;
   }
 }

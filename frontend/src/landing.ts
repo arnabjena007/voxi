@@ -53,6 +53,19 @@ export function showLanding(): void {
         <h1 class="logo"><span class="logo-text landing-logo">pastel</span></h1>
         <p class="landing-tag">draw. guess. laugh.</p>
 
+        <details class="landing-how">
+          <summary class="landing-how-summary">
+            <i class="ph ph-question" aria-hidden="true"></i>
+            <span>how to play</span>
+            <i class="ph ph-caret-down landing-how-caret" aria-hidden="true"></i>
+          </summary>
+          <ol class="landing-how-steps">
+            <li><span class="landing-how-num">1</span> One player gets a secret word and draws it.</li>
+            <li><span class="landing-how-num">2</span> Everyone else races to guess it in chat.</li>
+            <li><span class="landing-how-num">3</span> Faster guesses score more. Take turns; top score wins.</li>
+          </ol>
+        </details>
+
         <button type="button" class="landing-identity" id="landingIdentity"
                 aria-label="Change name and avatar">
           <span class="landing-identity-slot" id="landingIdentitySlot"></span>

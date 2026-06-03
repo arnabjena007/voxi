@@ -4609,3 +4609,199 @@ canvas {
 .go-row--champion .go-name {
   font-weight: 700;
 }
+
+/* --- how to play (landing) --- */
+.landing-how {
+  width: 100%;
+  text-align: center;
+  margin: -2px 0 2px;
+}
+
+.landing-how-summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline: auto;
+  width: max-content;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.landing-how-summary::-webkit-details-marker { display: none; }
+.landing-how-summary:hover { color: var(--ink); background: rgba(255, 255, 255, 0.85); }
+.landing-how-caret { font-size: 12px; transition: transform 220ms ease; }
+.landing-how[open] .landing-how-caret { transform: rotate(180deg); }
+
+.landing-how-steps {
+  list-style: none;
+  margin: 10px auto 0;
+  padding: 13px 15px;
+  max-width: 330px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  animation: how-in 220ms ease-out;
+}
+
+@keyframes how-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.landing-how-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.landing-how-num {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #f2a4b0;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- room invite pill (players panel) --- */
+.invite-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffffff, #fdf7f9);
+  cursor: pointer;
+  font-family: var(--font-display);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.invite-pill:hover {
+  border-color: #e8b4c8;
+  box-shadow: 0 2px 12px rgba(232, 180, 200, 0.25);
+}
+
+.invite-pill:active { transform: scale(0.99); }
+
+.invite-pill-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.invite-pill-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.invite-pill-code {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+}
+
+.invite-pill-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 160ms ease;
+}
+
+.invite-pill-cta i { font-size: 13px; }
+.invite-pill--copied .invite-pill-cta { background: #2f8f6b; }
+
+/* --- hint reveal: a freshly-unlocked mask letter pops in --- */
+.banner-mask-char--hint {
+  animation: banner-mask-hint 460ms cubic-bezier(0.34, 1.4, 0.4, 1) both;
+}
+
+@keyframes banner-mask-hint {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.5); color: #e8b4c8; }
+  55% { opacity: 1; transform: translateY(1px) scale(1.3); color: #e8b4c8; }
+  100% { opacity: 1; transform: translateY(0) scale(1); color: var(--ink); }
+}
+
+/* --- reconnect banner --- */
+.reconnect-bar {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -130%);
+  margin-top: 10px;
+  z-index: 9998;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #2a2a2e;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  transition: transform 280ms cubic-bezier(0.2, 1, 0.3, 1);
+}
+
+.reconnect-bar--in { transform: translate(-50%, 0); }
+
+.reconnect-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  animation: reconnect-spin 0.8s linear infinite;
+}
+
+@keyframes reconnect-spin { to { transform: rotate(360deg); } }
+
+/* Active spinner on the "asking the host" rejoin wait screen. */
+.kicked-spinner {
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: #f2a4b0;
+  animation: reconnect-spin 0.9s linear infinite;
+}

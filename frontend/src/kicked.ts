@@ -51,10 +51,12 @@ export function showJoinPendingScreen(): void {
   overlay.className = "kicked";
   overlay.innerHTML = `
     <section class="kicked-card">
-      <h1>Waiting on the host</h1>
+      <span class="kicked-spinner" aria-hidden="true"></span>
+      <h1>Asking the host…</h1>
       <p class="kicked-body">
-        You were removed from this room before, so the host needs to
-        let you back in. Sit tight!
+        Your request to rejoin has been sent. You were removed earlier, so the
+        host has to approve you before you can hop back in. You'll join
+        automatically the moment they do.
       </p>
       <div class="kicked-actions">
         <button type="button" class="kicked-secondary" id="pendingHome">
@@ -82,7 +84,7 @@ function copyFor(reason: ByeReason): { heading: string; body: string } {
     case "Kicked":
       return {
         heading: "You've been removed",
-        body: "The host decided to remove you. If that was an accident, you can try rejoining.",
+        body: "The host removed you from the room. You can ask to rejoin -- they'll need to approve you before you're back in.",
       };
     case "RoomFull":
       return {
