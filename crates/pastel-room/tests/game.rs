@@ -318,58 +318,125 @@ async fn best_drawing_vote_picks_a_winner() {
     let mut turns: Vec<(u16, u32)> = Vec::new();
     for _ in 0..(3 * 2) {
         let pick = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::WordPickStarted { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. },
+                    ..
+                }
+            )
         })
         .await;
         let drawer = match pick.as_ref() {
-            ServerMsg::Game { event: GameEvent::WordPickStarted { drawer, .. }, .. } => *drawer,
+            ServerMsg::Game {
+                event: GameEvent::WordPickStarted { drawer, .. },
+                ..
+            } => *drawer,
             o => panic!("expected WordPickStarted, got {o:?}"),
         };
         wait_broadcast_for(&mut bob.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::WordPickStarted { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. },
+                    ..
+                }
+            )
         })
         .await;
 
-        let drawer_uc = if drawer == alice.you { &mut alice.unicast_rx } else { &mut bob.unicast_rx };
+        let drawer_uc = if drawer == alice.you {
+            &mut alice.unicast_rx
+        } else {
+            &mut bob.unicast_rx
+        };
         let _ = next_unicast(drawer_uc).await; // WordOptions
-        h.send(drawer, ClientMsg::Game(GameAction::PickWord(0))).await;
+        h.send(drawer, ClientMsg::Game(GameAction::PickWord(0)))
+            .await;
 
         wait_broadcast_for(&mut alice.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::RoundStart { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundStart { .. },
+                    ..
+                }
+            )
         })
         .await;
         wait_broadcast_for(&mut bob.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::RoundStart { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundStart { .. },
+                    ..
+                }
+            )
         })
         .await;
 
-        let drawer_uc = if drawer == alice.you { &mut alice.unicast_rx } else { &mut bob.unicast_rx };
+        let drawer_uc = if drawer == alice.you {
+            &mut alice.unicast_rx
+        } else {
+            &mut bob.unicast_rx
+        };
         let secret = match next_unicast(drawer_uc).await.as_ref() {
             ServerMsg::DrawerWord { word, .. } => word.clone(),
             o => panic!("expected DrawerWord, got {o:?}"),
         };
-        let guesser = if drawer == alice.you { bob.you } else { alice.you };
+        let guesser = if drawer == alice.you {
+            bob.you
+        } else {
+            alice.you
+        };
         h.send(guesser, ClientMsg::Guess { text: secret }).await;
 
         wait_broadcast_for(&mut alice.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Guess { kind: GuessKind::Correct, .. })
+            matches!(
+                m,
+                ServerMsg::Guess {
+                    kind: GuessKind::Correct,
+                    ..
+                }
+            )
         })
         .await;
         wait_broadcast_for(&mut bob.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Guess { kind: GuessKind::Correct, .. })
+            matches!(
+                m,
+                ServerMsg::Guess {
+                    kind: GuessKind::Correct,
+                    ..
+                }
+            )
         })
         .await;
 
         let re = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::RoundEnd { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundEnd { .. },
+                    ..
+                }
+            )
         })
         .await;
         wait_broadcast_for(&mut bob.broadcast_rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::RoundEnd { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundEnd { .. },
+                    ..
+                }
+            )
         })
         .await;
         let turn = match re.as_ref() {
-            ServerMsg::Game { event: GameEvent::RoundEnd { turn, .. }, .. } => *turn,
+            ServerMsg::Game {
+                event: GameEvent::RoundEnd { turn, .. },
+                ..
+            } => *turn,
             o => panic!("expected RoundEnd, got {o:?}"),
         };
         turns.push((turn, drawer));
@@ -380,33 +447,74 @@ async fn best_drawing_vote_picks_a_winner() {
     // GameOver, then the voting window opens.
     for rx in [&mut alice.broadcast_rx, &mut bob.broadcast_rx] {
         wait_broadcast_for(rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::GameOver { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::GameOver { .. },
+                    ..
+                }
+            )
         })
         .await;
         wait_broadcast_for(rx, |m| {
-            matches!(m, ServerMsg::Game { event: GameEvent::VotingOpen { .. }, .. })
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::VotingOpen { .. },
+                    ..
+                }
+            )
         })
         .await;
     }
 
-    let bob_turns: Vec<u16> = turns.iter().filter(|(_, d)| *d == bob.you).map(|(t, _)| *t).collect();
-    let alice_turns: Vec<u16> = turns.iter().filter(|(_, d)| *d == alice.you).map(|(t, _)| *t).collect();
+    let bob_turns: Vec<u16> = turns
+        .iter()
+        .filter(|(_, d)| *d == bob.you)
+        .map(|(t, _)| *t)
+        .collect();
+    let alice_turns: Vec<u16> = turns
+        .iter()
+        .filter(|(_, d)| *d == alice.you)
+        .map(|(t, _)| *t)
+        .collect();
     assert!(bob_turns.len() >= 2 && !alice_turns.is_empty());
 
     // alice: self-vote (rejected), vote one of bob's, then change to another.
-    h.send(alice.you, ClientMsg::Vote { turn: alice_turns[0] }).await;
-    h.send(alice.you, ClientMsg::Vote { turn: bob_turns[0] }).await;
-    h.send(alice.you, ClientMsg::Vote { turn: bob_turns[1] }).await;
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: alice_turns[0],
+        },
+    )
+    .await;
+    h.send(alice.you, ClientMsg::Vote { turn: bob_turns[0] })
+        .await;
+    h.send(alice.you, ClientMsg::Vote { turn: bob_turns[1] })
+        .await;
     // bob abstains -> the window closes on its timer.
     tokio::time::advance(Duration::from_secs(41)).await;
 
     let res = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
-        matches!(m, ServerMsg::Game { event: GameEvent::VoteResult { .. }, .. })
+        matches!(
+            m,
+            ServerMsg::Game {
+                event: GameEvent::VoteResult { .. },
+                ..
+            }
+        )
     })
     .await;
     match res.as_ref() {
-        ServerMsg::Game { event: GameEvent::VoteResult { tally, winner }, .. } => {
-            assert_eq!(tally, &vec![(bob_turns[1], 1)], "only the changed vote counts");
+        ServerMsg::Game {
+            event: GameEvent::VoteResult { tally, winner },
+            ..
+        } => {
+            assert_eq!(
+                tally,
+                &vec![(bob_turns[1], 1)],
+                "only the changed vote counts"
+            );
             let w = winner.as_ref().expect("a winner");
             assert_eq!(w.turn, bob_turns[1]);
             assert_eq!(w.drawer, bob.you);
