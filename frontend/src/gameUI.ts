@@ -19,6 +19,10 @@ export interface RenderContext {
   modeBadge: string;
   playerAvatars: { id: number; name: string; avatarHtml: string }[];
   onCopyInvite: () => void;
+  // Background-music only (no sfx / no voice): surfaced on overlay cards since
+  // the floating canvas control cluster is hidden while an overlay is up.
+  musicOn: boolean;
+  onToggleMusic: () => void;
 }
 
 export interface GameUI {
@@ -74,6 +78,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
 
     root.innerHTML = `
       <div class="overlay-card overlay-card--lobby">
+        ${musicChip(ctx)}
         <div class="lobby-head">
           <h2>Waiting room</h2>
           <span class="lobby-mode-badge">${escapeHtml(ctx.modeBadge)}</span>
@@ -127,6 +132,23 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
     }
   }
 
+  // Music-only toggle chip, pinned to the overlay card's top-right corner.
+  function musicChip(ctx: RenderContext): string {
+    const on = ctx.musicOn;
+    const icon = on ? "ph-fill ph-music-notes" : "ph ph-music-notes";
+    return `<button type="button" class="overlay-music${on ? " overlay-music--on" : ""}"
+      aria-pressed="${on}" aria-label="${on ? "Turn music off" : "Turn music on"}"
+      title="${on ? "Music on" : "Music off"}">
+      <i class="${icon}" aria-hidden="true"></i>
+    </button>`;
+  }
+
+  function wireMusicChip(ctx: RenderContext): void {
+    root
+      .querySelector<HTMLButtonElement>(".overlay-music")
+      ?.addEventListener("click", () => ctx.onToggleMusic());
+  }
+
   function wireInvite(ctx: RenderContext): void {
     for (const btn of root.querySelectorAll<HTMLButtonElement>(
       ".invite-primary, .invite-secondary",
@@ -163,6 +185,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
         .join("");
       root.innerHTML = `
         <div class="overlay-card overlay-card--wide">
+          ${musicChip(ctx)}
           <div class="word-pick-head">
             <span class="word-pick-eyebrow">Round ${phase.roundIndex + 1} of ${phase.totalRounds} -- your turn to draw!</span>
             <h2>What do you want to draw?</h2>
@@ -181,6 +204,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
     } else {
       root.innerHTML = `
         <div class="overlay-card">
+          ${musicChip(ctx)}
           <div class="word-pick-head">
             <span class="word-pick-eyebrow">Round ${phase.roundIndex + 1} of ${phase.totalRounds}</span>
             <h2>${escapeHtml(nameOf(phase.drawer))} is choosing what to draw</h2>
@@ -213,6 +237,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
       .join("");
     root.innerHTML = `
       <div class="overlay-card">
+        ${musicChip(ctx)}
         <h2>It was <em>${escapeHtml(phase.word)}</em>!</h2>
         <ul class="score-list">${rows}</ul>
       </div>
@@ -256,6 +281,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
 
     root.innerHTML = `
       <div class="overlay-card overlay-card--gameover">
+        ${musicChip(ctx)}
         <h2>${heading}</h2>
         ${subtext}
         <ol class="go-board">${rows}</ol>
@@ -285,6 +311,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
         clear();
         break;
     }
+    if (phase.kind !== "Drawing") wireMusicChip(ctx);
   }
 
   function bannerText(phase: GamePhase): string | null {

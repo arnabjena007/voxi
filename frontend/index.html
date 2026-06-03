@@ -48,7 +48,11 @@
           <div class="canvas-wrap">
             <canvas id="canvas"></canvas>
             <div id="gameOverlay"></div>
-            <div class="canvas-settings">
+            <div class="canvas-settings" id="canvasSettings">
+              <span class="canvas-settings-grip" id="canvasSettingsGrip"
+                    aria-label="Drag to move controls" title="Drag to move">
+                <i class="ph ph-dots-six-vertical" aria-hidden="true"></i>
+              </span>
               <button id="micToggle" class="canvas-setting" type="button"
                       aria-label="Toggle microphone" title="Voice chat">
                 <i class="ph ph-microphone-slash" aria-hidden="true"></i>

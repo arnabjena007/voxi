@@ -4,6 +4,7 @@ import { CHAT_BUCKET_CAPACITY, CHAT_BUCKET_REFILL_PER_SEC, TokenBucket } from ".
 import { DrawingSurface } from "./canvas";
 import { showCanvasEvent } from "./canvasEvent";
 import { confettiBurst } from "./celebrate";
+import { makeSettingsDraggable } from "./dragSettings";
 import {
   enableBg,
   enableSfx,
@@ -596,6 +597,11 @@ if (loadBgPreference() || loadSfxPreference()) {
 }
 refreshAudioBtns();
 
+// Let the user drag the control cluster out of the way of their drawing.
+const settingsEl = document.getElementById("canvasSettings");
+const settingsGrip = document.getElementById("canvasSettingsGrip");
+if (settingsEl && settingsGrip) makeSettingsDraggable(settingsEl, settingsGrip);
+
 // Voice chat (LiveKit). Mic starts off; first click connects + publishes muted,
 // second click goes live. Active speakers drive a pulse on player avatars.
 const micBtn = document.getElementById("micToggle") as HTMLButtonElement | null;
@@ -679,6 +685,14 @@ function renderGameUI(): void {
       avatarHtml: avatarOf(p.id),
     })),
     onCopyInvite: copyInviteLink,
+    musicOn: isBgEnabled(),
+    onToggleMusic: () => {
+      void (async () => {
+        await toggleBg();
+        refreshAudioBtns();
+        renderGameUI();
+      })();
+    },
   });
   updateBanner();
   // "Guessing" UI (badge + placeholder) only while you still need to guess.
