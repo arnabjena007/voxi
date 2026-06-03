@@ -232,6 +232,84 @@ async fn wrong_guess_falls_through_to_chat() {
 }
 
 #[tokio::test]
+async fn correct_guesser_chatting_the_word_is_blocked_as_spoiler() {
+    let h = spawn();
+    let a = join(&h, "alice").await; // drawer
+    let mut b = join(&h, "bob").await; // will guess correctly -> "knows" the word
+    let mut c = join(&h, "carol").await; // still guessing -> round stays open
+    let _ = next_unicast(&mut b.unicast_rx).await; // Welcome
+    let _ = next_unicast(&mut c.unicast_rx).await; // Welcome
+    drain_presence(&mut b.broadcast_rx, 2).await; // bob + carol
+    drain_presence(&mut c.broadcast_rx, 1).await; // carol
+
+    h.set_secret(a.you, "apple").await;
+
+    // bob guesses correctly. carol hasn't, so the round stays in Drawing and
+    // bob is now a "knower".
+    h.send(b.you, ClientMsg::Guess { text: "apple".into() }).await;
+    match next(&mut c.broadcast_rx).await.as_ref() {
+        ServerMsg::Guess { kind, .. } => assert_eq!(*kind, GuessKind::Correct),
+        other => panic!("expected Correct guess, got {other:?}"),
+    }
+
+    // bob tries to drop the word in chat.
+    h.send(
+        b.you,
+        ClientMsg::Chat {
+            text: "it's apple lol".into(),
+        },
+    )
+    .await;
+
+    // bob gets a private Spoiler nudge instead of it being broadcast...
+    match next_unicast(&mut b.unicast_rx).await.as_ref() {
+        ServerMsg::Guess { player, kind, .. } => {
+            assert_eq!(*player, b.you);
+            assert_eq!(*kind, GuessKind::Spoiler);
+        }
+        other => panic!("expected Spoiler, got {other:?}"),
+    }
+    // ...and carol, still guessing, never sees the leaked word.
+    expect_no_message(&mut c.broadcast_rx).await;
+}
+
+#[tokio::test]
+async fn correct_guesser_can_chat_without_the_word() {
+    let h = spawn();
+    let a = join(&h, "alice").await; // drawer
+    let mut b = join(&h, "bob").await; // knower after guessing
+    let mut c = join(&h, "carol").await; // still guessing
+    let _ = next_unicast(&mut b.unicast_rx).await;
+    let _ = next_unicast(&mut c.unicast_rx).await;
+    drain_presence(&mut b.broadcast_rx, 2).await;
+    drain_presence(&mut c.broadcast_rx, 1).await;
+
+    h.set_secret(a.you, "apple").await;
+    h.send(b.you, ClientMsg::Guess { text: "apple".into() }).await;
+    match next(&mut c.broadcast_rx).await.as_ref() {
+        ServerMsg::Guess { kind, .. } => assert_eq!(*kind, GuessKind::Correct),
+        other => panic!("expected Correct guess, got {other:?}"),
+    }
+
+    // A normal message from a knower (no word) reaches everyone, including the
+    // still-guessing carol -- post-guess chat works.
+    h.send(
+        b.you,
+        ClientMsg::Chat {
+            text: "nice work!".into(),
+        },
+    )
+    .await;
+    match next(&mut c.broadcast_rx).await.as_ref() {
+        ServerMsg::Chat { player, text, .. } => {
+            assert_eq!(*player, b.you);
+            assert_eq!(text, "nice work!");
+        }
+        other => panic!("expected Chat broadcast, got {other:?}"),
+    }
+}
+
+#[tokio::test]
 async fn drawer_guess_is_ignored() {
     let h = spawn();
     let mut a = join(&h, "alice").await;

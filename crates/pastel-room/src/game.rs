@@ -128,27 +128,36 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
 
 /// Does `text` leak the secret `word`? Used to block spoilers from players
 /// who already know the answer (drawer + correct guessers) when they chat.
-/// Tokenises on non-letter boundaries and checks each token against the
-/// word exactly or via the tight close-guess threshold. "rocks" doesn't
-/// leak "rock", but "i think it's rock!" does.
+///
+/// Single-word secrets: a token leaks if it matches the word exactly or via
+/// the tight close-guess threshold, so "i think it's rock!" and a near
+/// misspelling both count, while "category" does not leak "cat".
+///
+/// Multi-word secrets ("ice cream", "3d printer"): the whole phrase must
+/// appear as a run of adjacent tokens. Saying the full answer is blocked, but
+/// an unrelated single word ("i love cream") is not.
 pub fn message_leaks_word(text: &str, word: &str) -> bool {
-    let target = word.trim().to_lowercase();
+    let target = tokenize(word);
     if target.is_empty() {
         return false;
     }
-    for token in text.split(|c: char| !c.is_alphabetic()) {
-        if token.is_empty() {
-            continue;
-        }
-        let lower = token.to_lowercase();
-        if lower == target {
-            return true;
-        }
-        if is_close_guess(&lower, &target) {
-            return true;
-        }
+    let tokens = tokenize(text);
+    if target.len() == 1 {
+        let t = &target[0];
+        return tokens.iter().any(|tok| tok == t || is_close_guess(tok, t));
     }
-    false
+    if tokens.len() < target.len() {
+        return false;
+    }
+    tokens.windows(target.len()).any(|w| w == target.as_slice())
+}
+
+/// Lowercase alphanumeric tokens, splitting on every other character.
+fn tokenize(s: &str) -> Vec<String> {
+    s.split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .map(str::to_lowercase)
+        .collect()
 }
 
 /// Is `guess` close (but not exact) to `word`? Threshold scales with length:
@@ -285,5 +294,37 @@ mod tests {
         m.insert(3, 75);
         let v = ranked_scores(&m);
         assert_eq!(v, vec![(2, 100), (3, 75), (1, 50)]);
+    }
+
+    #[test]
+    fn leak_single_word_exact_and_embedded() {
+        assert!(message_leaks_word("rock", "rock"));
+        assert!(message_leaks_word("i think it's ROCK!", "rock"));
+        // unrelated chatter doesn't leak
+        assert!(!message_leaks_word("nice drawing", "rock"));
+        // a longer word that merely contains the target is not a leak
+        assert!(!message_leaks_word("category of things", "cat"));
+    }
+
+    #[test]
+    fn leak_single_word_close_misspelling() {
+        // one edit off a short word still gives the answer away
+        assert!(message_leaks_word("kat", "cat"));
+    }
+
+    #[test]
+    fn leak_multi_word_requires_full_phrase() {
+        assert!(message_leaks_word("i bet it's ice cream!", "ice cream"));
+        assert!(message_leaks_word("ICE CREAM", "ice cream"));
+        // a single component is not the whole answer
+        assert!(!message_leaks_word("i love cream", "ice cream"));
+        assert!(!message_leaks_word("ice age", "ice cream"));
+        // digits are kept as tokens, so the alphanumeric phrase still matches
+        assert!(message_leaks_word("it's a 3d printer", "3D printer"));
+    }
+
+    #[test]
+    fn leak_empty_target_is_never_a_leak() {
+        assert!(!message_leaks_word("anything at all", "   "));
     }
 }
