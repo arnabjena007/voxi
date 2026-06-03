@@ -91,6 +91,8 @@ its six-character code. The host sees a live countdown.
 - Short procedural Tone.js SFX for round start, correct guess, round end, join, game over
 - Separate toggles for bg music and sfx, both persist in localStorage, both default on
 - Music auto-ducks under live voice
+- Draggable on-canvas control cluster (mic / music / sfx) that gets out of the
+  way of overlays; a music-only chip rides on lobby / round cards
 
 ### Avatars
 - DiceBear big-smile, five customisable parts (skin, hair, eyes, mouth, accessory)
@@ -134,7 +136,65 @@ its six-character code. The host sees a live countdown.
 - Strokes chunked at 64 points per batch
 - Persistent replay model survives resize, DPI change, and reload
 - Non-drawers can scribble while others draw, only they see it
+- Undo / redo: the drawer's undos sync to everyone via the server; a guesser's
+  private doodles undo locally
 - Floating event pills for "wiped the canvas", "got it!", "is now the host"
+
+### Chat & guessing
+- Guesses go through the chat box; a correct guess lights up green with a check
+- Close guesses get a private "so close!" nudge; nobody else sees the near-miss
+- After you've guessed, you can keep chatting, but the server silently blocks any
+  message that would leak the word (single **or** multi-word secrets) and nudges
+  you instead, so still-guessing players never see a spoiler
+
+### Share & gallery
+- Every drawing is captured client-side as it's made; at game over the gallery
+  auto-opens (after a short countdown) into a wall of every drawing with its word
+- One-tap **shareable card**: a branded PNG of the drawing + word, sent through
+  the native Web Share sheet (great on phones) or downloaded
+- **Scorecard** sharing too: a branded image of the final standings
+- **Stroke-by-stroke replay**: watch any (or every) drawing redraw itself, played
+  back from the captured per-point timing
+
+### Best-drawing vote
+- At game over, tap a heart on any drawing in the gallery to vote for the best
+- Server-tallied: one changeable vote per player, no voting for your own drawing
+- Counts stay hidden until a single reveal. The winner gets a crown, every tile
+  shows its vote count, and confetti fires
+- Keyed on a server-authoritative turn id so late-joiners and reloads still vote
+  on the right drawing
+
+### Emoji reactions
+- A floating emoji bar for guessers: laugh, fire, wow, heart, clap, sad, goat,
+  skull, palette
+- Taps drift up over the live canvas for everyone, server-rebroadcast and
+  rate-limited against the chat bucket
+
+### Onboarding & feel
+- "How to play" right on the landing page, prominent room/invite pill with copy
+  feedback, and a one-time nudge so players discover voice chat
+- "Your turn to draw" / "get ready to guess" cues at each round boundary
+- Hint letters animate in as they unlock
+- Confetti on your own correct guess and on the game winner; animated round-end
+  score deltas (+N); a live "N of M guessed" tally for the drawer
+- A visible reconnect banner if the socket drops mid-game, and a clearer
+  "asking the host" wait screen for approved rejoins
+
+### Mobile
+- The inline toolbar collapses into a draggable, edge-snapping tools puck that
+  fades when idle and never covers the drawing
+- Audio controls are a draggable cluster that hides behind game overlays; a
+  music-only chip rides on each overlay card so you can still mute mid-lobby
+- Locked viewport, compact round badge, two-column word pick, and dvh-capped
+  share / gallery sheets
+
+### Player tracking
+- Optional [Turso](https://turso.tech) (libSQL) backend records each human join
+- `GET /stats` returns `{ rooms_active, total_plays, unique_players }` as JSON,
+  and a tiny `/stats.html` dashboard renders it (players counted once per browser)
+- `GET /metrics` exposes Prometheus gauges/counters
+- Degrades to a silent no-op when the Turso env vars aren't set, so dev and
+  tests are unaffected
 
 ---
 
@@ -169,6 +229,18 @@ LIVEKIT_API_SECRET=...
 
 `.env` is gitignored. The server runs fine without these; voice rooms just
 return a `503 voice not configured` from `GET /voice/token`.
+
+Player tracking is optional too. Create a database at
+[turso.tech](https://turso.tech) and add to the same `.env`:
+
+```
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=...
+```
+
+Without them the server records nothing and `/stats` reports zeros. The server
+exposes `GET /stats` (JSON), `/stats.html` (dashboard), `/metrics` (Prometheus),
+and `/healthz`.
 
 ---
 
@@ -318,8 +390,9 @@ For production:
 - Set `--min-instances=1` and `--max-instances=1` for the simplest
   topology (rooms live in-memory in one actor; multi-instance needs a
   shared registry, which is on the roadmap)
-- Wire LiveKit env vars through Secret Manager. The server reads them
-  via `dotenvy` locally and Cloud Run env vars in prod
+- Wire LiveKit **and Turso** env vars through Secret Manager. The server reads
+  them via `dotenvy` locally and Cloud Run env vars in prod. Turso keeps play
+  counts off Cloud Run's ephemeral disk so `/stats` survives redeploys
 
 ---
 
@@ -330,8 +403,9 @@ For production:
 The wire is `postcard`-encoded binary. Each direction is one enum:
 
 ```rust
-pub enum ClientMsg { Hello, Stroke, Chat, Guess, Game, Pong, React }
-pub enum ServerMsg { Welcome, Stroke, Chat, Guess, Presence, Game, Ping, Bye, WordOptions, DrawerWord, JoinPending, DrawingFeedback }
+pub enum ClientMsg { Hello, Stroke, Chat, Guess, Game, Pong, React, Undo, Emote, Vote }
+pub enum ServerMsg { Welcome, Resume, Stroke, Chat, Guess, Presence, Game, Ping, Bye, WordOptions, DrawerWord, JoinPending, DrawingFeedback, Emote }
+// round flow, reactions, undo, and best-drawing voting ride inside GameEvent (under Game)
 ```
 
 A 30-point stroke batch is about 130 bytes. The JSON equivalent is about
@@ -352,6 +426,7 @@ stateDiagram-v2
     Drawing --> RoundEnd: all guessed / timeout
     RoundEnd --> ChoosingWord: next turn
     RoundEnd --> GameOver: last turn
+    GameOver --> GameOver: best-drawing vote (40s window)
     GameOver --> ChoosingWord: rematch
 ```
 
@@ -413,6 +488,27 @@ recovers the original `PlayerId` before allocating a new one. Kicked
 tokens never enter `departed`; they continue to flow through the
 host-approval path.
 
+### Voting without the server keeping the drawings
+
+The server throws every drawing away the instant a round ends; it never stores
+strokes per turn. So "best drawing" voting can't live server-side as pixels.
+Instead each `RoundEnd` carries a monotonic **turn id**, and the server keeps
+only a tiny `(drawer, word)` list indexed by it. Clients stamp their
+locally-captured gallery with that id, so a vote is just `Vote { turn }`, a
+value every client agrees on, even a late-joiner who only saw half the game. At
+game over the room opens a 40s window (layered on `GameOver`, no new phase),
+collects one changeable vote per player, rejects self-votes, and on timeout (or
+once every connected human has voted) broadcasts a single `VoteResult` with the
+tally and the crowned winner.
+
+### Player tracking, optionally
+
+Each successful human join writes one row to a remote Turso (libSQL) database
+from a `tokio::spawn` off the join hot path, so the network write never delays
+gameplay. `/stats` reads back `total_plays` and `unique_players` (distinct by
+the browser `client_token`). If the env vars are missing the tracker is a no-op,
+so local dev and the test suite never touch a database.
+
 ### Room lifecycle
 
 ```
@@ -458,14 +554,15 @@ survive resize, DPI change, and reload.
 ```
 crates/
   pastel-proto/        wire types, codec, validation, proptest fixtures
-  pastel-room/         per-room actor, game state machine, scoring, lifecycle
-  pastel-server/       axum + WS, room registry, bot spawner, LiveKit tokens
+  pastel-room/         per-room actor, game state machine, scoring, voting, lifecycle
+  pastel-server/       axum + WS, room registry, bot spawner, LiveKit tokens, Turso play tracking
   pastel-loadtest/     simulated WS clients, standalone bot, Quick Draw data
 frontend/
   public/music/        three CC0 lofi tracks (landing / lobby / game)
+  stats.html           tiny /stats dashboard page
   src/main.ts          the wire-up
   src/proto.ts         ClientMsg / ServerMsg codec + types
-  src/canvas.ts        pointer capture, Bezier, DPI, replay model
+  src/canvas.ts        pointer capture, Bezier, DPI, replay model + drawing export
   src/avatar.ts        DiceBear big-smile render + parts table
   src/avatarPicker.ts  name + avatar picker modal, hasStoredIdentity helpers
   src/voice.ts         LiveKit client wrapper (lazy-loaded)
@@ -473,13 +570,21 @@ frontend/
   src/chat.ts          chat panel with avatar chips + guess mode
   src/game.ts          client game state + mode options
   src/gameUI.ts        lobby, word pick, round end, game over overlays + countdown
+  src/gallery.ts       end-of-game drawing wall + best-drawing voting
+  src/share.ts         shareable drawing card + scorecard image
+  src/reveal.ts        stroke-by-stroke drawing replay overlay
+  src/emotes.ts        floating emoji reaction bar + animation
+  src/celebrate.ts     confetti burst
   src/roundIntro.ts    animated round-start card with scoreboard
   src/canvasEvent.ts   floating event pills over the canvas
   src/toast.ts         transient notifications
   src/dialog.ts        custom confirm dialogs
   src/kicked.ts        fatal + pending screens
-  src/landing.ts       centered landing with mode tiles + voice opt-in
-  src/toolbar.ts       brushes, palette, clear (single-pen on mobile)
+  src/landing.ts       centered landing with mode tiles + how-to-play + voice opt-in
+  src/toolbar.ts       brushes, palette, undo/redo, clear
+  src/mobileTools.ts   draggable edge-snapping tools puck (phones)
+  src/dragSettings.ts  draggable on-canvas audio control cluster
+  src/stats.ts         /stats dashboard fetch + render
   src/ws.ts            WebSocket client, backoff, resume_from
 ```
 
@@ -504,6 +609,11 @@ nagged us:
   ~600 in JSON. Fewer bytes on every fanout to every player.
 - **Cute hand-drawn avatars with a parts editor.** Skribble's are stick
   figures.
+- **Share your masterpiece.** One tap turns any drawing (or the final
+  scoreboard) into a branded image for the group chat. Skribble keeps it
+  trapped inside the round.
+- **Vote for the best drawing.** An end-of-game gallery with a heart vote
+  crowns a winner. Skribble just ends.
 
 We're not trying to replace skribble. Just making something we actually
 want to play with friends.
