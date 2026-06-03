@@ -5,6 +5,9 @@ import { DrawingSurface } from "./canvas";
 import { showCanvasEvent } from "./canvasEvent";
 import { confettiBurst } from "./celebrate";
 import { makeSettingsDraggable } from "./dragSettings";
+import { openShareCard } from "./share";
+import { openGallery, type GalleryItem } from "./gallery";
+import { mountEmoteBar, floatEmote } from "./emotes";
 import {
   enableBg,
   enableSfx,
@@ -248,6 +251,16 @@ let lastMask: string | null = null;
 // Set true for one banner render when a guess lands while you're the drawer,
 // so the guess-count pill pulses once instead of on every re-render.
 let drawerGuessPulse = false;
+// Who's drawing this round (set on RoundStart) so the result card / replay /
+// gallery can isolate the drawer's strokes from any guesser doodles.
+let currentDrawerId: number | null = null;
+// Every round's drawing, accumulated for the end-of-game gallery. Cleared when
+// a fresh game starts.
+const galleryItems: GalleryItem[] = [];
+// Emoji-reaction bar. Declared up here (not at its mount site below) because
+// renderGameUI() reads it during the boot render, before the mount line runs;
+// a `const` there would be in the temporal dead zone and throw, halting boot.
+let emoteBar: HTMLElement | null = null;
 
 function nameOf(id: number, fallback = "anon"): string {
   return players.get(id)?.name ?? nameHistory.get(id) ?? fallback;
@@ -620,6 +633,17 @@ const settingsEl = document.getElementById("canvasSettings");
 const settingsGrip = document.getElementById("canvasSettingsGrip");
 if (settingsEl && settingsGrip) makeSettingsDraggable(settingsEl, settingsGrip);
 
+// Floating emoji reactions: a bar over the canvas (guessers only, while a
+// round is being drawn). Tapping floats locally for snappiness and sends to
+// the room; others' emotes float in via the Emote server message.
+const canvasWrapEl = document.querySelector<HTMLElement>(".canvas-wrap");
+emoteBar = canvasWrapEl
+  ? mountEmoteBar(canvasWrapEl, (idx) => {
+      floatEmote(idx, canvasWrapEl);
+      conn.send({ kind: "Emote", idx });
+    })
+  : null;
+
 // Voice chat (LiveKit). Mic starts off; first click connects + publishes muted,
 // second click goes live. Active speakers drive a pulse on player avatars.
 const micBtn = document.getElementById("micToggle") as HTMLButtonElement | null;
@@ -721,6 +745,26 @@ function renderGameUI(): void {
         renderGameUI();
       })();
     },
+    galleryCount: galleryItems.length,
+    onReplayRound: () => {
+      // Hide the round-end card so the replay is visible on the canvas, then
+      // restore it when the animation settles.
+      const overlay = document.getElementById("gameOverlay");
+      overlay?.classList.add("game-overlay--replaying");
+      void surface
+        .replay(2600, currentDrawerId ?? undefined)
+        .finally(() => overlay?.classList.remove("game-overlay--replaying"));
+    },
+    onShareRound: () => {
+      const phase = gameState.phase;
+      if (phase.kind !== "RoundEnd") return;
+      void openShareCard({
+        records: surface.snapshot(currentDrawerId ?? undefined),
+        word: phase.word,
+        drawerName: currentDrawerId !== null ? nameOf(currentDrawerId) : undefined,
+      });
+    },
+    onOpenGallery: () => openGallery(galleryItems),
   });
   updateBanner();
   // "Guessing" UI (badge + placeholder) only while you still need to guess.
@@ -732,6 +776,11 @@ function renderGameUI(): void {
     gameState.phase.drawer !== youId &&
     !youAlreadyGuessed;
   chat.setGuessMode(isGuessing);
+  // Emoji bar: guessers can react while a round is being drawn (not the drawer,
+  // whose canvas it would cover).
+  const canEmote =
+    gameState.phase.kind === "Drawing" && gameState.phase.drawer !== youId;
+  emoteBar?.classList.toggle("emote-bar--visible", canEmote);
 }
 
 async function copyInviteLink(): Promise<void> {
@@ -1191,6 +1240,10 @@ function handleMessage(msg: ServerMsg): void {
       drawerFeedback = msg.mood;
       updateBanner();
       return;
+    case "Emote":
+      // Our own emotes already floated on click; only float others' here.
+      if (msg.player !== youId && canvasWrapEl) floatEmote(msg.idx, canvasWrapEl);
+      return;
   }
 }
 
@@ -1215,6 +1268,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       if (startingFreshGame) {
         gameState.scores.clear();
         prevScores.clear();
+        galleryItems.length = 0;
       }
       const deadline = performance.now() + event.deadline_ms;
       gameState.phase = {
@@ -1249,6 +1303,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       playRoundStart();
       myReaction = null;
       drawerFeedback = null;
+      currentDrawerId = event.drawer;
       // Each round starts with empty history -- you can't undo strokes
       // from a previous round (the canvas got reset anyway).
       surface.resetHistory();
@@ -1314,6 +1369,19 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       };
       chat.appendSystem(`the word was "${event.word}"`);
       playRoundEnd();
+      // Capture the drawer's drawing for the share card + end-of-game gallery,
+      // before the next round clears the canvas.
+      if (currentDrawerId !== null) {
+        const records = surface.snapshot(currentDrawerId);
+        if (records.length > 0) {
+          galleryItems.push({
+            word: event.word,
+            records,
+            drawerName: nameOf(currentDrawerId),
+            roundIndex: galleryItems.length,
+          });
+        }
+      }
       // Reveal phase: no more strokes accepted, undo history irrelevant.
       surface.resetHistory();
       refreshUndoButtons();
