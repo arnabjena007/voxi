@@ -5462,3 +5462,91 @@ canvas {
   font-weight: 600;
   color: #b7b7bd;
 }
+
+/* --- gallery voting --- */
+.gallery-body {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.gallery-banner {
+  margin: 0;
+  padding: 0 18px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 220ms ease, opacity 220ms ease, padding 220ms ease;
+}
+.gallery-banner--show { max-height: 64px; opacity: 1; padding: 4px 18px 12px; }
+
+.gallery-vote {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  color: #c2607a;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 120ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+.gallery-vote i { font-size: 17px; }
+.gallery-modal--voting .gallery-vote { display: inline-flex; }
+.gallery-vote:hover { transform: scale(1.12); }
+.gallery-tile--voted .gallery-vote {
+  background: #fde2ea;
+  box-shadow: 0 2px 12px rgba(194, 96, 122, 0.45);
+}
+
+.gallery-count {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+}
+.gallery-modal--results .gallery-count { display: inline-flex; }
+
+.gallery-crown {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  z-index: 3;
+  color: #f0c64f;
+  font-size: 24px;
+  display: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+}
+.gallery-tile--winner .gallery-crown { display: block; }
+.gallery-tile--winner {
+  border-color: #f0c64f;
+  box-shadow: 0 0 0 2px #f0c64f, 0 10px 26px rgba(240, 198, 79, 0.4);
+}

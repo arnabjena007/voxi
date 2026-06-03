@@ -6,7 +6,12 @@ import { showCanvasEvent } from "./canvasEvent";
 import { confettiBurst } from "./celebrate";
 import { makeSettingsDraggable } from "./dragSettings";
 import { openScoreCardShare } from "./share";
-import { openGallery, type GalleryItem } from "./gallery";
+import {
+  openGallery,
+  type GalleryItem,
+  type GalleryHandle,
+  type VoteOutcome,
+} from "./gallery";
 import { mountEmoteBar, floatEmote } from "./emotes";
 import {
   enableBg,
@@ -259,6 +264,11 @@ let currentDrawerId: number | null = null;
 const galleryItems: GalleryItem[] = [];
 // Game-over -> gallery auto-open countdown.
 let galleryCountdownTimer: ReturnType<typeof setTimeout> | null = null;
+// "Best drawing" voting state (game-over window).
+let voteOpen = false;
+let myVote: number | null = null;
+let voteResult: VoteOutcome | null = null;
+let galleryHandle: GalleryHandle | null = null;
 // Emoji-reaction bar. Declared up here (not at its mount site below) because
 // renderGameUI() reads it during the boot render, before the mount line runs;
 // a `const` there would be in the temporal dead zone and throw, halting boot.
@@ -729,6 +739,26 @@ function modeBadge(): string {
   return `${m.label} · ${m.rounds} rounds`;
 }
 
+// Open the gallery with the current vote state, tracking the handle so vote
+// results can be revealed live and reopening restores state.
+function showGallery(): void {
+  galleryHandle = openGallery(
+    galleryItems,
+    {
+      enabled: voteOpen,
+      myVote,
+      result: voteResult,
+      onVote: (turn) => {
+        myVote = turn;
+        conn.send({ kind: "Vote", turn });
+      },
+    },
+    () => {
+      galleryHandle = null;
+    },
+  );
+}
+
 // Tick down the scorecard countdown, then auto-open the drawing gallery. Bails
 // out if the player has already left the game-over screen (rematch, etc.).
 function startGalleryCountdown(): void {
@@ -741,7 +771,7 @@ function startGalleryCountdown(): void {
     }
     if (n <= 0) {
       galleryCountdownTimer = null;
-      openGallery(galleryItems);
+      showGallery();
       return;
     }
     const node = document.querySelector<HTMLElement>(".gameover-countdown");
@@ -775,6 +805,7 @@ function renderGameUI(): void {
       })();
     },
     galleryCount: galleryItems.length,
+    onOpenGallery: () => showGallery(),
     onShareScorecard: () => {
       const standings = Array.from(players.values())
         .map((p) => ({ name: p.name, score: gameState.scores.get(p.id) ?? 0 }))
@@ -1285,6 +1316,11 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
         gameState.scores.clear();
         prevScores.clear();
         galleryItems.length = 0;
+        voteOpen = false;
+        myVote = null;
+        voteResult = null;
+        galleryHandle?.close();
+        galleryHandle = null;
       }
       const deadline = performance.now() + event.deadline_ms;
       gameState.phase = {
@@ -1394,7 +1430,8 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
             word: event.word,
             records,
             drawerName: nameOf(currentDrawerId),
-            roundIndex: galleryItems.length,
+            turn: event.turn,
+            isOwn: currentDrawerId === youId,
           });
         }
       }
@@ -1464,6 +1501,24 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       surface.applyStrokeRemoved(event.player, event.stroke_id);
       refreshUndoButtons();
       return;
+    case "VotingOpen":
+      voteOpen = true;
+      myVote = null;
+      voteResult = null;
+      return;
+    case "VoteResult": {
+      voteOpen = false;
+      voteResult = { tally: event.tally, winner: event.winner };
+      if (galleryHandle) {
+        galleryHandle.applyVoteResult(voteResult);
+      } else if (event.winner) {
+        showToast(`🏆 Best drawing: "${event.winner.word}"`, {
+          kind: "success",
+          durationMs: 5000,
+        });
+      }
+      return;
+    }
   }
 }
 

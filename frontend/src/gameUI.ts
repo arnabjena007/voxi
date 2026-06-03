@@ -25,6 +25,7 @@ export interface RenderContext {
   onToggleMusic: () => void;
   // Game-over actions (wired from main.ts).
   onShareScorecard: () => void;
+  onOpenGallery: () => void;
   galleryCount: number;
 }
 
@@ -296,6 +297,14 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
                      <i class="ph ph-trophy" aria-hidden="true"></i>
                      <span>Share scorecard</span>
                    </button>
+                   ${
+                     ctx.galleryCount > 0
+                       ? `<button type="button" class="go-share-btn go-open-gallery">
+                            <i class="ph ph-images" aria-hidden="true"></i>
+                            <span>See the drawings</span>
+                          </button>`
+                       : ""
+                   }
                  </div>`
               : ""
           }
@@ -314,6 +323,9 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
     root
       .querySelector<HTMLButtonElement>(".go-share-score")
       ?.addEventListener("click", () => ctx.onShareScorecard());
+    root
+      .querySelector<HTMLButtonElement>(".go-open-gallery")
+      ?.addEventListener("click", () => ctx.onOpenGallery());
   }
 
   function render(phase: GamePhase, ctx: RenderContext): void {
