@@ -12,6 +12,8 @@ use std::time::Duration;
 pub const PICK_WINDOW: Duration = Duration::from_secs(15);
 pub const DRAW_WINDOW: Duration = Duration::from_secs(80);
 pub const ROUND_REVEAL: Duration = Duration::from_secs(5);
+/// How long the "best drawing" vote stays open after a game ends.
+pub const VOTE_WINDOW: Duration = Duration::from_secs(40);
 pub const MIN_SCORE_PER_GUESS: u32 = 25;
 pub const RANK_MULTIPLIER: f32 = 0.7;
 pub const DRAWER_BONUS_FRACTION: f32 = 0.5;

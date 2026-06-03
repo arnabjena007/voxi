@@ -418,7 +418,7 @@ export type GameEvent =
       round_index: number;
       total_rounds: number;
     }
-  | { kind: "RoundEnd"; word: string; scores: [number, number][] }
+  | { kind: "RoundEnd"; word: string; scores: [number, number][]; turn: number }
   | { kind: "GameOver"; final_scores: [number, number][] }
   | { kind: "Cleared"; by: number }
   | {
@@ -433,7 +433,16 @@ export type GameEvent =
   | { kind: "JoinCanceled"; candidate: number }
   | { kind: "HostChanged"; new_host: number }
   | { kind: "Reaction"; player: number; mood: DrawingMood }
-  | { kind: "StrokeRemoved"; player: number; stroke_id: number };
+  | { kind: "StrokeRemoved"; player: number; stroke_id: number }
+  | { kind: "VotingOpen"; deadline_ms: number }
+  | { kind: "VoteResult"; tally: [number, number][]; winner: VoteWinner | null };
+
+export interface VoteWinner {
+  turn: number;
+  drawer: number;
+  word: string;
+  votes: number;
+}
 
 function writeScores(w: Writer, scores: [number, number][]): void {
   w.varint(scores.length);
@@ -460,6 +469,7 @@ function writeGameEvent(w: Writer, e: GameEvent): void {
     case "RoundEnd":
       w.variant(1).str(e.word);
       writeScores(w, e.scores);
+      w.varint(e.turn);
       return;
     case "GameOver":
       w.variant(2);
@@ -494,6 +504,17 @@ function writeGameEvent(w: Writer, e: GameEvent): void {
     case "StrokeRemoved":
       w.variant(10).varint(e.player).varint(e.stroke_id);
       return;
+    case "VotingOpen":
+      w.variant(11).varint(e.deadline_ms);
+      return;
+    case "VoteResult":
+      w.variant(12);
+      w.varint(e.tally.length);
+      for (const [turn, count] of e.tally) w.varint(turn).varint(count);
+      w.option(e.winner, (ww, win) =>
+        ww.varint(win.turn).varint(win.drawer).str(win.word).varint(win.votes),
+      );
+      return;
   }
 }
 
@@ -510,7 +531,12 @@ function readGameEvent(r: Reader): GameEvent {
         total_rounds: r.u8(),
       };
     case 1:
-      return { kind: "RoundEnd", word: r.str(), scores: readScores(r) };
+      return {
+        kind: "RoundEnd",
+        word: r.str(),
+        scores: readScores(r),
+        turn: r.varint(),
+      };
     case 2:
       return { kind: "GameOver", final_scores: readScores(r) };
     case 3:
@@ -535,6 +561,20 @@ function readGameEvent(r: Reader): GameEvent {
       return { kind: "Reaction", player: r.varint(), mood: readDrawingMood(r) };
     case 10:
       return { kind: "StrokeRemoved", player: r.varint(), stroke_id: r.varint() };
+    case 11:
+      return { kind: "VotingOpen", deadline_ms: r.varint() };
+    case 12: {
+      const n = r.varint();
+      const tally: [number, number][] = new Array(n);
+      for (let i = 0; i < n; i++) tally[i] = [r.varint(), r.varint()];
+      const winner = r.option<VoteWinner>((rr) => ({
+        turn: rr.varint(),
+        drawer: rr.varint(),
+        word: rr.str(),
+        votes: rr.varint(),
+      }));
+      return { kind: "VoteResult", tally, winner };
+    }
     default:
       throw new Error(`unknown GameEvent variant: ${v}`);
   }
@@ -643,7 +683,8 @@ export type ClientMsg =
   | { kind: "Pong"; nonce: number }
   | { kind: "React"; mood: DrawingMood }
   | { kind: "Undo" }
-  | { kind: "Emote"; idx: number };
+  | { kind: "Emote"; idx: number }
+  | { kind: "Vote"; turn: number };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -685,6 +726,9 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
     case "Emote":
       w.variant(8).u8(msg.idx);
       break;
+    case "Vote":
+      w.variant(9).varint(msg.turn);
+      break;
   }
   return w.bytes();
 }
@@ -719,6 +763,8 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
       return { kind: "Undo" };
     case 8:
       return { kind: "Emote", idx: r.u8() };
+    case 9:
+      return { kind: "Vote", turn: r.varint() };
     default:
       throw new Error(`unknown ClientMsg variant: ${v}`);
   }

@@ -39,6 +39,10 @@ pub enum GameEvent {
     RoundEnd {
         word: String,
         scores: Vec<(PlayerId, u32)>,
+        /// Server-authoritative monotonic id for this drawing (turn). Clients
+        /// stamp their gallery entries with it so "best drawing" votes key on a
+        /// value every client agrees on.
+        turn: u16,
     },
     GameOver {
         final_scores: Vec<(PlayerId, u32)>,
@@ -82,6 +86,24 @@ pub enum GameEvent {
         player: PlayerId,
         stroke_id: u32,
     },
+    /// "Best drawing" voting has opened at game over. Players may cast/change a
+    /// `Vote` until the window closes.
+    VotingOpen {
+        deadline_ms: u32,
+    },
+    /// Voting closed. Per-turn tallies and the winner (None if nobody voted).
+    VoteResult {
+        tally: Vec<(u16, u32)>,
+        winner: Option<VoteWinner>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VoteWinner {
+    pub turn: u16,
+    pub drawer: PlayerId,
+    pub word: String,
+    pub votes: u32,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -150,6 +172,11 @@ pub enum ClientMsg {
     /// it drift up over the canvas.
     Emote {
         idx: u8,
+    },
+    /// Cast (or change) a vote for the best drawing during the game-over voting
+    /// window. `turn` is the server-assigned drawing id from `RoundEnd`.
+    Vote {
+        turn: u16,
     },
 }
 

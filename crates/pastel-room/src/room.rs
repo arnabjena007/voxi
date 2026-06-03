@@ -2,7 +2,7 @@ use crate::bucket::TokenBucket;
 use crate::game::{
     build_mask, drawer_bonus, guess_score, is_close_guess, max_hints, message_leaks_word,
     pick_hint_index, ranked_scores, reveal_at, DRAW_WINDOW, HINT_REMAINING_SECS, PICK_WINDOW,
-    ROUND_REVEAL,
+    ROUND_REVEAL, VOTE_WINDOW,
 };
 use crate::words::{Difficulty, SharedWords};
 use crate::{
@@ -221,6 +221,13 @@ enum GamePhase {
     GameOver,
 }
 
+/// Open "best drawing" vote window, live only during GameOver.
+struct VotingState {
+    deadline: Instant,
+    /// One vote per player; latest wins. Value is the voted turn id.
+    votes: AHashMap<PlayerId, u16>,
+}
+
 struct GameState {
     mode: GameMode,
     rounds: u8,
@@ -235,6 +242,13 @@ struct GameState {
     /// in `Lobby` when this elapses, the room expires and frees its code.
     /// Cleared once a game actually starts (no expiry mid-game).
     lobby_deadline: Option<Instant>,
+    /// Per-turn (drawing) metadata accumulated across the game for "best
+    /// drawing" voting. The index is the turn id sent in `RoundEnd`. Reset
+    /// when a new game starts.
+    turn_drawers: Vec<PlayerId>,
+    turn_words: Vec<String>,
+    /// The game-over voting window, if open.
+    voting: Option<VotingState>,
 }
 
 impl Default for GameState {
@@ -248,6 +262,9 @@ impl Default for GameState {
             turn_in_round: 0,
             host: None,
             lobby_deadline: None,
+            turn_drawers: Vec::new(),
+            turn_words: Vec::new(),
+            voting: None,
         }
     }
 }
@@ -258,6 +275,7 @@ enum DeadlineAction {
     RevealHint,
     EndRoundTimedOut,
     NextRoundOrFinish,
+    CloseVoting,
 }
 
 struct Room {
@@ -735,6 +753,7 @@ impl Room {
             ClientMsg::React { mood } => self.handle_react(player, mood),
             ClientMsg::Undo => self.handle_undo(player),
             ClientMsg::Emote { idx } => self.handle_emote(player, idx),
+            ClientMsg::Vote { turn } => self.handle_vote(player, turn),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
             }
@@ -1160,6 +1179,9 @@ impl Room {
             host,
             // Game is starting; the lobby-expire timer no longer applies.
             lobby_deadline: None,
+            turn_drawers: Vec::new(),
+            turn_words: Vec::new(),
+            voting: None,
         };
         self.start_choosing_round(0);
     }
@@ -1414,6 +1436,13 @@ impl Room {
         }
 
         let _ = correct_guessers; // already tracked in scores_this_round
+
+        // Record this drawing for end-of-game "best drawing" voting. The index
+        // is the turn id every client keys its gallery + votes on.
+        let turn = self.game.turn_drawers.len() as u16;
+        self.game.turn_drawers.push(drawer);
+        self.game.turn_words.push(word.clone());
+
         let cumulative = self.ranked_scores_current();
         let seq = self.next_seq();
         self.broadcast(ServerMsg::Game {
@@ -1421,6 +1450,7 @@ impl Room {
             event: GameEvent::RoundEnd {
                 word: word.clone(),
                 scores: cumulative,
+                turn,
             },
         });
 
@@ -1462,6 +1492,85 @@ impl Room {
             event: GameEvent::GameOver { final_scores },
         });
         self.game.phase = GamePhase::GameOver;
+
+        // Open "best drawing" voting for real games that produced drawings.
+        if self.players.len() >= 2 && !self.game.turn_drawers.is_empty() {
+            self.game.voting = Some(VotingState {
+                deadline: Instant::now() + VOTE_WINDOW,
+                votes: AHashMap::new(),
+            });
+            let seq = self.next_seq();
+            self.broadcast(ServerMsg::Game {
+                seq,
+                event: GameEvent::VotingOpen {
+                    deadline_ms: VOTE_WINDOW.as_millis() as u32,
+                },
+            });
+        }
+    }
+
+    /// Record/replace a player's "best drawing" vote during the GameOver vote
+    /// window. Rejects out-of-range turns and self-votes. Closes the window
+    /// early once every connected human has voted.
+    fn handle_vote(&mut self, player: PlayerId, turn: u16) {
+        if !matches!(self.game.phase, GamePhase::GameOver) {
+            return;
+        }
+        let Some(voting) = self.game.voting.as_mut() else {
+            return;
+        };
+        let idx = turn as usize;
+        // Out of range, or voting for your own drawing -> ignore.
+        if idx >= self.game.turn_drawers.len() || self.game.turn_drawers[idx] == player {
+            return;
+        }
+        voting.votes.insert(player, turn);
+
+        // Early close: everyone who can vote has voted.
+        let humans = self.players.values().filter(|s| !s.is_bot).count();
+        if voting.votes.len() >= humans {
+            self.close_voting();
+        }
+    }
+
+    /// Tally the votes and broadcast the result, then clear the window.
+    fn close_voting(&mut self) {
+        let Some(voting) = self.game.voting.take() else {
+            return;
+        };
+        // Count votes per turn.
+        let mut counts: AHashMap<u16, u32> = AHashMap::new();
+        for turn in voting.votes.values() {
+            *counts.entry(*turn).or_insert(0) += 1;
+        }
+        // Winner: highest count, ties broken by lowest turn id.
+        let winner = counts
+            .iter()
+            .max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(a.0)))
+            .map(|(&turn, &votes)| VoteWinner {
+                turn,
+                drawer: self
+                    .game
+                    .turn_drawers
+                    .get(turn as usize)
+                    .copied()
+                    .unwrap_or(0),
+                word: self
+                    .game
+                    .turn_words
+                    .get(turn as usize)
+                    .cloned()
+                    .unwrap_or_default(),
+                votes,
+            });
+        let mut tally: Vec<(u16, u32)> = counts.into_iter().collect();
+        tally.sort_by_key(|(turn, _)| *turn);
+
+        let seq = self.next_seq();
+        self.broadcast(ServerMsg::Game {
+            seq,
+            event: GameEvent::VoteResult { tally, winner },
+        });
     }
 
     /// Ranked scoreboard restricted to players currently in the room.
@@ -1495,7 +1604,7 @@ impl Room {
                 }
             }
             GamePhase::Lobby => self.game.lobby_deadline,
-            GamePhase::GameOver => None,
+            GamePhase::GameOver => self.game.voting.as_ref().map(|v| v.deadline),
         }
     }
 
@@ -1533,6 +1642,10 @@ impl Room {
             GamePhase::RoundEnd { deadline, .. } if now >= *deadline => {
                 DeadlineAction::NextRoundOrFinish
             }
+            GamePhase::GameOver => match &self.game.voting {
+                Some(v) if now >= v.deadline => DeadlineAction::CloseVoting,
+                _ => DeadlineAction::None,
+            },
             _ => DeadlineAction::None,
         };
         match action {
@@ -1541,6 +1654,7 @@ impl Room {
             DeadlineAction::RevealHint => self.reveal_one_hint(),
             DeadlineAction::EndRoundTimedOut => self.end_round_timed_out(),
             DeadlineAction::NextRoundOrFinish => self.advance_round(),
+            DeadlineAction::CloseVoting => self.close_voting(),
         }
     }
 }

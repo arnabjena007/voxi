@@ -230,8 +230,9 @@ fn arb_game_event() -> impl Strategy<Value = GameEvent> {
         (
             arb_text(MAX_WORD_LEN),
             vec((any::<u32>(), any::<u32>()), 0..=MAX_PLAYERS_PER_ROOM),
+            any::<u16>(),
         )
-            .prop_map(|(word, scores)| GameEvent::RoundEnd { word, scores }),
+            .prop_map(|(word, scores, turn)| GameEvent::RoundEnd { word, scores, turn }),
         vec((any::<u32>(), any::<u32>()), 0..=MAX_PLAYERS_PER_ROOM)
             .prop_map(|final_scores| GameEvent::GameOver { final_scores }),
         any::<u32>().prop_map(|by| GameEvent::Cleared { by }),
