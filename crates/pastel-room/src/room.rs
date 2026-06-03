@@ -734,6 +734,7 @@ impl Room {
             }
             ClientMsg::React { mood } => self.handle_react(player, mood),
             ClientMsg::Undo => self.handle_undo(player),
+            ClientMsg::Emote { idx } => self.handle_emote(player, idx),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
             }
@@ -763,6 +764,23 @@ impl Room {
             reason: ByeReason::Kicked,
         }));
         self.handle_leave(target);
+    }
+
+    /// A floating emoji reaction: validate the index, rate-limit against the
+    /// chat bucket so it can't be spammed, and rebroadcast so everyone sees it.
+    /// Transient -- not stored in any resume buffer.
+    fn handle_emote(&mut self, player: PlayerId, idx: u8) {
+        const EMOTE_COUNT: u8 = 9;
+        if idx >= EMOTE_COUNT {
+            return;
+        }
+        let Some(slot) = self.players.get_mut(&player) else {
+            return;
+        };
+        if !slot.chat_bucket.try_take() {
+            return;
+        }
+        self.broadcast(ServerMsg::Emote { player, idx });
     }
 
     fn handle_react(&mut self, player: PlayerId, mood: DrawingMood) {

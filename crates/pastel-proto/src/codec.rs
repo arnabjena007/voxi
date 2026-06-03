@@ -66,8 +66,11 @@ pub fn validate_client(msg: &ClientMsg) -> Result<(), CodecError> {
         ClientMsg::Guess { text } => {
             check_len("guess.text", text.len(), MAX_GUESS_LEN)?;
         }
-        ClientMsg::Game(_) | ClientMsg::Pong { .. } | ClientMsg::React { .. } | ClientMsg::Undo => {
-        }
+        ClientMsg::Game(_)
+        | ClientMsg::Pong { .. }
+        | ClientMsg::React { .. }
+        | ClientMsg::Undo
+        | ClientMsg::Emote { .. } => {}
     }
     Ok(())
 }
@@ -172,7 +175,8 @@ pub fn validate_server(msg: &ServerMsg, depth: u8) -> Result<(), CodecError> {
         | ServerMsg::Guess { .. }
         | ServerMsg::Ping { .. }
         | ServerMsg::Bye { .. }
-        | ServerMsg::DrawingFeedback { .. } => {}
+        | ServerMsg::DrawingFeedback { .. }
+        | ServerMsg::Emote { .. } => {}
     }
     Ok(())
 }

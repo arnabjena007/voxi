@@ -642,7 +642,8 @@ export type ClientMsg =
   | { kind: "Game"; action: GameAction }
   | { kind: "Pong"; nonce: number }
   | { kind: "React"; mood: DrawingMood }
-  | { kind: "Undo" };
+  | { kind: "Undo" }
+  | { kind: "Emote"; idx: number };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -681,6 +682,9 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
     case "Undo":
       w.variant(7);
       break;
+    case "Emote":
+      w.variant(8).u8(msg.idx);
+      break;
   }
   return w.bytes();
 }
@@ -713,6 +717,8 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
       return { kind: "React", mood: readDrawingMood(r) };
     case 7:
       return { kind: "Undo" };
+    case 8:
+      return { kind: "Emote", idx: r.u8() };
     default:
       throw new Error(`unknown ClientMsg variant: ${v}`);
   }
@@ -749,7 +755,8 @@ export type ServerMsg =
   | { kind: "WordOptions"; words: string[]; deadline_ms: number }
   | { kind: "DrawerWord"; word: string; duration_ms: number }
   | { kind: "JoinPending" }
-  | { kind: "DrawingFeedback"; mood: DrawingMood };
+  | { kind: "DrawingFeedback"; mood: DrawingMood }
+  | { kind: "Emote"; player: number; idx: number };
 
 export function encodeServerMsg(msg: ServerMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -817,6 +824,9 @@ function writeServerMsg(w: Writer, msg: ServerMsg): void {
     case "DrawingFeedback":
       w.variant(12);
       writeDrawingMood(w, msg.mood);
+      return;
+    case "Emote":
+      w.variant(13).varint(msg.player).u8(msg.idx);
       return;
   }
 }
@@ -889,6 +899,8 @@ function readServerMsg(r: Reader): ServerMsg {
       return { kind: "JoinPending" };
     case 12:
       return { kind: "DrawingFeedback", mood: readDrawingMood(r) };
+    case 13:
+      return { kind: "Emote", player: r.varint(), idx: r.u8() };
     default:
       throw new Error(`unknown ServerMsg variant: ${v}`);
   }

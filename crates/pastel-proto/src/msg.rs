@@ -145,6 +145,12 @@ pub enum ClientMsg {
     /// anyone in Lobby free-draw. Server broadcasts `StrokeRemoved` to
     /// every client so the stroke disappears for everyone.
     Undo,
+    /// A floating emoji reaction. `idx` selects from a fixed client-side set
+    /// (validated server-side); the server rebroadcasts it so everyone sees
+    /// it drift up over the canvas.
+    Emote {
+        idx: u8,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -211,5 +217,11 @@ pub enum ServerMsg {
     /// lost" banner. Re-sent only when the dominant mood changes.
     DrawingFeedback {
         mood: DrawingMood,
+    },
+    /// Broadcast floating emoji reaction from a player. `idx` selects from the
+    /// fixed client-side emoji set.
+    Emote {
+        player: PlayerId,
+        idx: u8,
     },
 }
