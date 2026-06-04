@@ -2849,13 +2849,41 @@ canvas {
   }
   .banner-hint { font-size: 11px; }
 
-  /* landing: tighten for small screens */
-  .landing { padding: 16px; }
-  .landing-inner { width: 100%; }
+  /* Landing must scroll on phones. The viewport lock above is only for the
+     in-game view (canvas + chat); on the landing it clips the long page to one
+     screen and traps the top off-screen. Exempt the landing from the lock. */
+  html:has(.landing),
+  body:has(.landing) {
+    overflow-y: auto;
+    height: auto;
+  }
+  .landing {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    align-items: flex-start;
+    padding: 22px 16px 40px;
+  }
+  .landing-inner { width: 100%; gap: 8px; }
+  .landing-logo { font-size: 46px !important; }
+  .landing-tag { font-size: 14px; margin: 0 0 14px; }
+  .landing-how { margin: -2px 0 4px; }
+  .landing-identity { margin: 0 auto 14px; }
+  .landing-form { gap: 14px; }
+  .mode-grid-landing { gap: 8px; }
+  .mode-tile { padding: 12px 6px 10px; }
+  .mode-tile-label { font-size: 13.5px; }
+  .mode-tile-desc { font-size: 10.5px; }
+  .mode-tile-meta { font-size: 9.5px; }
   .landing-cta { width: 100%; padding: 14px; }
   .landing-join { width: 100%; }
   .landing-divider { width: 80%; }
   .landing-code-input { min-width: 0; }
+  /* Footer clusters: tighter + wrap cleanly instead of overflowing. */
+  .landing-credits,
+  .landing-support,
+  .landing-bug { font-size: 11.5px; gap: 6px; }
+  .landing-star { font-size: 12.5px; }
 
   /* picker: scrollable, full width */
   .picker { padding: 10px; }
