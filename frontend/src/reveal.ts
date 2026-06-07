@@ -12,8 +12,12 @@ export interface RevealItem {
 const wait = (ms: number): Promise<void> =>
   new Promise((r) => window.setTimeout(r, ms));
 
+// Only one replay overlay at a time (the "Replay" button can be tapped twice).
+let replayOpen = false;
+
 export function openDrawingReplay(items: RevealItem[]): void {
-  if (items.length === 0) return;
+  if (items.length === 0 || replayOpen) return;
+  replayOpen = true;
 
   const overlay = document.createElement("div");
   overlay.className = "reveal reveal--manual";
@@ -38,6 +42,7 @@ export function openDrawingReplay(items: RevealItem[]): void {
   let cancelled = false;
   const close = (): void => {
     cancelled = true;
+    replayOpen = false;
     overlay.classList.remove("reveal--in");
     window.setTimeout(() => overlay.remove(), 240);
   };
@@ -54,7 +59,7 @@ export function openDrawingReplay(items: RevealItem[]): void {
         ? `"${item.word}" by ${item.drawerName}`
         : `"${item.word}"`;
       progress.textContent = `${i + 1} / ${items.length}`;
-      await replayDrawing(canvas, item.records, 2200);
+      await replayDrawing(canvas, item.records, 2200, () => cancelled);
       if (cancelled) return;
       await wait(800); // hold the finished drawing before the next one
     }

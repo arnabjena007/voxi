@@ -1319,6 +1319,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       if (startingFreshGame) {
         gameState.scores.clear();
         prevScores.clear();
+        correctGuessers.clear();
         galleryItems.length = 0;
         voteOpen = false;
         myVote = null;

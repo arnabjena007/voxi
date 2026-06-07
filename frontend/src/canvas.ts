@@ -692,6 +692,7 @@ export function replayDrawing(
   target: HTMLCanvasElement,
   records: DrawingRecord[],
   durationMs = 2200,
+  shouldCancel?: () => boolean,
 ): Promise<void> {
   return new Promise((resolve) => {
     const ctx = target.getContext("2d");
@@ -719,6 +720,10 @@ export function replayDrawing(
     };
     const start = performance.now();
     const tick = (): void => {
+      if (shouldCancel?.()) {
+        resolve();
+        return;
+      }
       const frac = Math.min(1, (performance.now() - start) / durationMs);
       const targetN = Math.floor(frac * totalPoints);
       setup();

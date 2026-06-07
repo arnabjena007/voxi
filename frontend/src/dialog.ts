@@ -49,7 +49,13 @@ export function showConfirm(opts: ConfirmOpts): Promise<boolean> {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") cleanup(false);
-      if (e.key === "Enter") cleanup(true);
+      // Enter confirms, unless the user has tabbed to Cancel (don't fire a
+      // destructive action out from under a focused Cancel button).
+      if (e.key === "Enter") {
+        const onCancel =
+          document.activeElement === overlay.querySelector("#dialogCancel");
+        cleanup(!onCancel);
+      }
     };
     document.addEventListener("keydown", onKey);
     overlay.querySelector("#dialogCancel")?.addEventListener("click", () =>

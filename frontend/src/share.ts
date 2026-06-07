@@ -233,7 +233,14 @@ function presentShare(
 
   const close = (): void => {
     overlay.classList.remove("share-modal--in");
-    overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+    let removed = false;
+    const remove = (): void => {
+      if (removed) return;
+      removed = true;
+      overlay.remove();
+    };
+    overlay.addEventListener("transitionend", remove, { once: true });
+    window.setTimeout(remove, 300); // fallback if no transition fires
   };
   overlay.addEventListener("pointerdown", (e) => {
     if (e.target === overlay) close();

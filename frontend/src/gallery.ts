@@ -170,7 +170,14 @@ export function openGallery(
     if (closed) return;
     closed = true;
     overlay.classList.remove("gallery-modal--in");
-    overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+    let removed = false;
+    const remove = (): void => {
+      if (removed) return;
+      removed = true;
+      overlay.remove();
+    };
+    overlay.addEventListener("transitionend", remove, { once: true });
+    window.setTimeout(remove, 300); // fallback if no transition fires
     onClose?.();
   };
   overlay.addEventListener("pointerdown", (e) => {

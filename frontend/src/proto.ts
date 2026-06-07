@@ -882,7 +882,11 @@ export function decodeServerMsg(bytes: Uint8Array): ServerMsg {
   return readServerMsg(r);
 }
 
-function readServerMsg(r: Reader): ServerMsg {
+// The server only ever sends a flat Resume (no Resume inside a Resume), so cap
+// recursion here: a nested-Resume frame can't stack-overflow the decoder.
+const MAX_RESUME_DEPTH = 1;
+
+function readServerMsg(r: Reader, depth = 0): ServerMsg {
   const v = r.variant();
   switch (v) {
     case 0:
@@ -894,7 +898,10 @@ function readServerMsg(r: Reader): ServerMsg {
         lk_token: r.str(),
       };
     case 1:
-      return { kind: "Resume", events: r.vec(readServerMsg) };
+      if (depth >= MAX_RESUME_DEPTH) {
+        throw new Error("postcard: Resume nested too deep");
+      }
+      return { kind: "Resume", events: r.vec((rr) => readServerMsg(rr, depth + 1)) };
     case 2:
       return {
         kind: "Stroke",
