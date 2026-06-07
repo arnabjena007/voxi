@@ -742,6 +742,10 @@ function modeBadge(): string {
 // Open the gallery with the current vote state, tracking the handle so vote
 // results can be revealed live and reopening restores state.
 function showGallery(): void {
+  // Don't stack galleries: the auto-open countdown and the "See the drawings"
+  // button can both fire. Close any existing one first so we never leak a modal
+  // (with its listeners) or leave the vote reveal pointing at a stale overlay.
+  galleryHandle?.close();
   galleryHandle = openGallery(
     galleryItems,
     {

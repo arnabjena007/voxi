@@ -582,9 +582,14 @@ impl Room {
             },
         );
 
-        // Late joiners during an active game are appended to the rotation
-        // so they get a turn at the end of each remaining round.
-        if !matches!(self.game.phase, GamePhase::Lobby | GamePhase::GameOver) {
+        // Late joiners during an active game are appended to the rotation so
+        // they get a turn at the end of each remaining round. Guard against a
+        // same-token rejoin: `handle_leave` keeps the player in `rotation`
+        // (the schedule collapses dead slots via the alive-check), so pushing
+        // again here would duplicate the slot and make them draw twice a round.
+        if !matches!(self.game.phase, GamePhase::Lobby | GamePhase::GameOver)
+            && !self.game.rotation.contains(&id)
+        {
             self.game.rotation.push(id);
             self.game.scores.entry(id).or_insert(0);
         }
@@ -698,6 +703,20 @@ impl Room {
                 seq,
                 event: GameEvent::HostChanged { new_host: nh },
             });
+        }
+
+        // If a "best drawing" vote is open (GameOver), drop the leaver's vote so
+        // the tally and the early-close threshold reflect only players still
+        // here. Close immediately if everyone remaining has now voted.
+        if self.game.voting.is_some() {
+            if let Some(v) = self.game.voting.as_mut() {
+                v.votes.remove(&player);
+            }
+            let humans = self.players.values().filter(|s| !s.is_bot).count();
+            let votes_in = self.game.voting.as_ref().map_or(0, |v| v.votes.len());
+            if humans > 0 && votes_in >= humans {
+                self.close_voting();
+            }
         }
 
         // If a game is in flight and we're down to fewer than 2 players,

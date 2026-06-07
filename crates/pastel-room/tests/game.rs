@@ -49,6 +49,20 @@ async fn join(h: &RoomHandle, name: &str) -> JoinResult {
     }
 }
 
+async fn join_token(h: &RoomHandle, name: &str, token: &str) -> JoinResult {
+    let hello = Hello {
+        room: code(),
+        name: name.into(),
+        resume_from: None,
+        client_token: Some(token.into()),
+        avatar: Avatar::default(),
+    };
+    match h.join(hello).await.unwrap() {
+        JoinOutcome::Joined(j) => j,
+        JoinOutcome::Pending { .. } => panic!("unexpected pending join in test helper"),
+    }
+}
+
 async fn next_broadcast(
     rx: &mut BroadcastRx<std::sync::Arc<ServerMsg>>,
 ) -> std::sync::Arc<ServerMsg> {
@@ -631,4 +645,165 @@ async fn draw_window_timeout_advances_to_round_end() {
         )
     })
     .await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn same_token_rejoin_mid_game_does_not_duplicate_rotation() {
+    // Regression: handle_leave keeps a player in `rotation` (dead slots collapse
+    // via the alive-check), so a same-token rejoin mid-game used to push them
+    // again and they drew twice every round. With 3 players, round 0 must have
+    // exactly 3 turns by 3 distinct drawers even after one disconnects + rejoins.
+    let h = spawn_with(fixed_words());
+    let mut alice = join_token(&h, "alice", "tok-a").await;
+    let mut bob = join_token(&h, "bob", "tok-b").await;
+    let mut carol = join_token(&h, "carol", "tok-c").await;
+    let _ = next_unicast(&mut alice.unicast_rx).await;
+    let _ = next_unicast(&mut bob.unicast_rx).await;
+    let _ = next_unicast(&mut carol.unicast_rx).await;
+
+    h.send(
+        alice.you,
+        ClientMsg::Game(GameAction::Start {
+            mode: GameMode::Sprint,
+        }),
+    )
+    .await;
+
+    let mut round0_drawers: Vec<u32> = Vec::new();
+    let mut reconnected = false;
+    loop {
+        let pick = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. } | GameEvent::GameOver { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        let (drawer, round_index) = match pick.as_ref() {
+            ServerMsg::Game {
+                event: GameEvent::GameOver { .. },
+                ..
+            } => break,
+            ServerMsg::Game {
+                event:
+                    GameEvent::WordPickStarted {
+                        drawer,
+                        round_index,
+                        ..
+                    },
+                ..
+            } => (*drawer, *round_index),
+            o => panic!("expected WordPickStarted/GameOver, got {o:?}"),
+        };
+        if round_index >= 1 {
+            break; // round 0 fully accounted for
+        }
+        round0_drawers.push(drawer);
+
+        // Keep the other queues moving.
+        wait_broadcast_for(&mut bob.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        wait_broadcast_for(&mut carol.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+
+        // Drawer picks word 0 (drain its WordOptions unicast first).
+        if drawer == alice.you {
+            let _ = next_unicast(&mut alice.unicast_rx).await;
+        } else if drawer == bob.you {
+            let _ = next_unicast(&mut bob.unicast_rx).await;
+        } else {
+            let _ = next_unicast(&mut carol.unicast_rx).await;
+        }
+        h.send(drawer, ClientMsg::Game(GameAction::PickWord(0)))
+            .await;
+
+        for rx in [
+            &mut alice.broadcast_rx,
+            &mut bob.broadcast_rx,
+            &mut carol.broadcast_rx,
+        ] {
+            wait_broadcast_for(rx, |m| {
+                matches!(
+                    m,
+                    ServerMsg::Game {
+                        event: GameEvent::RoundStart { .. },
+                        ..
+                    }
+                )
+            })
+            .await;
+        }
+        // Drain the drawer's DrawerWord unicast so a later turn isn't blocked behind it.
+        if drawer == alice.you {
+            let _ = next_unicast(&mut alice.unicast_rx).await;
+        } else if drawer == bob.you {
+            let _ = next_unicast(&mut bob.unicast_rx).await;
+        } else {
+            let _ = next_unicast(&mut carol.unicast_rx).await;
+        }
+
+        // Let the draw window time out -> RoundEnd.
+        tokio::time::advance(Duration::from_secs(90)).await;
+        for rx in [
+            &mut alice.broadcast_rx,
+            &mut bob.broadcast_rx,
+            &mut carol.broadcast_rx,
+        ] {
+            wait_broadcast_for(rx, |m| {
+                matches!(
+                    m,
+                    ServerMsg::Game {
+                        event: GameEvent::RoundEnd { .. },
+                        ..
+                    }
+                )
+            })
+            .await;
+        }
+
+        // After the first turn (nobody currently drawing), bob disconnects and
+        // reconnects with the same token. The rotation must not grow.
+        if !reconnected {
+            reconnected = true;
+            h.leave(bob.you).await;
+            bob = join_token(&h, "bob", "tok-b").await;
+            let _ = next_unicast(&mut bob.unicast_rx).await; // Welcome
+        }
+
+        tokio::time::advance(Duration::from_secs(6)).await; // reveal -> next turn
+    }
+
+    assert!(reconnected, "test never reconnected bob");
+    assert_eq!(
+        round0_drawers.len(),
+        3,
+        "round 0 should have exactly 3 turns, got {round0_drawers:?}"
+    );
+    let mut unique = round0_drawers.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(
+        unique.len(),
+        3,
+        "round 0 had a duplicate drawer (rotation grew on rejoin): {round0_drawers:?}"
+    );
 }
