@@ -634,6 +634,16 @@ Made with:
 
 ## What's next
 
-Team mode. Two teams play in parallel, each with their own canvas, word,
-and drawer rotation. Stroke broadcasts are team-scoped. The wire already
-carries `TeamId` fields. See `.docs/notes/ROADMAP.md` for the full plan.
+Nearer-term, building on what's already here:
+
+- **Public leaderboard** off the Turso play-tracking, plus a "drawings of the
+  day" wall reusing the share/gallery pipeline.
+- **Custom & themed word packs.** Host picks a category (or pastes their own
+  list); same plumbing as the existing easy/medium/hard tiers.
+- **Solo practice vs bots** so a lone host isn't stuck waiting for friends.
+
+Bigger and further out: **team mode** (two teams drawing in parallel with
+team-scoped stroke broadcasts). It's a real undertaking, not a quick add: the
+wire has no team support today and the one-canvas, broadcast-to-everyone room
+actor would need parallel sub-games and per-team fanout. Worth doing only if
+there's demand.
