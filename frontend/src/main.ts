@@ -12,8 +12,7 @@ import {
   type GalleryHandle,
   type VoteOutcome,
 } from "./gallery";
-import { mountEmoteBar, floatEmote } from "./emotes";
-import {
+import { EMOTES, mountEmoteBar } from "./emotes";import {
   enableBg,
   enableSfx,
   isBgEnabled,
@@ -206,6 +205,7 @@ const pendingJoiners = new Map<number, string>();
 // identity.
 const nameHistory = new Map<number, string>();
 const avatarHistory = new Map<number, import("./proto").Avatar>();
+const latestPlayerEmotes = new Map<number, { idx: number; timeout: number }>();
 let youId: number | null = null;
 
 function recordName(id: number, name: string): void {
@@ -320,12 +320,18 @@ function renderPlayers(): void {
       voiceRequested && p.id !== youId
         ? `<button class="players-mute${mutedSpeakerNames.has(p.name) ? " players-mute--on" : ""}" data-target-name="${escapeHtml(p.name)}" title="${mutedSpeakerNames.has(p.name) ? `Unmute ${escapeHtml(p.name)}` : `Mute ${escapeHtml(p.name)}`}" aria-label="Toggle mute for ${escapeHtml(p.name)}"><i class="${mutedSpeakerNames.has(p.name) ? "ph-fill ph-speaker-slash" : "ph ph-speaker-high"}" aria-hidden="true"></i></button>`
         : "";
+            const emoteState = latestPlayerEmotes.get(p.id);
+    const emoteTag =
+      emoteState !== undefined
+        ? `<span class="players-emote" aria-label="Recent emote">${EMOTES[emoteState.idx] ?? ""}</span>`
+        : "";
     const correctClass = correctGuessers.has(p.id) ? " players-li--correct" : "";
     const speakingClass = speakingNames.has(p.name) ? " players-li--speaking" : "";
     return `<li class="${correctClass}${speakingClass}" data-player-name="${escapeHtml(p.name)}">
       ${rankTag}
       <span class="players-avatar-wrap">
         <span class="players-avatar">${renderAvatar(p.avatar)}</span>
+        ${emoteTag}
         ${kickBtn}
       </span>
       <div class="players-info">
@@ -655,7 +661,6 @@ if (settingsEl && settingsGrip) makeSettingsDraggable(settingsEl, settingsGrip);
 const canvasWrapEl = document.querySelector<HTMLElement>(".canvas-wrap");
 emoteBar = canvasWrapEl
   ? mountEmoteBar(canvasWrapEl, (idx) => {
-      floatEmote(idx, canvasWrapEl);
       conn.send({ kind: "Emote", idx });
     })
   : null;
@@ -1291,10 +1296,19 @@ function handleMessage(msg: ServerMsg): void {
       drawerFeedback = msg.mood;
       updateBanner();
       return;
-    case "Emote":
-      // Our own emotes already floated on click; only float others' here.
-      if (msg.player !== youId && canvasWrapEl) floatEmote(msg.idx, canvasWrapEl);
+      case "Emote": {
+      const prev = latestPlayerEmotes.get(msg.player);
+      if (prev) window.clearTimeout(prev.timeout);
+
+      const timeout = window.setTimeout(() => {
+        latestPlayerEmotes.delete(msg.player);
+        renderPlayers();
+      }, 2200);
+
+      latestPlayerEmotes.set(msg.player, { idx: msg.idx, timeout });
+      renderPlayers();
       return;
+    }
   }
 }
 
