@@ -74,19 +74,32 @@ pub fn max_hints(word: &str) -> usize {
 /// total draw window; `rank` is 0 for the first guesser this round, 1 for the
 /// second, and so on. Subsequent guessers earn `RANK_MULTIPLIER^rank` of the
 /// base. Score is clamped at `MIN_SCORE_PER_GUESS` before the multiplier.
-pub fn guess_score(remaining_ms: u32, window_ms: u32, rank: usize) -> u32 {
+pub fn rank_multiplier(player_count: usize) -> f32 {
+    // With 2–3 guessers use 0.85; with 4–6 use 0.75; 7+ keep 0.70
+    match player_count {
+        0..=3  => 0.85,
+        4..=6  => 0.75,
+        _      => 0.70,
+    }
+}
+
+pub fn guess_score(remaining_ms: u32, window_ms: u32, rank: usize, player_count: usize) -> u32 {
     if window_ms == 0 {
         return MIN_SCORE_PER_GUESS;
     }
     let base = ((100.0_f32 * remaining_ms as f32) / window_ms as f32).round() as u32;
     let base = base.max(MIN_SCORE_PER_GUESS);
-    let mult = RANK_MULTIPLIER.powi(rank as i32);
+    let mult = rank_multiplier(player_count).powi(rank as i32);
     (base as f32 * mult).round() as u32
 }
 
 /// Drawer reward at round end: a fraction of the guessers' total.
-pub fn drawer_bonus(total_guesser_points: u32) -> u32 {
-    (total_guesser_points as f32 * DRAWER_BONUS_FRACTION).round() as u32
+pub fn drawer_bonus(total_guesser_points: u32, anyone_guessed: bool) -> u32 {
+    if !anyone_guessed {
+        return 0;
+    }
+    let from_guessers = (total_guesser_points as f32 * DRAWER_BONUS_FRACTION).round() as u32;
+    from_guessers.max(MIN_SCORE_PER_GUESS) // floor so drawer always earns ≥ 25 if ≥1 guessed
 }
 
 /// The rotation of drawer order for a game. Stable across rounds. We cycle
@@ -219,32 +232,49 @@ mod tests {
 
     #[test]
     fn guess_score_full_time_is_around_100() {
-        let s = guess_score(80_000, 80_000, 0);
+        let s = guess_score(80_000, 80_000, 0, 4);
         assert_eq!(s, 100);
     }
 
     #[test]
     fn guess_score_clamps_to_min() {
-        let s = guess_score(0, 80_000, 0);
+        let s = guess_score(0, 80_000, 0, 4);
         assert_eq!(s, MIN_SCORE_PER_GUESS);
     }
 
     #[test]
     fn guess_score_decays_by_rank() {
-        let base = guess_score(80_000, 80_000, 0);
-        let rank1 = guess_score(80_000, 80_000, 1);
-        let rank2 = guess_score(80_000, 80_000, 2);
+        let base = guess_score(80_000, 80_000, 0, 4);
+        let rank1 = guess_score(80_000, 80_000, 1, 4);
+        let rank2 = guess_score(80_000, 80_000, 2, 4);
         assert!(rank1 < base);
         assert!(rank2 < rank1);
-        // 100 * 0.49 = 49
-        assert_eq!(rank2, 49);
+        // player_count=4 → multiplier=0.75; 100 × 0.75² = 56.25 → rounds to 56
+        assert_eq!(rank2, 56);
     }
 
     #[test]
+    fn drawer_bonus_floors_at_min_when_guessed() {
+    // Anything where 50% < 25 hits the floor
+    assert_eq!(drawer_bonus(7, true), MIN_SCORE_PER_GUESS);// 3.5 → floor
+    assert_eq!(drawer_bonus(48, true), MIN_SCORE_PER_GUESS);// 24 → floor
+    assert_eq!(drawer_bonus(50, true), 25);// exactly at boundary
+    assert_eq!(drawer_bonus(52, true), 26);// just above, no floor
+}
+
+    #[test]
     fn drawer_bonus_is_half_total() {
-        assert_eq!(drawer_bonus(100), 50);
-        assert_eq!(drawer_bonus(7), 4);
-    }
+    assert_eq!(drawer_bonus(100, true), 50);
+    // 7 * 0.5 = 3.5 → 4, but floor clamps to MIN_SCORE_PER_GUESS (25)
+    assert_eq!(drawer_bonus(7, true), MIN_SCORE_PER_GUESS);
+}
+
+    #[test]
+    fn drawer_bonus_zero_when_nobody_guessed() {
+    assert_eq!(drawer_bonus(0, false), 0);
+    // Even if points somehow non-zero, no guesser = no bonus
+    assert_eq!(drawer_bonus(100, false), 0);
+}
 
     #[test]
     fn rotation_wraps_round_robin() {

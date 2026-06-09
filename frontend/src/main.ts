@@ -1427,6 +1427,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       // Points earned this round = new cumulative total minus the prior total.
       // Compute BEFORE applyScores overwrites gameState.scores.
       const deltas = new Map<number, number>();
+      for (const id of players.keys()) deltas.set(id, 0);
       for (const [id, total] of event.scores) {
         deltas.set(id, total - (gameState.scores.get(id) ?? 0));
       }

@@ -1122,7 +1122,8 @@ impl Room {
                     .unwrap_or(DRAW_WINDOW)
                     .as_millis() as u32;
                 let rank = correct_guessers.len();
-                let score = guess_score(remaining_ms, window_ms, rank);
+                let player_count = self.players.len();
+                let score = guess_score(remaining_ms, window_ms, rank, player_count);
 
                 scores_this_round.insert(player, score);
                 correct_guessers.push(player);
@@ -1442,7 +1443,7 @@ impl Room {
         let bonus = if matches!(reason, EndRoundReason::Aborted) {
             0
         } else {
-            drawer_bonus(total)
+            drawer_bonus(total, !scores_this_round.is_empty()) // pass whether anyone guessed
         };
 
         for (pid, delta) in &scores_this_round {
