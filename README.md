@@ -274,7 +274,7 @@ Test highlights:
 
 ## Load test
 
-### Local (loopback)
+### Local (loopback). 
 
 1000 concurrent WebSocket clients, 125 rooms, 30 seconds, 10 strokes/s each:
 

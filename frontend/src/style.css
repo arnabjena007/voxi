@@ -722,42 +722,6 @@ canvas {
   margin: 14px 0 0 0;
 }
 
-.mode-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.mode-card {
-  border: 1px solid var(--line);
-  background: #ffffff;
-  border-radius: 10px;
-  padding: 16px 12px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  font: inherit;
-  transition: border-color 120ms ease-out, transform 120ms ease-out,
-              background-color 120ms ease-out;
-}
-
-.mode-card:hover {
-  border-color: var(--ink);
-  transform: translateY(-2px);
-}
-
-.mode-label {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.mode-meta {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
 .overlay-card--wide {
   max-width: 92%;
   min-width: min(560px, 92%);
@@ -1033,14 +997,6 @@ canvas {
   text-transform: uppercase;
 }
 
-.word-pick-eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
 .word-pick-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1118,29 +1074,6 @@ canvas {
   font-variant-numeric: tabular-nums;
 }
 
-.podium-row {
-  display: grid;
-  grid-template-columns: 28px 36px 1fr auto;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: var(--bg);
-  align-items: center;
-}
-
-.podium-1 { background: #fff5d4; }
-.podium-2 { background: #ecedf0; }
-.podium-3 { background: #f7e6db; }
-
-.podium-rank {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.podium-name { text-align: left; font-weight: 500; }
-.podium-score { font-weight: 700; }
-
 /* ---------- game-over scoreboard ---------- */
 
 .overlay-card--gameover {
@@ -1152,38 +1085,6 @@ canvas {
   color: var(--muted);
   font-size: 13px;
   margin: -8px 0 6px;
-}
-
-.gameover-winner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ink);
-  margin: -4px 0 10px;
-}
-
-.gameover-winner-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  overflow: hidden;
-  display: inline-flex;
-}
-
-.gameover-winner-avatar svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.mode-pick-desc {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: -2px;
 }
 
 .go-board {
@@ -1792,24 +1693,6 @@ canvas {
   font-weight: 600;
 }
 
-.podium-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--bg);
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-}
-
-.podium-avatar svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
 /* Canvas event float: announces player-specific actions over the drawing. */
 .canvas-event-host {
   position: fixed;
@@ -1866,11 +1749,6 @@ canvas {
 .canvas-event--out {
   opacity: 0;
   transform: translateY(-8px) scale(0.96);
-}
-
-.canvas-event--celebrate {
-  background: #fff4cc;
-  border-color: #f0d77a;
 }
 
 /* ---------- round intro ---------- */
@@ -2102,31 +1980,6 @@ canvas {
   font-weight: 600;
   margin-left: 4px;
   text-transform: none;
-}
-
-.players-invite {
-  border: 2px solid #8ecac4;
-  background: var(--surface);
-  color: var(--ink);
-  padding: 4px 12px;
-  border-radius: 999px;
-  font: inherit;
-  font-family: var(--font-display);
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 0 #6bb0aa;
-  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
-}
-
-.players-invite:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 0 #6bb0aa;
-}
-
-.players-invite:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 0 #6bb0aa;
 }
 
 .pending-list {
@@ -3050,12 +2903,6 @@ canvas {
 .mtool-panel[data-open="true"] {
   display: flex;
   animation: mtool-pop 140ms ease-out;
-}
-
-.mtool-panel--dragging {
-  animation: none;
-  transition: none;
-  cursor: grabbing;
 }
 
 @keyframes mtool-pop {
@@ -4031,59 +3878,6 @@ canvas {
   box-shadow: 0 0 0 3px rgba(42, 42, 46, 0.08);
 }
 
-.modes {
-  border: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr;
-}
-
-.modes legend {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 8px;
-  padding: 0;
-}
-
-.mode-pick {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 120ms ease-out, background-color 120ms ease-out;
-}
-
-.mode-pick input[type="radio"] {
-  accent-color: var(--ink);
-}
-
-.mode-pick:hover {
-  border-color: var(--ink);
-}
-
-.mode-pick--on {
-  border-color: var(--ink);
-  background: #faf6ec;
-}
-
-.mode-pick-label {
-  font-weight: 600;
-}
-
-.mode-pick-meta {
-  font-size: 12px;
-  color: var(--muted);
-}
-
 .landing-divider {
   display: flex;
   align-items: center;
@@ -4916,46 +4710,6 @@ canvas {
   animation: reconnect-spin 0.9s linear infinite;
 }
 
-/* --- result actions (round end): replay + share --- */
-.result-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 16px;
-}
-
-.result-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #ffffff;
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 120ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.result-action i { font-size: 16px; }
-.result-action:hover {
-  border-color: #e8b4c8;
-  box-shadow: 0 2px 10px rgba(232, 180, 200, 0.22);
-  transform: translateY(-1px);
-}
-.result-action:active { transform: translateY(0); }
-.result-replay { color: #2f8f6b; }
-.result-share { color: #b76e79; }
-
-/* Replay: drop the round-end card so the canvas animation shows underneath. */
-#gameOverlay.game-overlay--replaying {
-  opacity: 0;
-  pointer-events: none;
-}
-
 /* --- game over actions --- */
 .gameover-actions {
   display: flex;
@@ -4964,24 +4718,6 @@ canvas {
   align-items: center;
   margin-top: 14px;
 }
-
-.gallery-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 16px;
-  border-radius: 999px;
-  border: 1px dashed var(--line);
-  background: transparent;
-  color: var(--muted);
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 140ms ease, border-color 140ms ease;
-}
-.gallery-btn:hover { color: var(--ink); border-color: var(--ink); }
-.gallery-btn i { font-size: 16px; }
 
 /* --- share modal --- */
 .share-modal {
@@ -5178,7 +4914,6 @@ canvas {
 @media (max-width: 760px) {
   .gallery-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
   .gallery-sheet { width: 100%; max-height: 88dvh; }
-  .result-actions { flex-wrap: wrap; }
   /* On touch there's no hover, so always show the share affordance. */
   .gallery-share-hint { opacity: 0.85; }
 }
@@ -5187,30 +4922,32 @@ canvas {
 }
 
 /* --- floating emoji reactions --- */
+/* Viewport-fixed so emotes can bubble up from a player's avatar (in the
+   sidebar / top strip) without being clipped to the canvas. */
 .emote-float-host {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 24;
-  border-radius: var(--radius);
+  z-index: 40;
 }
 
 .emote-float {
   position: absolute;
-  bottom: 12%;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 1;
   will-change: transform, opacity;
-  animation: emote-rise var(--dur, 2400ms) ease-out forwards;
+  /* Each float's left/top is set inline to the reactor's avatar centre. */
+  transform: translate(-50%, -50%);
+  animation: emote-rise var(--dur, 1800ms) ease-out forwards;
 }
 
 @keyframes emote-rise {
-  0% { opacity: 0; transform: translateY(10px) scale(0.6); }
-  15% { opacity: 1; transform: translateY(0) scale(1.1) rotate(var(--rot)); }
+  0% { opacity: 0; transform: translate(-50%, -8px) scale(0.5); }
+  18% { opacity: 1; transform: translate(-50%, -22px) scale(1.15) rotate(var(--rot)); }
   100% {
     opacity: 0;
-    transform: translate(var(--drift), -220px) scale(1) rotate(var(--rot));
+    transform: translate(calc(-50% + var(--drift)), -150px) scale(1) rotate(var(--rot));
   }
 }
 
@@ -5260,7 +4997,7 @@ canvas {
 @media (max-width: 760px) {
   .emote-btn { width: 34px; height: 34px; font-size: 20px; }
   .emote-bar { bottom: 6px; }
-  .emote-float { font-size: 30px; }
+  .emote-float { font-size: 24px; }
 }
 
 /* --- game-over reveal cinematic --- */
@@ -5319,20 +5056,6 @@ canvas {
   font-weight: 600;
   color: #ffffff;
   text-align: center;
-}
-
-.reveal-count {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  color: #ffffff;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .reveal-close {

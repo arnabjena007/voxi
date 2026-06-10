@@ -12,7 +12,8 @@ import {
   type GalleryHandle,
   type VoteOutcome,
 } from "./gallery";
-import { EMOTES, mountEmoteBar } from "./emotes";import {
+import { EMOTES, mountEmoteBar, floatEmote } from "./emotes";
+import {
   enableBg,
   enableSfx,
   isBgEnabled,
@@ -320,14 +321,14 @@ function renderPlayers(): void {
       voiceRequested && p.id !== youId
         ? `<button class="players-mute${mutedSpeakerNames.has(p.name) ? " players-mute--on" : ""}" data-target-name="${escapeHtml(p.name)}" title="${mutedSpeakerNames.has(p.name) ? `Unmute ${escapeHtml(p.name)}` : `Mute ${escapeHtml(p.name)}`}" aria-label="Toggle mute for ${escapeHtml(p.name)}"><i class="${mutedSpeakerNames.has(p.name) ? "ph-fill ph-speaker-slash" : "ph ph-speaker-high"}" aria-hidden="true"></i></button>`
         : "";
-            const emoteState = latestPlayerEmotes.get(p.id);
+    const emoteState = latestPlayerEmotes.get(p.id);
     const emoteTag =
       emoteState !== undefined
         ? `<span class="players-emote" aria-label="Recent emote">${EMOTES[emoteState.idx] ?? ""}</span>`
         : "";
     const correctClass = correctGuessers.has(p.id) ? " players-li--correct" : "";
     const speakingClass = speakingNames.has(p.name) ? " players-li--speaking" : "";
-    return `<li class="${correctClass}${speakingClass}" data-player-name="${escapeHtml(p.name)}">
+    return `<li class="${correctClass}${speakingClass}" data-player-id="${p.id}" data-player-name="${escapeHtml(p.name)}">
       ${rankTag}
       <span class="players-avatar-wrap">
         <span class="players-avatar">${renderAvatar(p.avatar)}</span>
@@ -1296,17 +1297,25 @@ function handleMessage(msg: ServerMsg): void {
       drawerFeedback = msg.mood;
       updateBanner();
       return;
-      case "Emote": {
+    case "Emote": {
+      // Badge: pop the latest emote on the reactor's avatar for ~2.2s.
       const prev = latestPlayerEmotes.get(msg.player);
       if (prev) window.clearTimeout(prev.timeout);
-
       const timeout = window.setTimeout(() => {
         latestPlayerEmotes.delete(msg.player);
         renderPlayers();
       }, 2200);
-
       latestPlayerEmotes.set(msg.player, { idx: msg.idx, timeout });
       renderPlayers();
+      // Float: bubble the same emoji up out of that avatar (energy, no canvas
+      // occlusion). Done after the re-render so the avatar element exists.
+      const avatar = playersEl.querySelector<HTMLElement>(
+        `li[data-player-id="${msg.player}"] .players-avatar`,
+      );
+      if (avatar) {
+        const r = avatar.getBoundingClientRect();
+        floatEmote(msg.idx, { x: r.left + r.width / 2, y: r.top });
+      }
       return;
     }
   }
