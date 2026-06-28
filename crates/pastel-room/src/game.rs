@@ -79,9 +79,9 @@ pub fn max_hints(word: &str) -> usize {
 pub fn rank_multiplier(player_count: usize) -> f32 {
     // With 2–3 guessers use 0.85; with 4–6 use 0.75; 7+ keep 0.70
     match player_count {
-        0..=3  => 0.85,
-        4..=6  => 0.75,
-        _      => 0.70,
+        0..=3 => 0.85,
+        4..=6 => 0.75,
+        _ => 0.70,
     }
 }
 
@@ -257,26 +257,26 @@ mod tests {
 
     #[test]
     fn drawer_bonus_floors_at_min_when_guessed() {
-    // Anything where 50% < 25 hits the floor
-    assert_eq!(drawer_bonus(7, true), MIN_SCORE_PER_GUESS);// 3.5 → floor
-    assert_eq!(drawer_bonus(48, true), MIN_SCORE_PER_GUESS);// 24 → floor
-    assert_eq!(drawer_bonus(50, true), 25);// exactly at boundary
-    assert_eq!(drawer_bonus(52, true), 26);// just above, no floor
-}
+        // Anything where 50% < 25 hits the floor
+        assert_eq!(drawer_bonus(7, true), MIN_SCORE_PER_GUESS); // 3.5 → floor
+        assert_eq!(drawer_bonus(48, true), MIN_SCORE_PER_GUESS); // 24 → floor
+        assert_eq!(drawer_bonus(50, true), 25); // exactly at boundary
+        assert_eq!(drawer_bonus(52, true), 26); // just above, no floor
+    }
 
     #[test]
     fn drawer_bonus_is_half_total() {
-    assert_eq!(drawer_bonus(100, true), 50);
-    // 7 * 0.5 = 3.5 → 4, but floor clamps to MIN_SCORE_PER_GUESS (25)
-    assert_eq!(drawer_bonus(7, true), MIN_SCORE_PER_GUESS);
-}
+        assert_eq!(drawer_bonus(100, true), 50);
+        // 7 * 0.5 = 3.5 → 4, but floor clamps to MIN_SCORE_PER_GUESS (25)
+        assert_eq!(drawer_bonus(7, true), MIN_SCORE_PER_GUESS);
+    }
 
     #[test]
     fn drawer_bonus_zero_when_nobody_guessed() {
-    assert_eq!(drawer_bonus(0, false), 0);
-    // Even if points somehow non-zero, no guesser = no bonus
-    assert_eq!(drawer_bonus(100, false), 0);
-}
+        assert_eq!(drawer_bonus(0, false), 0);
+        // Even if points somehow non-zero, no guesser = no bonus
+        assert_eq!(drawer_bonus(100, false), 0);
+    }
 
     #[test]
     fn rotation_wraps_round_robin() {

@@ -543,7 +543,7 @@ async fn best_drawing_vote_picks_a_winner() {
         },
     )
     .await; // change 1 -> 2
-    // bob hearts one of alice's drawings.
+            // bob hearts one of alice's drawings.
     h.send(
         bob.you,
         ClientMsg::Vote {
@@ -581,7 +581,11 @@ async fn best_drawing_vote_picks_a_winner() {
                 Some(&3),
                 "alice's hearts, self-vote ignored"
             );
-            assert_eq!(map.get(&bob_turns[1]), Some(&2), "changed rating counts once");
+            assert_eq!(
+                map.get(&bob_turns[1]),
+                Some(&2),
+                "changed rating counts once"
+            );
             assert_eq!(map.get(&alice_turns[0]), Some(&1), "bob's heart on alice");
             // Top drawing: bob's most-hearted piece.
             let top = top_drawing.as_ref().expect("a top drawing");
@@ -805,7 +809,10 @@ async fn bot_votes_by_clarity_and_can_win() {
             }
             // Bot can win: alice's 3 + 2 hearts make its art the Best Artist.
             let a = artist.as_ref().expect("a best artist");
-            assert_eq!(a.player, bot.you, "the bot's drawings earned the most hearts");
+            assert_eq!(
+                a.player, bot.you,
+                "the bot's drawings earned the most hearts"
+            );
             assert_eq!(a.hearts, 5);
             let top = top_drawing.as_ref().expect("a top drawing");
             assert_eq!(top.turn, bot_turns[0]);
