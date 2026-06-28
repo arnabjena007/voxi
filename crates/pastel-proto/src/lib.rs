@@ -14,8 +14,8 @@ pub use codec::{
 };
 pub use limits::*;
 pub use msg::{
-    ByeReason, ClientMsg, DrawingMood, GameAction, GameEvent, GuessKind, Hello, ServerMsg,
-    VoteWinner,
+    ArtistWinner, ByeReason, ClientMsg, DrawingMood, GameAction, GameEvent, GuessKind, Hello,
+    ServerMsg, VoteWinner,
 };
 pub use types::{
     Avatar, ChatLine, CompletedStroke, GameMode, GamePhaseSnapshot, GameSnapshot, Player, PlayerId,

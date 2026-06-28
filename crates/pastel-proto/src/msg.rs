@@ -86,24 +86,36 @@ pub enum GameEvent {
         player: PlayerId,
         stroke_id: u32,
     },
-    /// "Best drawing" voting has opened at game over. Players may cast/change a
-    /// `Vote` until the window closes.
+    /// Best-artist voting has opened at game over. Players may rate any drawing
+    /// they didn't make with up to 3 hearts (`Vote`), changeable until the
+    /// window closes.
     VotingOpen {
         deadline_ms: u32,
     },
-    /// Voting closed. Per-turn tallies and the winner (None if nobody voted).
+    /// Voting closed. `tally` is total hearts per drawing (turn). `top_drawing`
+    /// is the single most-loved drawing; `artist` is the player whose drawings
+    /// earned the most hearts overall. Both `None` if nobody rated anything.
     VoteResult {
         tally: Vec<(u16, u32)>,
-        winner: Option<VoteWinner>,
+        top_drawing: Option<VoteWinner>,
+        artist: Option<ArtistWinner>,
     },
 }
 
+/// The single most-hearted drawing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VoteWinner {
     pub turn: u16,
     pub drawer: PlayerId,
     pub word: String,
-    pub votes: u32,
+    pub hearts: u32,
+}
+
+/// The player whose drawings collectively earned the most hearts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtistWinner {
+    pub player: PlayerId,
+    pub hearts: u32,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -173,10 +185,12 @@ pub enum ClientMsg {
     Emote {
         idx: u8,
     },
-    /// Cast (or change) a vote for the best drawing during the game-over voting
-    /// window. `turn` is the server-assigned drawing id from `RoundEnd`.
+    /// Rate a drawing during the game-over voting window. `turn` is the
+    /// server-assigned drawing id from `RoundEnd`; `hearts` is 0..=3 (0 clears
+    /// the rating). Self-votes are rejected server-side.
     Vote {
         turn: u16,
+        hearts: u8,
     },
 }
 

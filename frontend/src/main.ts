@@ -265,9 +265,10 @@ let currentDrawerId: number | null = null;
 const galleryItems: GalleryItem[] = [];
 // Game-over -> gallery auto-open countdown.
 let galleryCountdownTimer: ReturnType<typeof setTimeout> | null = null;
-// "Best drawing" voting state (game-over window).
+// Best-artist voting state (game-over window). myHearts maps a drawing's turn
+// id to the hearts (1..3) we've given it.
 let voteOpen = false;
-let myVote: number | null = null;
+const myHearts = new Map<number, number>();
 let voteResult: VoteOutcome | null = null;
 let galleryHandle: GalleryHandle | null = null;
 // Emoji-reaction bar. Declared up here (not at its mount site below) because
@@ -756,11 +757,12 @@ function showGallery(): void {
     galleryItems,
     {
       enabled: voteOpen,
-      myVote,
+      myHearts,
       result: voteResult,
-      onVote: (turn) => {
-        myVote = turn;
-        conn.send({ kind: "Vote", turn });
+      onRate: (turn, hearts) => {
+        if (hearts <= 0) myHearts.delete(turn);
+        else myHearts.set(turn, hearts);
+        conn.send({ kind: "Vote", turn, hearts });
       },
     },
     () => {
@@ -1345,7 +1347,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
         correctGuessers.clear();
         galleryItems.length = 0;
         voteOpen = false;
-        myVote = null;
+        myHearts.clear();
         voteResult = null;
         galleryHandle?.close();
         galleryHandle = null;
@@ -1459,6 +1461,7 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
             word: event.word,
             records,
             drawerName: nameOf(currentDrawerId),
+            drawerId: currentDrawerId,
             turn: event.turn,
             isOwn: currentDrawerId === youId,
           });
@@ -1532,16 +1535,21 @@ function handleGameEvent(event: Extract<ServerMsg, { kind: "Game" }>["event"]): 
       return;
     case "VotingOpen":
       voteOpen = true;
-      myVote = null;
+      myHearts.clear();
       voteResult = null;
       return;
     case "VoteResult": {
       voteOpen = false;
-      voteResult = { tally: event.tally, winner: event.winner };
+      voteResult = {
+        tally: event.tally,
+        topDrawing: event.top_drawing,
+        artist: event.artist,
+        artistName: event.artist ? nameOf(event.artist.player) : null,
+      };
       if (galleryHandle) {
         galleryHandle.applyVoteResult(voteResult);
-      } else if (event.winner) {
-        showToast(`🏆 Best drawing: "${event.winner.word}"`, {
+      } else if (event.artist) {
+        showToast(`🏆 Best artist: ${nameOf(event.artist.player)}`, {
           kind: "success",
           durationMs: 5000,
         });

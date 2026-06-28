@@ -4884,6 +4884,12 @@ canvas {
   aspect-ratio: 16 / 10;
 }
 .gallery-thumb-canvas { width: 100%; height: 100%; display: block; }
+.gallery-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+}
 .gallery-word {
   font-family: var(--font-display);
   font-weight: 700;
@@ -4916,6 +4922,8 @@ canvas {
   .gallery-sheet { width: 100%; max-height: 88dvh; }
   /* On touch there's no hover, so always show the share affordance. */
   .gallery-share-hint { opacity: 0.85; }
+  /* Bigger heart tap targets on touch. */
+  .gallery-heart { width: 30px; height: 30px; font-size: 18px; }
 }
 @media (max-width: 400px) {
   .gallery-grid { grid-template-columns: 1fr; }
@@ -5274,53 +5282,82 @@ canvas {
   overflow: hidden;
   transition: max-height 220ms ease, opacity 220ms ease, padding 220ms ease;
 }
-.gallery-banner--show { max-height: 64px; opacity: 1; padding: 4px 18px 12px; }
-
-.gallery-vote {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 2;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
-  color: #c2607a;
-  display: none;
+.gallery-banner--show { max-height: 80px; opacity: 1; padding: 4px 18px 12px; }
+.gallery-banner i { color: #d6536f; }
+.gallery-banner-main {
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   justify-content: center;
+}
+.gallery-banner-hearts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #d6536f;
+}
+.gallery-banner-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Footer row under each thumbnail: rating hearts (or "your drawing"), plus the
+   hearts-received score once voting closes. */
+.gallery-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 26px;
+}
+
+.gallery-rate {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.gallery-heart {
+  all: unset;
   cursor: pointer;
-  transition: transform 120ms ease, background 140ms ease, box-shadow 140ms ease;
-}
-.gallery-vote i { font-size: 17px; }
-.gallery-modal--voting .gallery-vote { display: inline-flex; }
-.gallery-vote:hover { transform: scale(1.12); }
-.gallery-tile--voted .gallery-vote {
-  background: #fde2ea;
-  box-shadow: 0 2px 12px rgba(194, 96, 122, 0.45);
-}
-
-.gallery-count {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-  min-width: 26px;
+  width: 26px;
   height: 26px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: #ffffff;
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: 16px;
+  color: #d8aeba;
+  border-radius: 8px;
+  transition: transform 100ms ease, color 120ms ease;
+}
+.gallery-heart .ph-fill { color: #d6536f; }
+.gallery-heart:hover { transform: scale(1.18); }
+/* Ratings lock once results are in. */
+.gallery-modal--results .gallery-heart { pointer-events: none; }
+
+.gallery-mine {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.gallery-score {
+  display: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 13px;
+  color: var(--ink);
 }
-.gallery-modal--results .gallery-count { display: inline-flex; }
+.gallery-score i { color: #d6536f; font-size: 13px; }
+.gallery-modal--results .gallery-score--show { display: inline-flex; }
+/* Hide the live rating UI in the results view; the score takes over. */
+.gallery-modal--results .gallery-rate { display: none; }
 
 .gallery-crown {
   position: absolute;
@@ -5336,4 +5373,13 @@ canvas {
 .gallery-tile--winner {
   border-color: #f0c64f;
   box-shadow: 0 0 0 2px #f0c64f, 0 10px 26px rgba(240, 198, 79, 0.4);
+}
+/* Every drawing by the Best Artist gets a soft rose ring. */
+.gallery-tile--artist {
+  border-color: #e8a6bc;
+  box-shadow: 0 0 0 2px rgba(214, 83, 111, 0.4);
+}
+.gallery-tile--artist.gallery-tile--winner {
+  box-shadow: 0 0 0 2px #f0c64f, 0 0 0 5px rgba(214, 83, 111, 0.35),
+    0 10px 26px rgba(240, 198, 79, 0.4);
 }

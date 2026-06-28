@@ -435,13 +435,23 @@ export type GameEvent =
   | { kind: "Reaction"; player: number; mood: DrawingMood }
   | { kind: "StrokeRemoved"; player: number; stroke_id: number }
   | { kind: "VotingOpen"; deadline_ms: number }
-  | { kind: "VoteResult"; tally: [number, number][]; winner: VoteWinner | null };
+  | {
+      kind: "VoteResult";
+      tally: [number, number][];
+      top_drawing: VoteWinner | null;
+      artist: ArtistWinner | null;
+    };
 
 export interface VoteWinner {
   turn: number;
   drawer: number;
   word: string;
-  votes: number;
+  hearts: number;
+}
+
+export interface ArtistWinner {
+  player: number;
+  hearts: number;
 }
 
 function writeScores(w: Writer, scores: [number, number][]): void {
@@ -510,10 +520,11 @@ function writeGameEvent(w: Writer, e: GameEvent): void {
     case "VoteResult":
       w.variant(12);
       w.varint(e.tally.length);
-      for (const [turn, count] of e.tally) w.varint(turn).varint(count);
-      w.option(e.winner, (ww, win) =>
-        ww.varint(win.turn).varint(win.drawer).str(win.word).varint(win.votes),
+      for (const [turn, hearts] of e.tally) w.varint(turn).varint(hearts);
+      w.option(e.top_drawing, (ww, win) =>
+        ww.varint(win.turn).varint(win.drawer).str(win.word).varint(win.hearts),
       );
+      w.option(e.artist, (ww, a) => ww.varint(a.player).varint(a.hearts));
       return;
   }
 }
@@ -567,13 +578,17 @@ function readGameEvent(r: Reader): GameEvent {
       const n = r.varint();
       const tally: [number, number][] = new Array(n);
       for (let i = 0; i < n; i++) tally[i] = [r.varint(), r.varint()];
-      const winner = r.option<VoteWinner>((rr) => ({
+      const top_drawing = r.option<VoteWinner>((rr) => ({
         turn: rr.varint(),
         drawer: rr.varint(),
         word: rr.str(),
-        votes: rr.varint(),
+        hearts: rr.varint(),
       }));
-      return { kind: "VoteResult", tally, winner };
+      const artist = r.option<ArtistWinner>((rr) => ({
+        player: rr.varint(),
+        hearts: rr.varint(),
+      }));
+      return { kind: "VoteResult", tally, top_drawing, artist };
     }
     default:
       throw new Error(`unknown GameEvent variant: ${v}`);
@@ -684,7 +699,7 @@ export type ClientMsg =
   | { kind: "React"; mood: DrawingMood }
   | { kind: "Undo" }
   | { kind: "Emote"; idx: number }
-  | { kind: "Vote"; turn: number };
+  | { kind: "Vote"; turn: number; hearts: number };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -727,7 +742,7 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
       w.variant(8).u8(msg.idx);
       break;
     case "Vote":
-      w.variant(9).varint(msg.turn);
+      w.variant(9).varint(msg.turn).u8(msg.hearts);
       break;
   }
   return w.bytes();
@@ -764,7 +779,7 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
     case 8:
       return { kind: "Emote", idx: r.u8() };
     case 9:
-      return { kind: "Vote", turn: r.varint() };
+      return { kind: "Vote", turn: r.varint(), hearts: r.u8() };
     default:
       throw new Error(`unknown ClientMsg variant: ${v}`);
   }

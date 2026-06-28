@@ -1,8 +1,8 @@
 use crate::bucket::TokenBucket;
 use crate::game::{
     build_mask, drawer_bonus, guess_score, is_close_guess, max_hints, message_leaks_word,
-    pick_hint_index, ranked_scores, reveal_at, DRAW_WINDOW, HINT_REMAINING_SECS, PICK_WINDOW,
-    ROUND_REVEAL, VOTE_WINDOW,
+    pick_hint_index, ranked_scores, reveal_at, DRAW_WINDOW, HINT_REMAINING_SECS, MAX_HEARTS,
+    PICK_WINDOW, ROUND_REVEAL, VOTE_WINDOW,
 };
 use crate::words::{Difficulty, SharedWords};
 use crate::{
@@ -221,11 +221,12 @@ enum GamePhase {
     GameOver,
 }
 
-/// Open "best drawing" vote window, live only during GameOver.
+/// Open best-artist vote window, live only during GameOver.
 struct VotingState {
     deadline: Instant,
-    /// One vote per player; latest wins. Value is the voted turn id.
-    votes: AHashMap<PlayerId, u16>,
+    /// Hearts cast per (voter, drawing-turn); 1..=3. A player may rate any
+    /// number of drawings they didn't make, and change a rating freely.
+    votes: AHashMap<(PlayerId, u16), u8>,
 }
 
 struct GameState {
@@ -247,6 +248,10 @@ struct GameState {
     /// when a new game starts.
     turn_drawers: Vec<PlayerId>,
     turn_words: Vec<String>,
+    /// Per-turn "clarity" score (1..=3): how readable the drawing was, derived
+    /// from how many guessers got it. Used as the bot's heart rating when it
+    /// votes. Same index as `turn_drawers`.
+    turn_clarity: Vec<u8>,
     /// The game-over voting window, if open.
     voting: Option<VotingState>,
 }
@@ -264,6 +269,7 @@ impl Default for GameState {
             lobby_deadline: None,
             turn_drawers: Vec::new(),
             turn_words: Vec::new(),
+            turn_clarity: Vec::new(),
             voting: None,
         }
     }
@@ -705,18 +711,11 @@ impl Room {
             });
         }
 
-        // If a "best drawing" vote is open (GameOver), drop the leaver's vote so
-        // the tally and the early-close threshold reflect only players still
-        // here. Close immediately if everyone remaining has now voted.
-        if self.game.voting.is_some() {
-            if let Some(v) = self.game.voting.as_mut() {
-                v.votes.remove(&player);
-            }
-            let humans = self.players.values().filter(|s| !s.is_bot).count();
-            let votes_in = self.game.voting.as_ref().map_or(0, |v| v.votes.len());
-            if humans > 0 && votes_in >= humans {
-                self.close_voting();
-            }
+        // If best-artist voting is open (GameOver), drop the leaver's ratings so
+        // the tally reflects only players still here. The window closes on its
+        // own timer.
+        if let Some(v) = self.game.voting.as_mut() {
+            v.votes.retain(|(voter, _), _| *voter != player);
         }
 
         // If a game is in flight and we're down to fewer than 2 players,
@@ -772,7 +771,7 @@ impl Room {
             ClientMsg::React { mood } => self.handle_react(player, mood),
             ClientMsg::Undo => self.handle_undo(player),
             ClientMsg::Emote { idx } => self.handle_emote(player, idx),
-            ClientMsg::Vote { turn } => self.handle_vote(player, turn),
+            ClientMsg::Vote { turn, hearts } => self.handle_vote(player, turn, hearts),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
             }
@@ -1201,6 +1200,7 @@ impl Room {
             lobby_deadline: None,
             turn_drawers: Vec::new(),
             turn_words: Vec::new(),
+            turn_clarity: Vec::new(),
             voting: None,
         };
         self.start_choosing_round(0);
@@ -1455,13 +1455,25 @@ impl Room {
             *entry = entry.saturating_add(bonus);
         }
 
-        let _ = correct_guessers; // already tracked in scores_this_round
+        // Clarity (1..=3): how readable the drawing turned out, judged by how
+        // many eligible players guessed it. Nobody → 1, someone → 2, a majority
+        // → 3. This is the heart rating the bot casts at vote time.
+        let eligible = self.players.len().saturating_sub(1).max(1);
+        let guessed = correct_guessers.len();
+        let clarity: u8 = if guessed == 0 {
+            1
+        } else if guessed * 2 >= eligible {
+            3
+        } else {
+            2
+        };
 
-        // Record this drawing for end-of-game "best drawing" voting. The index
-        // is the turn id every client keys its gallery + votes on.
+        // Record this drawing for end-of-game best-artist voting. The index is
+        // the turn id every client keys its gallery + votes on.
         let turn = self.game.turn_drawers.len() as u16;
         self.game.turn_drawers.push(drawer);
         self.game.turn_words.push(word.clone());
+        self.game.turn_clarity.push(clarity);
 
         let cumulative = self.ranked_scores_current();
         let seq = self.next_seq();
@@ -1513,11 +1525,31 @@ impl Room {
         });
         self.game.phase = GamePhase::GameOver;
 
-        // Open "best drawing" voting for real games that produced drawings.
+        // Open best-artist voting for real games that produced drawings.
         if self.players.len() >= 2 && !self.game.turn_drawers.is_empty() {
+            let mut votes: AHashMap<(PlayerId, u16), u8> = AHashMap::new();
+            // Bots vote immediately, by clarity: they heart every drawing they
+            // didn't make with that drawing's clarity score. This both adds a
+            // neutral third opinion (so 2-human games aren't a coin flip) and
+            // lets bot-drawn art still win on its own merits.
+            let bots: Vec<PlayerId> = self
+                .players
+                .iter()
+                .filter(|(_, s)| s.is_bot)
+                .map(|(id, _)| *id)
+                .collect();
+            for bot in bots {
+                for (turn, &drawer) in self.game.turn_drawers.iter().enumerate() {
+                    if drawer == bot {
+                        continue; // no self-rating
+                    }
+                    let hearts = self.game.turn_clarity.get(turn).copied().unwrap_or(1);
+                    votes.insert((bot, turn as u16), hearts);
+                }
+            }
             self.game.voting = Some(VotingState {
                 deadline: Instant::now() + VOTE_WINDOW,
-                votes: AHashMap::new(),
+                votes,
             });
             let seq = self.next_seq();
             self.broadcast(ServerMsg::Game {
@@ -1529,45 +1561,47 @@ impl Room {
         }
     }
 
-    /// Record/replace a player's "best drawing" vote during the GameOver vote
-    /// window. Rejects out-of-range turns and self-votes. Closes the window
-    /// early once every connected human has voted.
-    fn handle_vote(&mut self, player: PlayerId, turn: u16) {
+    /// Rate a drawing during the GameOver vote window. `hearts` is clamped to
+    /// 0..=3 (0 clears the rating). Rejects out-of-range turns and self-votes.
+    /// Closes the window early once every connected human has rated something.
+    fn handle_vote(&mut self, player: PlayerId, turn: u16, hearts: u8) {
         if !matches!(self.game.phase, GamePhase::GameOver) {
+            return;
+        }
+        let idx = turn as usize;
+        // Out of range, or rating your own drawing -> ignore.
+        if idx >= self.game.turn_drawers.len() || self.game.turn_drawers[idx] == player {
             return;
         }
         let Some(voting) = self.game.voting.as_mut() else {
             return;
         };
-        let idx = turn as usize;
-        // Out of range, or voting for your own drawing -> ignore.
-        if idx >= self.game.turn_drawers.len() || self.game.turn_drawers[idx] == player {
-            return;
+        let hearts = hearts.min(MAX_HEARTS);
+        if hearts == 0 {
+            voting.votes.remove(&(player, turn));
+        } else {
+            voting.votes.insert((player, turn), hearts);
         }
-        voting.votes.insert(player, turn);
-
-        // Early close: everyone who can vote has voted.
-        let humans = self.players.values().filter(|s| !s.is_bot).count();
-        if voting.votes.len() >= humans {
-            self.close_voting();
-        }
+        // No early close: the multi-heart model has no "submit", and a lone
+        // human (playing with bots) must be free to rate several drawings. The
+        // window always runs its full `VOTE_WINDOW`.
     }
 
-    /// Tally the votes and broadcast the result, then clear the window.
+    /// Tally hearts, pick the top drawing + best artist, broadcast, and close.
     fn close_voting(&mut self) {
         let Some(voting) = self.game.voting.take() else {
             return;
         };
-        // Count votes per turn.
-        let mut counts: AHashMap<u16, u32> = AHashMap::new();
-        for turn in voting.votes.values() {
-            *counts.entry(*turn).or_insert(0) += 1;
+        // Total hearts per drawing (turn).
+        let mut hearts_by_turn: AHashMap<u16, u32> = AHashMap::new();
+        for ((_, turn), &h) in &voting.votes {
+            *hearts_by_turn.entry(*turn).or_insert(0) += h as u32;
         }
-        // Winner: highest count, ties broken by lowest turn id.
-        let winner = counts
+        // Top drawing: most hearts, ties broken by lowest turn id.
+        let top_drawing = hearts_by_turn
             .iter()
             .max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(a.0)))
-            .map(|(&turn, &votes)| VoteWinner {
+            .map(|(&turn, &hearts)| VoteWinner {
                 turn,
                 drawer: self
                     .game
@@ -1581,15 +1615,39 @@ impl Room {
                     .get(turn as usize)
                     .cloned()
                     .unwrap_or_default(),
-                votes,
+                hearts,
             });
-        let mut tally: Vec<(u16, u32)> = counts.into_iter().collect();
+        // Best artist: total hearts summed across each player's drawings.
+        let mut hearts_by_artist: AHashMap<PlayerId, u32> = AHashMap::new();
+        for (&turn, &hearts) in &hearts_by_turn {
+            if let Some(&drawer) = self.game.turn_drawers.get(turn as usize) {
+                *hearts_by_artist.entry(drawer).or_insert(0) += hearts;
+            }
+        }
+        // Winner: most hearts; ties broken by higher final score, then lowest id.
+        let artist = hearts_by_artist
+            .iter()
+            .max_by(|a, b| {
+                a.1.cmp(b.1)
+                    .then_with(|| {
+                        let sa = self.game.scores.get(a.0).copied().unwrap_or(0);
+                        let sb = self.game.scores.get(b.0).copied().unwrap_or(0);
+                        sa.cmp(&sb)
+                    })
+                    .then(b.0.cmp(a.0))
+            })
+            .map(|(&player, &hearts)| ArtistWinner { player, hearts });
+        let mut tally: Vec<(u16, u32)> = hearts_by_turn.into_iter().collect();
         tally.sort_by_key(|(turn, _)| *turn);
 
         let seq = self.next_seq();
         self.broadcast(ServerMsg::Game {
             seq,
-            event: GameEvent::VoteResult { tally, winner },
+            event: GameEvent::VoteResult {
+                tally,
+                top_drawing,
+                artist,
+            },
         });
     }
 

@@ -63,6 +63,13 @@ async fn join_token(h: &RoomHandle, name: &str, token: &str) -> JoinResult {
     }
 }
 
+async fn join_bot(h: &RoomHandle, name: &str) -> JoinResult {
+    match h.join_as_bot(hello(name)).await.unwrap() {
+        JoinOutcome::Joined(j) => j,
+        JoinOutcome::Pending { .. } => panic!("unexpected pending bot join in test helper"),
+    }
+}
+
 async fn next_broadcast(
     rx: &mut BroadcastRx<std::sync::Arc<ServerMsg>>,
 ) -> std::sync::Arc<ServerMsg> {
@@ -494,19 +501,58 @@ async fn best_drawing_vote_picks_a_winner() {
         .collect();
     assert!(bob_turns.len() >= 2 && !alice_turns.is_empty());
 
-    // alice: self-vote (rejected), vote one of bob's, then change to another.
+    // alice rates: a self-vote (rejected), 3 hearts on one of bob's drawings,
+    // and 1 -> 2 hearts on another (a changed rating, counted once).
     h.send(
         alice.you,
         ClientMsg::Vote {
             turn: alice_turns[0],
+            hearts: 3,
+        },
+    )
+    .await; // self-vote -> ignored
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: bob_turns[0],
+            hearts: 2,
         },
     )
     .await;
-    h.send(alice.you, ClientMsg::Vote { turn: bob_turns[0] })
-        .await;
-    h.send(alice.you, ClientMsg::Vote { turn: bob_turns[1] })
-        .await;
-    // bob abstains -> the window closes on its timer.
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: bob_turns[0],
+            hearts: 3,
+        },
+    )
+    .await; // change 2 -> 3
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: bob_turns[1],
+            hearts: 1,
+        },
+    )
+    .await;
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: bob_turns[1],
+            hearts: 2,
+        },
+    )
+    .await; // change 1 -> 2
+    // bob hearts one of alice's drawings.
+    h.send(
+        bob.you,
+        ClientMsg::Vote {
+            turn: alice_turns[0],
+            hearts: 1,
+        },
+    )
+    .await;
+    // The window closes on its timer.
     tokio::time::advance(Duration::from_secs(41)).await;
 
     let res = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
@@ -521,18 +567,249 @@ async fn best_drawing_vote_picks_a_winner() {
     .await;
     match res.as_ref() {
         ServerMsg::Game {
-            event: GameEvent::VoteResult { tally, winner },
+            event:
+                GameEvent::VoteResult {
+                    tally,
+                    top_drawing,
+                    artist,
+                },
             ..
         } => {
+            let map: std::collections::HashMap<u16, u32> = tally.iter().copied().collect();
             assert_eq!(
-                tally,
-                &vec![(bob_turns[1], 1)],
-                "only the changed vote counts"
+                map.get(&bob_turns[0]),
+                Some(&3),
+                "alice's hearts, self-vote ignored"
             );
-            let w = winner.as_ref().expect("a winner");
-            assert_eq!(w.turn, bob_turns[1]);
-            assert_eq!(w.drawer, bob.you);
-            assert_eq!(w.votes, 1);
+            assert_eq!(map.get(&bob_turns[1]), Some(&2), "changed rating counts once");
+            assert_eq!(map.get(&alice_turns[0]), Some(&1), "bob's heart on alice");
+            // Top drawing: bob's most-hearted piece.
+            let top = top_drawing.as_ref().expect("a top drawing");
+            assert_eq!(top.turn, bob_turns[0]);
+            assert_eq!(top.drawer, bob.you);
+            assert_eq!(top.hearts, 3);
+            // Best artist: bob (3 + 2 = 5 hearts) beats alice (1).
+            let a = artist.as_ref().expect("a best artist");
+            assert_eq!(a.player, bob.you);
+            assert_eq!(a.hearts, 5);
+        }
+        o => panic!("expected VoteResult, got {o:?}"),
+    }
+}
+
+// A lone human plus a bot: the bot rates every drawing it didn't make (by
+// clarity), and its own drawings can win Best Artist when the human loves them.
+#[tokio::test(start_paused = true)]
+async fn bot_votes_by_clarity_and_can_win() {
+    let h = spawn_with(fixed_words());
+    let mut alice = join(&h, "alice").await;
+    let mut bot = join_bot(&h, "robo").await;
+    let _ = next_unicast(&mut alice.unicast_rx).await;
+    let _ = next_unicast(&mut bot.unicast_rx).await;
+    let _ = next_broadcast(&mut alice.broadcast_rx).await;
+    let _ = next_broadcast(&mut alice.broadcast_rx).await;
+    let _ = next_broadcast(&mut bot.broadcast_rx).await;
+
+    h.send(
+        alice.you,
+        ClientMsg::Game(GameAction::Start {
+            mode: GameMode::Sprint,
+        }),
+    )
+    .await;
+
+    // Play all 6 turns. Nobody ever guesses (the bot has no driver here), so
+    // every round ends on the draw timer and every drawing has clarity 1.
+    let mut turns: Vec<(u16, u32)> = Vec::new();
+    for _ in 0..(3 * 2) {
+        let pick = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        let drawer = match pick.as_ref() {
+            ServerMsg::Game {
+                event: GameEvent::WordPickStarted { drawer, .. },
+                ..
+            } => *drawer,
+            o => panic!("expected WordPickStarted, got {o:?}"),
+        };
+        wait_broadcast_for(&mut bot.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::WordPickStarted { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+
+        if drawer == alice.you {
+            let _ = next_unicast(&mut alice.unicast_rx).await; // WordOptions
+            h.send(alice.you, ClientMsg::Game(GameAction::PickWord(0)))
+                .await;
+        } else {
+            // Bot drawer: drain its options, then let the pick window elapse so
+            // the server auto-picks for it.
+            let _ = next_unicast(&mut bot.unicast_rx).await; // WordOptions
+            tokio::time::advance(Duration::from_secs(16)).await;
+        }
+
+        wait_broadcast_for(&mut alice.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundStart { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        wait_broadcast_for(&mut bot.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundStart { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+
+        // Drain the drawer's secret, then let the draw window time out.
+        if drawer == alice.you {
+            let _ = next_unicast(&mut alice.unicast_rx).await; // DrawerWord
+        } else {
+            let _ = next_unicast(&mut bot.unicast_rx).await; // DrawerWord
+        }
+        tokio::time::advance(Duration::from_secs(81)).await;
+
+        let re = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundEnd { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        wait_broadcast_for(&mut bot.broadcast_rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::RoundEnd { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        let turn = match re.as_ref() {
+            ServerMsg::Game {
+                event: GameEvent::RoundEnd { turn, .. },
+                ..
+            } => *turn,
+            o => panic!("expected RoundEnd, got {o:?}"),
+        };
+        turns.push((turn, drawer));
+        tokio::time::advance(Duration::from_secs(6)).await;
+    }
+
+    for rx in [&mut alice.broadcast_rx, &mut bot.broadcast_rx] {
+        wait_broadcast_for(rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::GameOver { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+        wait_broadcast_for(rx, |m| {
+            matches!(
+                m,
+                ServerMsg::Game {
+                    event: GameEvent::VotingOpen { .. },
+                    ..
+                }
+            )
+        })
+        .await;
+    }
+
+    let alice_turns: Vec<u16> = turns
+        .iter()
+        .filter(|(_, d)| *d == alice.you)
+        .map(|(t, _)| *t)
+        .collect();
+    let bot_turns: Vec<u16> = turns
+        .iter()
+        .filter(|(_, d)| *d == bot.you)
+        .map(|(t, _)| *t)
+        .collect();
+    assert_eq!(alice_turns.len(), 3);
+    assert_eq!(bot_turns.len(), 3);
+
+    // Alice loves two of the bot's drawings. The bot has already auto-voted
+    // (clarity 1) on each of alice's.
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: bot_turns[0],
+            hearts: 3,
+        },
+    )
+    .await;
+    h.send(
+        alice.you,
+        ClientMsg::Vote {
+            turn: bot_turns[1],
+            hearts: 2,
+        },
+    )
+    .await;
+    tokio::time::advance(Duration::from_secs(41)).await;
+
+    let res = wait_broadcast_for(&mut alice.broadcast_rx, |m| {
+        matches!(
+            m,
+            ServerMsg::Game {
+                event: GameEvent::VoteResult { .. },
+                ..
+            }
+        )
+    })
+    .await;
+    match res.as_ref() {
+        ServerMsg::Game {
+            event:
+                GameEvent::VoteResult {
+                    tally,
+                    top_drawing,
+                    artist,
+                },
+            ..
+        } => {
+            let map: std::collections::HashMap<u16, u32> = tally.iter().copied().collect();
+            // The bot voted: each of alice's drawings got its clarity heart,
+            // even though no human rated them.
+            for t in &alice_turns {
+                assert_eq!(map.get(t), Some(&1), "bot clarity-voted alice's drawing");
+            }
+            // Bot can win: alice's 3 + 2 hearts make its art the Best Artist.
+            let a = artist.as_ref().expect("a best artist");
+            assert_eq!(a.player, bot.you, "the bot's drawings earned the most hearts");
+            assert_eq!(a.hearts, 5);
+            let top = top_drawing.as_ref().expect("a top drawing");
+            assert_eq!(top.turn, bot_turns[0]);
+            assert_eq!(top.hearts, 3);
         }
         o => panic!("expected VoteResult, got {o:?}"),
     }

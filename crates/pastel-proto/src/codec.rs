@@ -163,10 +163,12 @@ pub fn validate_server(msg: &ServerMsg, depth: u8) -> Result<(), CodecError> {
             crate::msg::GameEvent::Reaction { .. } => {}
             crate::msg::GameEvent::StrokeRemoved { .. } => {}
             crate::msg::GameEvent::VotingOpen { .. } => {}
-            crate::msg::GameEvent::VoteResult { tally, winner } => {
+            crate::msg::GameEvent::VoteResult {
+                tally, top_drawing, ..
+            } => {
                 check_len("vote_result.tally", tally.len(), MAX_PLAYERS_PER_ROOM * 8)?;
-                if let Some(w) = winner {
-                    check_len("vote_result.winner.word", w.word.len(), MAX_WORD_LEN)?;
+                if let Some(w) = top_drawing {
+                    check_len("vote_result.top_drawing.word", w.word.len(), MAX_WORD_LEN)?;
                 }
             }
         },

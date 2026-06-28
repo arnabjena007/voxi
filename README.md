@@ -156,13 +156,20 @@ its six-character code. The host sees a live countdown.
 - **Stroke-by-stroke replay**: watch any (or every) drawing redraw itself, played
   back from the captured per-point timing
 
-### Best-drawing vote
-- At game over, tap a heart on any drawing in the gallery to vote for the best
-- Server-tallied: one changeable vote per player, no voting for your own drawing
-- Counts stay hidden until a single reveal. The winner gets a crown, every tile
-  shows its vote count, and confetti fires
-- Keyed on a server-authoritative turn id so late-joiners and reloads still vote
-  on the right drawing
+### Best-artist vote
+- At game over, rate any drawing you didn't make with up to **3 hearts**; ratings
+  are changeable and you never rate your own
+- The winner is the **player** whose drawings earned the most hearts overall, not
+  a single picture. With few players this stays meaningful (you're judging each
+  other's whole body of work) instead of degenerating into a 1-1 tie
+- The **bot votes too**, by clarity: it hearts drawings by how readable they were
+  (how many guessers got them), so it's a neutral extra opinion and its own art
+  can win
+- Counts stay hidden until a single reveal: the Best Artist is named, the most
+  loved drawing is crowned, every tile shows the hearts it earned, and confetti
+  fires. The window runs a fixed timer (no early close)
+- Keyed on a server-authoritative turn id so late-joiners and reloads still rate
+  the right drawing
 
 ### Emoji reactions
 - A floating emoji bar for guessers: laugh, fire, wow, heart, clap, sad, goat,
@@ -405,7 +412,7 @@ The wire is `postcard`-encoded binary. Each direction is one enum:
 ```rust
 pub enum ClientMsg { Hello, Stroke, Chat, Guess, Game, Pong, React, Undo, Emote, Vote }
 pub enum ServerMsg { Welcome, Resume, Stroke, Chat, Guess, Presence, Game, Ping, Bye, WordOptions, DrawerWord, JoinPending, DrawingFeedback, Emote }
-// round flow, reactions, undo, and best-drawing voting ride inside GameEvent (under Game)
+// round flow, reactions, undo, and best-artist voting ride inside GameEvent (under Game)
 ```
 
 A 30-point stroke batch is about 130 bytes. The JSON equivalent is about
@@ -426,7 +433,7 @@ stateDiagram-v2
     Drawing --> RoundEnd: all guessed / timeout
     RoundEnd --> ChoosingWord: next turn
     RoundEnd --> GameOver: last turn
-    GameOver --> GameOver: best-drawing vote (40s window)
+    GameOver --> GameOver: best-artist vote (40s window)
     GameOver --> ChoosingWord: rematch
 ```
 
@@ -491,15 +498,16 @@ host-approval path.
 ### Voting without the server keeping the drawings
 
 The server throws every drawing away the instant a round ends; it never stores
-strokes per turn. So "best drawing" voting can't live server-side as pixels.
+strokes per turn. So best-artist voting can't live server-side as pixels.
 Instead each `RoundEnd` carries a monotonic **turn id**, and the server keeps
-only a tiny `(drawer, word)` list indexed by it. Clients stamp their
-locally-captured gallery with that id, so a vote is just `Vote { turn }`, a
-value every client agrees on, even a late-joiner who only saw half the game. At
-game over the room opens a 40s window (layered on `GameOver`, no new phase),
-collects one changeable vote per player, rejects self-votes, and on timeout (or
-once every connected human has voted) broadcasts a single `VoteResult` with the
-tally and the crowned winner.
+only a tiny `(drawer, word, clarity)` list indexed by it. Clients stamp their
+locally-captured gallery with that id, so a rating is just `Vote { turn, hearts }`,
+a value every client agrees on, even a late-joiner who only saw half the game. At
+game over the room opens a 40s window (layered on `GameOver`, no new phase) and
+collects per-player, per-drawing hearts (0..=3, changeable, self-votes rejected).
+Bots auto-vote at the open, hearting each drawing by its recorded clarity. On
+timeout the room sums hearts per drawing, then per artist, and broadcasts one
+`VoteResult` with the tally, the crowned top drawing, and the winning artist.
 
 ### Player tracking, optionally
 
@@ -570,7 +578,7 @@ frontend/
   src/chat.ts          chat panel with avatar chips + guess mode
   src/game.ts          client game state + mode options
   src/gameUI.ts        lobby, word pick, round end, game over overlays + countdown
-  src/gallery.ts       end-of-game drawing wall + best-drawing voting
+  src/gallery.ts       end-of-game drawing wall + best-artist heart voting
   src/share.ts         shareable drawing card + scorecard image
   src/reveal.ts        stroke-by-stroke drawing replay overlay
   src/emotes.ts        floating emoji reaction bar + animation
@@ -612,8 +620,9 @@ nagged us:
 - **Share your masterpiece.** One tap turns any drawing (or the final
   scoreboard) into a branded image for the group chat. Skribble keeps it
   trapped inside the round.
-- **Vote for the best drawing.** An end-of-game gallery with a heart vote
-  crowns a winner. Skribble just ends.
+- **Vote for the best artist.** An end-of-game gallery where you heart the
+  drawings you love; the player whose art earns the most is crowned. Skribble
+  just ends.
 
 We're not trying to replace skribble. Just making something we actually
 want to play with friends.
