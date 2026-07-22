@@ -49,13 +49,35 @@ export function showLanding(): void {
         </span>
         <i class="ph ph-speaker-slash landing-mute-off-icon" aria-hidden="true"></i>
       </button>
-      <div class="landing-inner">
-        <h1 class="logo"><span class="logo-text landing-logo">pastel</span></h1>
-        <p class="landing-tag">draw. guess. laugh.</p>
+
+      <!-- hand-drawn "rough" filter, reused by page border / swash / arrow / ring -->
+      <svg width="0" height="0" class="landing-defs" aria-hidden="true">
+        <filter id="pastelRough">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="7" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </svg>
+
+      <!-- drifting margin doodles -->
+      <div class="landing-doodle landing-doodle--cat" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 12l4 7M34 12l-4 7"/><path d="M12 26a12 10 0 0 0 24 0c0-7-5-12-12-12s-12 5-12 12z"/><circle cx="19" cy="25" r="1.4" fill="currentColor" stroke="none"/><circle cx="29" cy="25" r="1.4" fill="currentColor" stroke="none"/><path d="M24 29l-2 2M24 29l2 2M16 27l-6 1M16 30l-6 3M32 27l6 1M32 30l6 3"/></svg></div>
+      <div class="landing-doodle landing-doodle--star" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l3.6 8.4L28 12.6l-6 5.6 1.6 8.6L16 22.6 8.4 26.8 10 18.2l-6-5.6 8.4-1.2z"/></svg></div>
+      <div class="landing-doodle landing-doodle--bulb" aria-hidden="true"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6c-7 0-12 5-12 11 0 4 2 6 4 8 1.5 1.5 2 3 2 5h12c0-2 .5-3.5 2-5 2-2 4-4 4-8 0-6-5-11-12-11z"/><path d="M17 34h10M18 38h8"/><path d="M6 12l-2-1M40 11l2-1"/></svg></div>
+      <div class="landing-doodle landing-doodle--squig" aria-hidden="true"><svg viewBox="0 0 70 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 18c6-14 12 8 18-2s12 12 18 0 12 6 26-4"/></svg></div>
+      <div class="landing-doodle landing-doodle--heart" aria-hidden="true"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 26C6 20 3 14 5 9c1.5-3.6 6.5-4 10-1 3.5-3 8.5-2.6 10 1 2 5-1 11-10 17z"/></svg></div>
+
+      <div class="landing-page">
+        <span class="landing-tape landing-tape--l" aria-hidden="true"></span>
+        <span class="landing-tape landing-tape--r" aria-hidden="true"></span>
+
+        <header class="landing-head">
+          <h1 class="logo"><span class="logo-text landing-logo">pastel</span></h1>
+          <svg class="landing-swash" viewBox="0 0 190 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 13c40-9 100-9 178-4"/></svg>
+          <p class="landing-tag">draw. <b>guess.</b> laugh.</p>
+        </header>
 
         <details class="landing-how">
           <summary class="landing-how-summary">
-            <i class="ph ph-question" aria-hidden="true"></i>
+            <i class="ph ph-pencil-simple" aria-hidden="true"></i>
             <span>how to play</span>
             <i class="ph ph-caret-down landing-how-caret" aria-hidden="true"></i>
           </summary>
@@ -79,9 +101,11 @@ export function showLanding(): void {
                      style="--tile-accent: ${MODE_ACCENTS[i]}; --tile-shadow: ${MODE_SHADOWS[i]};">
                 <input type="radio" name="mode" value="${m.id}"
                        ${m.id === storedMode ? "checked" : ""} />
+                <span class="mode-tile-dab" aria-hidden="true"></span>
                 <span class="mode-tile-label">${m.label}</span>
                 <span class="mode-tile-desc">${m.desc}</span>
                 <span class="mode-tile-meta">${m.rounds} rounds</span>
+                <svg class="mode-tile-ring" viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M60 6C24 6 6 26 6 45s22 40 55 39 53-22 52-41S96 6 60 6z"/></svg>
               </label>`,
             ).join("")}
           </div>
@@ -98,7 +122,11 @@ export function showLanding(): void {
             </span>
           </label>
 
-          <button type="submit" class="landing-cta">Start a room</button>
+          <div class="landing-cta-wrap">
+            <span class="landing-arrow-note">let's go!</span>
+            <svg class="landing-arrow" viewBox="0 0 92 62" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6c26 4 44 16 52 40"/><path d="M50 34l10 14 12-8"/></svg>
+            <button type="submit" class="landing-cta">Start a room</button>
+          </div>
         </form>
 
         <div class="landing-divider"><span>or join a friend</span></div>
@@ -107,7 +135,7 @@ export function showLanding(): void {
           <div class="landing-join-row">
             <input id="landingCode" type="text" maxlength="6" minlength="6"
                    required pattern="[A-Za-z0-9]{6}" autocomplete="off"
-                   placeholder="Room code" class="landing-code-input"
+                   placeholder="room code" class="landing-code-input"
                    style="text-transform: uppercase" />
             <button type="submit" class="landing-join-btn">Jump in</button>
           </div>
@@ -116,9 +144,9 @@ export function showLanding(): void {
         <footer class="landing-credits">
           <span>made with</span>
           <a href="https://github.com/btahir/open-lofi" target="_blank" rel="noopener">open-lofi</a>
-          <span class="landing-credits-dot">.</span>
+          <span class="landing-credits-dot">·</span>
           <a href="https://www.dicebear.com/styles/big-smile" target="_blank" rel="noopener">dicebear</a>
-          <span class="landing-credits-dot">.</span>
+          <span class="landing-credits-dot">·</span>
           <a href="https://livekit.io" target="_blank" rel="noopener">livekit</a>
         </footer>
         <div class="landing-support">
