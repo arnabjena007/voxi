@@ -1,5 +1,5 @@
 import { renderAvatar } from "./avatar";
-import { hasStoredIdentity, loadStoredIdentity, pickNameAndAvatar } from "./avatarPicker";
+import { confirmIdentity, hasStoredIdentity, loadStoredIdentity, pickNameAndAvatar } from "./avatarPicker";
 import { CHAT_BUCKET_CAPACITY, CHAT_BUCKET_REFILL_PER_SEC, TokenBucket } from "./bucket";
 import { DrawingSurface } from "./canvas";
 import { showCanvasEvent } from "./canvasEvent";
@@ -118,34 +118,29 @@ const voicePrefetch: Promise<typeof import("./voice")> | null = voiceRequested
   ? import("./voice")
   : null;
 
-// Skip the picker entirely if the browser already has a saved name + avatar
-// from a previous session. Paired with the persistent client_token below, a
-// reload (or any return visit) lands on the server as the same player, with
-// the same scoreboard row, instead of a fresh duplicate.
+// Skip the picker if the browser already has a saved name + avatar from a
+// previous session. Paired with the persistent client_token below, a reload or
+// reconnect lands on the server as the same player (same scoreboard row).
 //
-// Exception: when landing.ts sets the "confirm-identity-next-join" session
-// flag (real new-game entries, not reloads/rejoins), show a soft confirm
-// that lets the user keep the saved identity or change it before joining.
-const PROMPT_FLAG = "pastel.confirm-identity-next-join";
+// Who sees the "you're joining as <avatar> <name> -- keep or change?" card:
+// anyone entering a room for the FIRST time this session -- an invited player
+// opening the link, or someone coming from the landing. A reload or reconnect
+// of a room already joined this session (a rejoin) slips straight back in with
+// no prompt. First-time visitors with no saved identity get the full picker.
 async function pickOrConfirmIdentity() {
+  const enteredKey = `pastel.entered.${room}`;
+  const firstEntry = !window.sessionStorage.getItem(enteredKey);
+  window.sessionStorage.setItem(enteredKey, "1");
+
   if (!hasStoredIdentity()) {
     return pickNameAndAvatar();
   }
-  const wantsConfirm = window.sessionStorage.getItem(PROMPT_FLAG) === "1";
-  window.sessionStorage.removeItem(PROMPT_FLAG); // one-shot
-  if (!wantsConfirm) {
-    return loadStoredIdentity();
-  }
   const stored = loadStoredIdentity();
-  const keep = await showConfirm({
-    title: `playing as ${stored.name}`,
-    message:
-      "want to keep this name and avatar, or change them before joining?",
-    confirmLabel: "Looks good!",
-    cancelLabel: "Change",
-  });
-  if (keep) return stored;
-  return pickNameAndAvatar();
+  if (!firstEntry) {
+    return stored; // reload / rejoin -> no prompt
+  }
+  const keep = await confirmIdentity(stored);
+  return keep ? stored : pickNameAndAvatar();
 }
 const { name, avatar } = await pickOrConfirmIdentity();
 const clientToken = pickClientToken();

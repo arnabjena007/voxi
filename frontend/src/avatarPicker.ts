@@ -45,6 +45,40 @@ export interface PickedIdentity {
   avatar: Avatar;
 }
 
+// A small "you're joining as <avatar> <name>" card shown to a player entering
+// a room for the first time this session. Resolves true to keep the saved
+// identity, false to open the full picker and change it.
+export function confirmIdentity(identity: PickedIdentity): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "id-confirm";
+    overlay.innerHTML = `
+      <section class="id-confirm-card">
+        <p class="id-confirm-eyebrow">you're joining as</p>
+        <div class="id-confirm-who">
+          <span class="id-confirm-avatar">${renderAvatar(identity.avatar)}</span>
+          <span class="id-confirm-name">${escapeHtml(identity.name)}</span>
+        </div>
+        <div class="id-confirm-actions">
+          <button type="button" class="id-confirm-change" id="idChange">
+            <i class="ph ph-pencil-simple" aria-hidden="true"></i> Change
+          </button>
+          <button type="button" class="id-confirm-keep" id="idKeep">Looks good!</button>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(overlay);
+
+    const done = (keep: boolean): void => {
+      overlay.remove();
+      resolve(keep);
+    };
+    overlay.querySelector("#idKeep")!.addEventListener("click", () => done(true));
+    overlay.querySelector("#idChange")!.addEventListener("click", () => done(false));
+    overlay.querySelector<HTMLButtonElement>("#idKeep")!.focus();
+  });
+}
+
 export function pickNameAndAvatar(): Promise<PickedIdentity> {
   return new Promise((resolve) => {
     const storedName = window.localStorage.getItem(STORAGE_NAME) ?? "";
