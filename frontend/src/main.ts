@@ -4,7 +4,6 @@ import { CHAT_BUCKET_CAPACITY, CHAT_BUCKET_REFILL_PER_SEC, TokenBucket } from ".
 import { DrawingSurface } from "./canvas";
 import { showCanvasEvent } from "./canvasEvent";
 import { confettiBurst } from "./celebrate";
-import { makeSettingsDraggable } from "./dragSettings";
 import { openScoreCardShare } from "./share";
 import {
   openGallery,
@@ -107,6 +106,10 @@ const toolbarEl = document.getElementById("toolbar") as HTMLElement;
 const chatEl = document.getElementById("chat") as HTMLElement;
 const bannerEl = document.getElementById("banner") as HTMLElement;
 const overlayEl = document.getElementById("gameOverlay") as HTMLElement;
+// Declared up here (not at its mount site below) because renderGameUI() reads
+// it during the boot render, before the mount line would run -- a `const`
+// declared later would be in its temporal dead zone and throw.
+const stageDockEl = document.getElementById("stageDock");
 
 const room = pickRoomCode();
 const voiceRequested = new URLSearchParams(window.location.search).get("voice") === "1";
@@ -647,17 +650,12 @@ if (loadBgPreference() || loadSfxPreference()) {
 }
 refreshAudioBtns();
 
-// Let the user drag the control cluster out of the way of their drawing.
-const settingsEl = document.getElementById("canvasSettings");
-const settingsGrip = document.getElementById("canvasSettingsGrip");
-if (settingsEl && settingsGrip) makeSettingsDraggable(settingsEl, settingsGrip);
-
-// Floating emoji reactions: a bar over the canvas (guessers only, while a
-// round is being drawn). Tapping floats locally for snappiness and sends to
-// the room; others' emotes float in via the Emote server message.
-const canvasWrapEl = document.querySelector<HTMLElement>(".canvas-wrap");
-emoteBar = canvasWrapEl
-  ? mountEmoteBar(canvasWrapEl, (idx) => {
+// Emoji reactions live in the dock below the canvas (guessers only, while a
+// round is being drawn), so nothing floats over the drawing. Tapping floats
+// locally for snappiness and sends to the room; others' emotes arrive via the
+// Emote server message.
+emoteBar = stageDockEl
+  ? mountEmoteBar(stageDockEl, (idx) => {
       conn.send({ kind: "Emote", idx });
     })
   : null;
@@ -835,6 +833,11 @@ function renderGameUI(): void {
   const canEmote =
     gameState.phase.kind === "Drawing" && gameState.phase.drawer !== youId;
   emoteBar?.classList.toggle("emote-bar--visible", canEmote);
+  // The control dock (sound + emotes) belongs to the active drawing stages;
+  // keep it out of the lobby, the round-end reveal, and the game-over screen.
+  const inDrawingStage =
+    gameState.phase.kind === "ChoosingWord" || gameState.phase.kind === "Drawing";
+  stageDockEl?.classList.toggle("stage-dock--active", inDrawingStage);
 }
 
 async function copyInviteLink(): Promise<void> {

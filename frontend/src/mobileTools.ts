@@ -291,12 +291,14 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
     puck.classList.toggle("mtool-puck--eraser", state.tool.forcedColor !== undefined);
   }
 
-  // Place the puck from state.pos, clamped to the viewport.
+  // Place the puck from state.pos: horizontally clamped to the viewport,
+  // vertically clamped to the canvas band so the tools stay over the drawing
+  // and never drift down over the chat panel on phones.
   function applyPuckPos(): void {
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const band = puckYRange();
     state.pos.x = clamp(state.pos.x, EDGE, vw - PUCK - EDGE);
-    state.pos.y = clamp(state.pos.y, EDGE, vh - PUCK - EDGE);
+    state.pos.y = clamp(state.pos.y, band.min, band.max);
     puck.style.left = `${state.pos.x}px`;
     puck.style.top = `${state.pos.y}px`;
   }
@@ -352,9 +354,9 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
       const dy = e.clientY - startY;
       moved = Math.max(moved, Math.hypot(dx, dy));
       const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      const band = puckYRange();
       state.pos.x = clamp(origX + dx, EDGE, vw - PUCK - EDGE);
-      state.pos.y = clamp(origY + dy, EDGE, vh - PUCK - EDGE);
+      state.pos.y = clamp(origY + dy, band.min, band.max);
       puck.style.left = `${state.pos.x}px`;
       puck.style.top = `${state.pos.y}px`;
       if (state.open) positionPanel();
@@ -411,10 +413,36 @@ function loadPos(): { x: number; y: number } {
       // fall through to default
     }
   }
-  // Default: docked to the right edge, in the lower third for thumb reach.
+  // Default: docked to the right edge just below the canvas -- off the drawing,
+  // in the free right side of the control dock, clear of the chat below.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+  const band = puckYRange();
+  return { x: vw - PUCK - EDGE, y: band.min };
+}
+
+// The vertical band the puck may occupy: the margin BELOW the canvas, so the
+// floating tools never sit over the drawing. Falls back to above the canvas on
+// short screens, then to the full viewport before the canvas lays out.
+function puckYRange(): { min: number; max: number } {
   const vh = typeof window !== "undefined" ? window.innerHeight : 640;
-  return { x: vw - PUCK - EDGE, y: Math.round(vh * 0.6) };
+  const wrap =
+    typeof document !== "undefined"
+      ? document.querySelector<HTMLElement>(".canvas-wrap")
+      : null;
+  const rect = wrap?.getBoundingClientRect();
+  if (!rect || rect.height < PUCK) {
+    return { min: EDGE, max: Math.max(EDGE, vh - PUCK - EDGE) };
+  }
+  const belowMin = Math.round(rect.bottom + EDGE);
+  const belowMax = Math.round(vh - PUCK - EDGE);
+  if (belowMax - belowMin >= PUCK) {
+    return { min: belowMin, max: belowMax };
+  }
+  const aboveMax = Math.round(rect.top - PUCK - EDGE);
+  if (aboveMax > EDGE) {
+    return { min: EDGE, max: aboveMax };
+  }
+  return { min: EDGE, max: Math.max(EDGE, vh - PUCK - EDGE) };
 }
 
 function clamp(v: number, lo: number, hi: number): number {

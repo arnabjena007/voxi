@@ -1,16 +1,19 @@
 :root {
-  --bg: #fdfbf7;
-  --surface: #ffffff;
-  --ink: #2a2a2e;
-  --muted: #76767c;
-  --line: #efeae1;
+  --bg: #fbf6ec;
+  --surface: #fffdf9;
+  --ink: #33302c;
+  --muted: #857b6e;
+  --line: #e7ddca;
   --accent: #2d3436;
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  --radius: 12px;
+  --shadow: 0 2px 12px rgba(90, 68, 42, 0.06);
+  --radius: 14px;
   --sidebar-w: 260px;
   --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-display: "Fredoka", "Plus Jakarta Sans", sans-serif;
   --font-hand: "Patrick Hand", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  --blush: #f2a4b0; --blush-deep: #e0808f;
+  --sage: #8ecac4;  --sage-deep: #68b0a9;
+  --butter: #ecc873;--butter-deep: #d3ab4e;
 }
 
 * { box-sizing: border-box; }
@@ -19,8 +22,8 @@ html, body {
   margin: 0;
   padding: 0;
   background:
-    radial-gradient(ellipse at 20% 10%, rgba(242, 164, 176, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 90%, rgba(142, 202, 196, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 10%, rgba(242, 164, 176, 0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(142, 202, 196, 0.14) 0%, transparent 50%),
     var(--bg);
   background-attachment: fixed;
   color: var(--ink);
@@ -31,6 +34,20 @@ html, body {
 }
 
 body { min-height: 100dvh; }
+
+/* Faint paper grain over the whole app for a cozy, hand-made feel. Fixed and
+   behind all content (main sits at z-index 1). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+}
+main { position: relative; z-index: 1; }
 
 .sr-only {
   position: absolute;
@@ -74,58 +91,30 @@ h1 {
   align-items: center;
 }
 
+/* Control dock: a slim row below the canvas holding the sound controls and,
+   for guessers mid-round, the emote bar. Keeps the canvas itself fully clear. */
+/* Hidden by default; only shown during the active drawing stages (toggled from
+   main.ts). Keeps the lobby, round-end reveal, and game-over screens clean. */
+.stage-dock {
+  display: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  flex-wrap: wrap;
+}
+.stage-dock--active { display: flex; }
+
 .canvas-settings {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 25;
   display: flex;
   align-items: center;
   gap: 3px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px) saturate(1.1);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px;
-  box-shadow: 0 6px 22px rgba(40, 30, 30, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-}
-
-/* Drag handle for the control cluster. */
-.canvas-settings-grip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 38px;
-  margin-left: -2px;
-  color: var(--muted);
-  cursor: grab;
-  touch-action: none;
-  -webkit-tap-highlight-color: transparent;
-  opacity: 0.5;
-  transition: opacity 140ms ease, color 140ms ease;
-}
-
-.canvas-settings-grip i { font-size: 16px; }
-
-.canvas-settings:hover .canvas-settings-grip { opacity: 0.85; }
-.canvas-settings-grip:hover { color: var(--ink); opacity: 1; }
-
-.canvas-settings--dragging {
-  cursor: grabbing;
-  transition: none;
-  box-shadow: 0 12px 30px rgba(40, 30, 30, 0.2);
-}
-
-.canvas-settings--dragging .canvas-settings-grip { cursor: grabbing; }
-
-/* Never collide with the game overlays (word pick, round end, podium): fade
-   the controls out while an overlay is up; they return during drawing. */
-.canvas-wrap:has(#gameOverlay.game-overlay--visible) .canvas-settings {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.96);
+  box-shadow: 0 2px 8px rgba(40, 30, 30, 0.06);
+  flex: none;
 }
 
 .canvas-setting {
@@ -433,7 +422,7 @@ canvas {
 
 .banner {
   background: var(--surface);
-  border: 1px dashed var(--line);
+  border: 1.5px dashed var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 10px 16px;
@@ -454,7 +443,8 @@ canvas {
 }
 
 .banner-hint {
-  font-size: 11.5px;
+  font-family: var(--font-hand);
+  font-size: 14px;
   color: var(--muted);
   text-align: center;
 }
@@ -655,11 +645,11 @@ canvas {
 
 .overlay-card {
   position: relative;
-  background: #ffffff;
-  border-radius: var(--radius);
-  border: 1px dashed var(--line);
+  background: var(--surface);
+  border-radius: 18px;
+  border: 1.5px dashed var(--line);
   border-top: 2px dashed var(--line);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 0 rgba(120, 95, 60, 0.05), 0 18px 40px -14px rgba(90, 68, 42, 0.28);
   padding: 24px 28px;
   max-width: 80%;
   text-align: center;
@@ -839,28 +829,28 @@ canvas {
 
 .lobby-start {
   width: 100%;
-  border: none;
-  background: var(--ink);
+  border: 2px solid var(--blush-deep);
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 12%, var(--blush)), var(--blush));
   color: #ffffff;
-  border-radius: 14px;
+  border-radius: 14px 16px 13px 15px;
   padding: 14px 16px;
   font: inherit;
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 0 #1a1a1e;
+  box-shadow: 0 5px 0 var(--blush-deep), 0 12px 22px -8px var(--blush-deep);
   transition: transform 80ms ease-out, box-shadow 80ms ease-out, opacity 120ms ease-out;
 }
 
 .lobby-start:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 5px 0 #1a1a1e;
+  box-shadow: 0 6px 0 var(--blush-deep), 0 16px 26px -8px var(--blush-deep);
 }
 
 .lobby-start:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #1a1a1e;
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--blush-deep);
 }
 
 .lobby-start:disabled {
@@ -876,8 +866,9 @@ canvas {
 }
 
 .lobby-waiting {
+  font-family: var(--font-hand);
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   text-align: center;
   margin: 4px 0;
 }
@@ -902,21 +893,27 @@ canvas {
 }
 
 .lobby-bot {
-  border: 1px dashed var(--line);
-  background: transparent;
+  border: 1.5px dashed var(--line);
+  background: var(--surface);
   color: var(--muted);
-  padding: 5px 10px;
+  padding: 5px 11px;
   border-radius: 999px;
   font: inherit;
-  font-size: 11px;
+  font-family: var(--font-hand);
+  font-size: 13px;
   cursor: pointer;
-  transition: color 120ms ease-out, border-color 120ms ease-out;
+  transition: color 120ms ease-out, border-color 120ms ease-out, transform 100ms ease-out;
 }
 
 .lobby-bot:hover {
   color: var(--ink);
-  border-color: var(--ink);
+  border-color: var(--sage-deep);
+  border-style: solid;
+  transform: translateY(-1px);
 }
+.lobby-bot[data-diff="easy"]:hover { border-color: var(--sage-deep); }
+.lobby-bot[data-diff="medium"]:hover { border-color: var(--butter-deep); }
+.lobby-bot[data-diff="hard"]:hover { border-color: var(--blush-deep); }
 
 .lobby-bot-tip-wrap {
   position: relative;
@@ -1006,9 +1003,9 @@ canvas {
 
 .word-pick-card {
   position: relative;
-  border: 2px solid #d4a0a8;
-  background: linear-gradient(140deg, #ffffff 0%, #fbf7ee 100%);
-  border-radius: 14px;
+  border: 2px solid var(--blush-deep);
+  background: linear-gradient(140deg, var(--surface) 0%, color-mix(in srgb, var(--butter) 8%, var(--surface)) 100%);
+  border-radius: 14px 16px 13px 15px;
   padding: 16px 14px 12px;
   font: inherit;
   cursor: pointer;
@@ -1017,25 +1014,26 @@ canvas {
   gap: 4px;
   align-items: flex-start;
   text-align: left;
-  box-shadow: 0 3px 0 #e0949e;
+  box-shadow: 0 4px 0 var(--blush-deep);
   transition: transform 80ms ease-out, box-shadow 80ms ease-out;
 }
 
 .word-pick-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 0 #e0949e;
+  transform: translateY(-2px) rotate(-0.6deg);
+  box-shadow: 0 6px 0 var(--blush-deep);
 }
 
 .word-pick-card:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #e0949e;
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--blush-deep);
 }
 
 .word-pick-num {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: #d4a0a8;
+  font-family: var(--font-hand);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--blush-deep);
 }
 
 .word-pick-word {
@@ -1103,9 +1101,9 @@ canvas {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 11px 12px 10px 12px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1.5px dashed var(--line);
   opacity: 0;
   transform: translateY(6px);
   animation: go-row-in 360ms cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
@@ -1212,27 +1210,27 @@ canvas {
 
 .invite-primary {
   margin-top: 12px;
-  border: none;
-  background: var(--ink);
+  border: 2px solid var(--sage-deep);
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 12%, var(--sage)), var(--sage));
   color: #ffffff;
   padding: 12px 18px;
-  border-radius: 14px;
+  border-radius: 14px 16px 13px 15px;
   font: inherit;
   font-family: var(--font-display);
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 0 #1a1a1e;
+  box-shadow: 0 4px 0 var(--sage-deep);
   transition: transform 80ms ease-out, box-shadow 80ms ease-out, opacity 120ms ease-out;
 }
 
 .invite-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 5px 0 #1a1a1e;
+  box-shadow: 0 5px 0 var(--sage-deep);
 }
 
 .invite-primary:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 #1a1a1e;
+  box-shadow: 0 1px 0 var(--sage-deep);
 }
 
 .invite-primary:disabled {
@@ -1274,7 +1272,7 @@ canvas {
 
 .toolbar {
   background: var(--surface);
-  border: 1px dashed var(--line);
+  border: 1.5px dashed var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 10px 14px;
@@ -1481,7 +1479,7 @@ canvas {
 
 .players {
   background: var(--surface);
-  border: 1px dashed var(--line);
+  border: 1.5px dashed var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 14px;
@@ -1490,12 +1488,13 @@ canvas {
 }
 
 .players h2 {
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-hand);
+  font-size: 15px;
+  font-weight: 400;
   margin: 0 0 10px 0;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
 
 .players ul {
@@ -2181,7 +2180,7 @@ canvas {
 
 .chat {
   background: var(--surface);
-  border: 1px dashed var(--line);
+  border: 1.5px dashed var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   display: flex;
@@ -2198,11 +2197,11 @@ canvas {
 
 .chat-header h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-hand);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: var(--muted);
 }
 
@@ -2299,9 +2298,9 @@ canvas {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  border-top: 1px solid var(--line);
+  border-top: 1.5px dashed var(--line);
   padding: 10px;
-  background: #ffffff;
+  background: var(--surface);
   position: sticky;
   bottom: 0;
 }
@@ -2310,11 +2309,11 @@ canvas {
   flex: 1 1 auto;
   min-width: 0;
   height: 38px;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   background: var(--bg);
   color: var(--ink);
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 11px 12px 10px 12px;
   font: inherit;
   font-size: 14px;
   line-height: 1.4;
@@ -2324,9 +2323,9 @@ canvas {
 }
 
 .chat-input:focus {
-  border-color: var(--ink);
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(42, 42, 46, 0.08);
+  border-color: var(--sage-deep);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sage) 38%, transparent);
 }
 
 .chat-input::placeholder { color: #b0a99d; }
@@ -2378,18 +2377,19 @@ canvas {
   justify-content: center;
   width: 38px;
   height: 38px;
-  border: none;
-  border-radius: 10px;
-  background: var(--ink);
+  border: 2px solid var(--sage-deep);
+  border-radius: 11px 12px 10px 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 12%, var(--sage)), var(--sage));
   color: #ffffff;
   cursor: pointer;
+  box-shadow: 0 3px 0 var(--sage-deep);
   transition: background-color 120ms ease-out, transform 100ms ease-out,
-              opacity 120ms ease-out;
+              box-shadow 120ms ease-out, opacity 120ms ease-out;
 }
 
 .chat-send:hover:not(:disabled) {
-  background: #000;
   transform: translateY(-1px);
+  box-shadow: 0 4px 0 var(--sage-deep);
 }
 
 .chat-send:active:not(:disabled) {
@@ -2448,7 +2448,8 @@ canvas {
 
   /* Hard-cap the stage so chat always gets the remaining vertical room.
      Without this cap the grid's `auto` row lets stage grow to its content
-     height (canvas+toolbar+banner) and squeezes chat below the fold. */
+     height (canvas+banner+dock) and squeezes chat below the fold. The canvas
+     region shrinks first; the control dock always keeps its slot. */
   .stage {
     min-height: 0;
     max-height: 58dvh;
@@ -2458,9 +2459,9 @@ canvas {
 
   /* Clamp the canvas. width:auto + max-height keeps the 16:10 aspect-ratio
      rule honoured (the canvas internal pixel grid is unchanged so input
-     still maps correctly). */
+     still maps correctly). Trimmed to leave room for the dock below it. */
   #canvas {
-    max-height: 36dvh;
+    max-height: 32dvh;
     width: auto;
     max-width: 100%;
     height: auto;
@@ -2468,6 +2469,13 @@ canvas {
   .canvas-wrap {
     display: flex;
     justify-content: center;
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+  /* The dock (sound + emotes) is never the overflow victim. */
+  .stage-dock {
+    flex: 0 0 auto;
+    min-height: 40px;
   }
 
   .sidebar--right {
@@ -4530,33 +4538,22 @@ canvas {
   }
 }
 
+/* Emote bar: a dock item (right side), only rendered while a guesser can react
+   mid-round. display:none when hidden so it never reserves an empty gap. */
 .emote-bar {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  z-index: 24;
-  display: inline-flex;
+  display: none;
+  align-items: center;
   flex-wrap: wrap;
-  justify-content: center;
-  max-width: min(92vw, 420px);
+  justify-content: flex-end;
   gap: 2px;
-  padding: 4px;
+  padding: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 6px 20px rgba(40, 30, 30, 0.12);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 200ms ease, transform 200ms ease;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(40, 30, 30, 0.06);
 }
 
-.emote-bar--visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(-50%) translateY(0);
-}
+.emote-bar--visible { display: inline-flex; }
 
 .emote-btn {
   border: none;
@@ -4575,7 +4572,6 @@ canvas {
 
 @media (max-width: 760px) {
   .emote-btn { width: 34px; height: 34px; font-size: 20px; }
-  .emote-bar { bottom: 6px; }
   .emote-float { font-size: 24px; }
 }
 
