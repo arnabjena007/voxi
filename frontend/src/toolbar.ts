@@ -22,7 +22,10 @@ export interface ToolbarHandlers {
   onHistoryChange: (cb: (canUndo: boolean, canRedo: boolean) => void) => void;
 }
 
-const DRAWING_TOOLS = TOOLS.filter((t) => t.forcedColor === undefined);
+const DRAWING_TOOLS = TOOLS.filter(
+  (t) => t.forcedColor === undefined && t.id !== "fill",
+);
+const FILL = TOOLS.find((t) => t.id === "fill")!;
 const ERASER = TOOLS.find((t) => t.id === "eraser")!;
 
 // Display sizes for the brush preview dot. The wire width is `tool.width`,
@@ -78,6 +81,7 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
       <div class="tb-group" role="toolbar" aria-label="Brushes">
         <div class="brushes"></div>
         <div class="tb-divider tb-divider--vertical"></div>
+        <div class="fill-slot"></div>
         <div class="eraser-slot"></div>
       </div>
       <div class="tb-divider tb-divider--vertical"></div>
@@ -106,6 +110,7 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
   `;
 
   const brushesEl = root.querySelector<HTMLDivElement>(".brushes")!;
+  const fillSlot = root.querySelector<HTMLDivElement>(".fill-slot")!;
   const eraserSlot = root.querySelector<HTMLDivElement>(".eraser-slot")!;
   const tabsEl = root.querySelector<HTMLElement>(".palette-tabs")!;
   const swatchesEl = root.querySelector<HTMLDivElement>(".swatches")!;
@@ -115,6 +120,7 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
   for (const t of DRAWING_TOOLS) {
     brushesEl.appendChild(buildToolButton(t));
   }
+  fillSlot.appendChild(buildToolButton(FILL));
   eraserSlot.appendChild(buildToolButton(ERASER));
 
   // --- palette tabs ---
@@ -174,13 +180,23 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
   function buildToolButton(t: Tool): HTMLButtonElement {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = t.id === "eraser" ? "tool-btn tool-btn--eraser" : "tool-btn";
+    btn.className =
+      t.id === "eraser"
+        ? "tool-btn tool-btn--eraser"
+        : t.id === "fill"
+          ? "tool-btn tool-btn--fill"
+          : "tool-btn";
     btn.dataset.toolId = t.id;
     btn.setAttribute("aria-pressed", String(t.id === state.tool.id));
     btn.title = t.label;
-    const dot = DISPLAY_DOT[t.id] ?? 12;
+    // Fill is an action, not a brush size -- show a bucket carrying the
+    // currently selected colour, not a size dot.
+    const glyph =
+      t.id === "fill"
+        ? `<i class="ph-fill ph-paint-bucket tool-glyph" style="color:${rgbToCss(state.color)}" aria-hidden="true"></i>`
+        : `<span class="tool-dot" style="width:${DISPLAY_DOT[t.id] ?? 12}px;height:${DISPLAY_DOT[t.id] ?? 12}px"></span>`;
     btn.innerHTML = `
-      <span class="tool-dot" style="width:${dot}px;height:${dot}px"></span>
+      ${glyph}
       <span class="tool-name">${t.label}</span>
     `;
     btn.addEventListener("click", () => onTool(t));
@@ -199,10 +215,16 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
     handlers.onTool(t);
   }
 
+  function syncFillColor(): void {
+    const g = root.querySelector<HTMLElement>(".tool-btn--fill .tool-glyph");
+    if (g) g.style.color = rgbToCss(state.color);
+  }
+
   function onSwatch(rgb: number): void {
     state.color = rgb;
     window.localStorage.setItem(STORAGE_COLOR, String(rgb));
     syncSwatchPressedState();
+    syncFillColor();
     if (state.tool.forcedColor !== undefined) {
       state.tool = findTool("pencil")!;
       window.localStorage.setItem(STORAGE_TOOL, state.tool.id);

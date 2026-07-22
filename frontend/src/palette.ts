@@ -63,7 +63,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export interface Tool {
-  id: "pen" | "nib" | "pencil" | "brush" | "pastel" | "crayon" | "eraser";
+  id: "pen" | "nib" | "pencil" | "brush" | "pastel" | "crayon" | "eraser" | "fill";
   label: string;
   width: number;
   // When set, choosing this tool forces colour to this value. Used by the
@@ -72,6 +72,9 @@ export interface Tool {
 }
 
 // Smallest to largest. Widths are in logical canvas pixels (canvas is 960x600).
+// The fill (paint bucket) tool has width 0 as a sentinel: the canvas treats a
+// width-0 stroke as a flood fill at its origin, mirroring how the eraser is a
+// colour-sentinel stroke. It carries no points on the wire.
 export const TOOLS: Tool[] = [
   { id: "pen", label: "Pen", width: 2 },
   { id: "nib", label: "Nib", width: 3 },
@@ -79,8 +82,12 @@ export const TOOLS: Tool[] = [
   { id: "brush", label: "Brush", width: 8 },
   { id: "pastel", label: "Pastel", width: 14 },
   { id: "crayon", label: "Crayon", width: 20 },
+  { id: "fill", label: "Fill", width: 0 },
   { id: "eraser", label: "Eraser", width: 16, forcedColor: 0xffffff },
 ];
+
+// Width-0 is the paint-bucket sentinel (see TOOLS above).
+export const FILL_WIDTH = 0;
 
 export const ERASER_COLOR = 0xffffff;
 

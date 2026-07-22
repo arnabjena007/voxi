@@ -216,6 +216,7 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
         state.color = c.rgb;
         window.localStorage.setItem(STORAGE_COLOR, String(c.rgb));
         syncSwatches();
+        syncFillColor();
         if (state.tool.forcedColor !== undefined) {
           state.tool = findTool("pencil")!;
           window.localStorage.setItem(STORAGE_TOOL, state.tool.id);
@@ -235,7 +236,11 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className =
-        t.id === "eraser" ? "mtool-size mtool-size--eraser" : "mtool-size";
+        t.id === "eraser"
+          ? "mtool-size mtool-size--eraser"
+          : t.id === "fill"
+            ? "mtool-size mtool-size--fill"
+            : "mtool-size";
       btn.dataset.toolId = t.id;
       btn.setAttribute("aria-pressed", String(t.id === state.tool.id));
       btn.title = t.label;
@@ -243,6 +248,12 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
         btn.innerHTML = `
           <i class="ph ph-eraser mtool-size-icon" aria-hidden="true"></i>
           <span class="mtool-size-label">erase</span>
+        `;
+      } else if (t.id === "fill") {
+        // Bucket carrying the selected colour.
+        btn.innerHTML = `
+          <i class="ph-fill ph-paint-bucket mtool-size-icon" style="color:${rgbToCss(state.color)}" aria-hidden="true"></i>
+          <span class="mtool-size-label">fill</span>
         `;
       } else {
         const dot = DISPLAY_DOT[t.id] ?? 12;
@@ -277,6 +288,11 @@ export function mountMobileTools(handlers: MobileToolsHandlers): void {
     for (const b of sizesEl.querySelectorAll<HTMLButtonElement>(".mtool-size")) {
       b.setAttribute("aria-pressed", String(b.dataset.toolId === state.tool.id));
     }
+  }
+
+  function syncFillColor(): void {
+    const g = sizesEl.querySelector<HTMLElement>(".mtool-size--fill .mtool-size-icon");
+    if (g) g.style.color = rgbToCss(state.color);
   }
 
   function refreshPuck(): void {

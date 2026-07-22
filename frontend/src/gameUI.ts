@@ -239,9 +239,10 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
            </li>`;
       })
       .join("");
+    // No music chip on the round-end card: it's a brief reveal, and on mobile
+    // the chip crowded the "It was <word>!" heading.
     root.innerHTML = `
       <div class="overlay-card">
-        ${musicChip(ctx)}
         <h2>It was <em>${escapeHtml(phase.word)}</em>!</h2>
         <ul class="score-list">${rows}</ul>
       </div>

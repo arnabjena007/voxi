@@ -194,6 +194,7 @@ const initialColor = loadInitialColor();
 const initialTool = loadInitialTool();
 surface.setColor(initialColor);
 surface.setWidth(initialTool.width);
+surface.setActiveTool(initialTool.id);
 
 const players = new Map<number, Player>();
 const playerColors = new Map<number, number>();
@@ -589,7 +590,10 @@ function onUndoState(fn: UndoStateListener): void {
 
 mountToolbar(toolbarEl, {
   onColor: (rgb) => surface.setColor(rgb),
-  onTool: (tool) => surface.setWidth(tool.width),
+  onTool: (tool) => {
+    surface.setWidth(tool.width);
+    surface.setActiveTool(tool.id);
+  },
   onClear: () => {
     void clearCanvas();
   },
@@ -601,7 +605,10 @@ mountToolbar(toolbarEl, {
 if (isPhoneViewport()) {
   mountMobileTools({
     onColor: (rgb) => surface.setColor(rgb),
-    onTool: (tool) => surface.setWidth(tool.width),
+    onTool: (tool) => {
+      surface.setWidth(tool.width);
+      surface.setActiveTool(tool.id);
+    },
     onClear: () => {
       void clearCanvas();
     },
