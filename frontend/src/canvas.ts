@@ -16,6 +16,9 @@ const I8_MIN = -128;
 const UNDO_STACK_CAP = 50;
 
 const ERASER_COLOR = 0xffffff;
+// Width-0 is the paint-bucket sentinel: a width-0 "stroke" is a flood fill at
+// its origin (no points). Mirrors palette.ts FILL_WIDTH.
+const FILL_WIDTH = 0;
 
 interface StrokeRender {
   color: string;
@@ -94,6 +97,7 @@ export class DrawingSurface {
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private currentColor = 0x2d3436;
   private currentWidth = 4;
+  private activeToolId = "pencil";
   private dpr = 1;
   private cssWidth = 0;
   private cssHeight = 0;
@@ -140,10 +144,26 @@ export class DrawingSurface {
 
   setColor(rgb: number): void {
     this.currentColor = rgb & 0xffffff;
+    this.refreshCursor();
   }
 
   setWidth(width: number): void {
-    this.currentWidth = Math.max(1, Math.min(255, Math.round(width)));
+    // Width 0 is the fill sentinel and must pass through unclamped; real brush
+    // widths clamp to >= 1.
+    this.currentWidth =
+      width === FILL_WIDTH ? FILL_WIDTH : Math.max(1, Math.min(255, Math.round(width)));
+  }
+
+  // Tells the canvas which tool is active so it can show the matching cursor
+  // (a colour-tinted paint bucket for fill, an eraser for erase, else a
+  // crosshair). Called by the toolbar / mobile panel on tool changes.
+  setActiveTool(id: string): void {
+    this.activeToolId = id;
+    this.refreshCursor();
+  }
+
+  private refreshCursor(): void {
+    this.canvas.style.cursor = cursorFor(this.activeToolId, this.currentColor);
   }
 
   // Subscribe to history-changed events (undo/redo availability flipped).
@@ -217,7 +237,12 @@ export class DrawingSurface {
         this.applyTransform();
         let drawn = 0;
         for (const rec of records) {
-          if (rec.points.length === 0 || drawn >= target) continue;
+          if (drawn >= target) continue; // animation front not reached yet
+          if (rec.width === FILL_WIDTH) {
+            floodFill(this.ctx, this.canvas.width, this.canvas.height, rec.origin[0], rec.origin[1], rec.color);
+            continue;
+          }
+          if (rec.points.length === 0) continue;
           const isEraser = rec.color === ERASER_COLOR;
           const render = newRender(
             rgbToCss(rec.color),
@@ -449,7 +474,7 @@ export class DrawingSurface {
         if (stroke.render) {
           finishStrokeAt(this.ctx, stroke.render, stroke.lastAbsX, stroke.lastAbsY);
         }
-        this.completedStrokes.push({
+        const record: CompletedRecord = {
           origin: stroke.origin,
           color: stroke.color,
           width: stroke.baseWidth,
@@ -457,7 +482,11 @@ export class DrawingSurface {
           source: "remote",
           player: stroke.player,
           strokeId: stroke.strokeId,
-        });
+        };
+        this.completedStrokes.push(record);
+        // A fill has no live segments (no points), so nothing was drawn as it
+        // "arrived" -- paint it now that it's final.
+        if (record.width === FILL_WIDTH) this.paintRecord(record);
         this.remoteStrokes.delete(key);
       }
     }
@@ -484,8 +513,15 @@ export class DrawingSurface {
   private onPointerDown = (ev: PointerEvent): void => {
     if (!ev.isPrimary) return;
     if (this.localStrokes.has(ev.pointerId)) return;
-    this.canvas.setPointerCapture(ev.pointerId);
     const { x, y } = this.toLogical(ev);
+    // Fill tool (width-0 sentinel): a single click flood-fills at this point.
+    // No pointer tracking -- it's one instantaneous op, recorded as a width-0
+    // stroke so it shares ordering / undo / snapshot / gallery with strokes.
+    if (this.currentWidth === FILL_WIDTH) {
+      this.doFill(x, y);
+      return;
+    }
+    this.canvas.setPointerCapture(ev.pointerId);
     const t = performance.now();
     const strokeId = this.nextStrokeId++;
     const color = this.currentColor;
@@ -570,6 +606,43 @@ export class DrawingSurface {
     this.redoStack = [];
     this.notifyHistory();
   };
+
+  // Paint-bucket: flood-fill the canvas at a logical (960x600) point with the
+  // current colour, then record + broadcast it as a width-0, no-points stroke
+  // so it slots into the shared ordered draw list like any other stroke.
+  private doFill(x: number, y: number): void {
+    const color = this.currentColor;
+    const ox = Math.round(x);
+    const oy = Math.round(y);
+    const strokeId = this.nextStrokeId++;
+    // Paint locally right away for responsiveness.
+    floodFill(this.ctx, this.canvas.width, this.canvas.height, ox, oy, color);
+    if (this.sendBatched) {
+      this.sendBatched({
+        kind: "Stroke",
+        stroke_id: strokeId,
+        origin: [ox, oy],
+        color,
+        width: FILL_WIDTH,
+        points: [],
+        finished: true,
+      });
+    }
+    const record: CompletedRecord = {
+      origin: [ox, oy],
+      color,
+      width: FILL_WIDTH,
+      points: [],
+      source: "local",
+      player: this.youId ?? 0,
+      strokeId,
+    };
+    this.completedStrokes.push(record);
+    this.undoStack.push(record);
+    if (this.undoStack.length > UNDO_STACK_CAP) this.undoStack.shift();
+    this.redoStack = [];
+    this.notifyHistory();
+  }
 
   private consumeLocalPoint(stroke: LocalStroke, x: number, y: number): void {
     const t = performance.now();
@@ -729,7 +802,14 @@ export function replayDrawing(
       setup();
       let drawn = 0;
       for (const rec of records) {
-        if (rec.points.length === 0 || drawn >= targetN) continue;
+        if (drawn >= targetN) continue; // animation front not reached yet
+        // Fills are instantaneous: paint the whole fill once the front reaches
+        // its slot (it carries no points, so it doesn't advance `drawn`).
+        if (rec.width === FILL_WIDTH) {
+          floodFill(ctx, W, H, rec.origin[0], rec.origin[1], rec.color);
+          continue;
+        }
+        if (rec.points.length === 0) continue;
         const isEraser = rec.color === ERASER_COLOR;
         const render = newRender(
           isEraser ? "#ffffff" : rgbToCss(rec.color),
@@ -760,11 +840,90 @@ export function replayDrawing(
   });
 }
 
+// Flood-fill the region contiguous with the logical (960x600) seed point,
+// replacing it with `rgb`. Works in device pixels (getImageData/putImageData
+// ignore the transform); the seed is mapped through the ctx's current transform
+// so it's correct for the live canvas and for gallery/replay targets alike.
+// A small colour tolerance absorbs anti-aliased stroke edges. Because the whole
+// ordered draw list is repainted in order, a fill always samples the pixels of
+// the strokes that precede it.
+function floodFill(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  logicalX: number,
+  logicalY: number,
+  rgb: number,
+): void {
+  if (W <= 0 || H <= 0) return;
+  const m = ctx.getTransform();
+  const sx = Math.round(m.a * logicalX + m.c * logicalY + m.e);
+  const sy = Math.round(m.b * logicalX + m.d * logicalY + m.f);
+  if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+
+  const img = ctx.getImageData(0, 0, W, H);
+  const d = img.data;
+  const p0 = (sy * W + sx) * 4;
+  const tr = d[p0], tg = d[p0 + 1], tb = d[p0 + 2], ta = d[p0 + 3];
+  const fr = (rgb >> 16) & 0xff, fg = (rgb >> 8) & 0xff, fb = rgb & 0xff;
+  // Already the fill colour? Nothing to do (also avoids a pointless full pass).
+  if (tr === fr && tg === fg && tb === fb && ta === 255) return;
+
+  const TOL = 48 * 48; // squared RGBA distance; absorbs anti-aliasing
+  const visited = new Uint8Array(W * H);
+  const matchesTarget = (i: number): boolean => {
+    if (visited[i]) return false;
+    const p = i * 4;
+    const dr = d[p] - tr, dg = d[p + 1] - tg, db = d[p + 2] - tb, da = d[p + 3] - ta;
+    return dr * dr + dg * dg + db * db + da * da <= TOL;
+  };
+  const pushRun = (x0: number, x1: number, y: number): void => {
+    if (y < 0 || y >= H) return;
+    const row = y * W;
+    let inRun = false;
+    for (let x = x0; x <= x1; x++) {
+      if (matchesTarget(row + x)) {
+        if (!inRun) { stack.push(x, y); inRun = true; }
+      } else {
+        inRun = false;
+      }
+    }
+  };
+  // Span-based scanline fill: each stack entry seeds one contiguous row run.
+  const stack: number[] = [sx, sy];
+  while (stack.length) {
+    const y = stack.pop() as number;
+    const x = stack.pop() as number;
+    const row = y * W;
+    if (visited[row + x]) continue;
+    let xl = x;
+    while (xl >= 0 && matchesTarget(row + xl)) xl--;
+    xl++;
+    let xr = x;
+    while (xr < W && matchesTarget(row + xr)) xr++;
+    xr--;
+    for (let i = xl; i <= xr; i++) {
+      const p = (row + i) * 4;
+      d[p] = fr; d[p + 1] = fg; d[p + 2] = fb; d[p + 3] = 255;
+      visited[row + i] = 1;
+    }
+    pushRun(xl, xr, y - 1);
+    pushRun(xl, xr, y + 1);
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
 function paintRecordTo(
   ctx: CanvasRenderingContext2D,
   rec: DrawingRecord,
   eraserAsWhite: boolean,
 ): void {
+  // Fill op (width-0 sentinel): flood-fill at the origin. Must run before the
+  // empty-points guard, since a fill carries no points.
+  if (rec.width === FILL_WIDTH) {
+    floodFill(ctx, ctx.canvas.width, ctx.canvas.height, rec.origin[0], rec.origin[1], rec.color);
+    return;
+  }
   if (rec.points.length === 0) return;
   const isEraser = rec.color === ERASER_COLOR;
   const color = isEraser && eraserAsWhite ? "#ffffff" : rgbToCss(rec.color);
@@ -875,6 +1034,36 @@ function rgbToCss(rgb: number): string {
   const g = (rgb >> 8) & 0xff;
   const b = rgb & 0xff;
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+// CSS `cursor` value for the active tool: a paint bucket tinted with the
+// selected colour for fill, an eraser for erase, else the plain crosshair.
+// The SVGs are inlined as data-URI cursors with a sensible hotspot.
+function cursorFor(toolId: string, rgb: number): string {
+  if (toolId === "fill") {
+    const c = rgbToCss(rgb);
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
+      `<g transform="rotate(-28 16 16)">` +
+      `<path d="M9 9h12v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2z" fill="${c}" stroke="#3a3a3a" stroke-width="1.6"/>` +
+      `<ellipse cx="15" cy="9" rx="6" ry="2.3" fill="#ffffff" stroke="#3a3a3a" stroke-width="1.6"/>` +
+      `<path d="M9 12q-5 1-4 6" fill="none" stroke="#3a3a3a" stroke-width="1.6" stroke-linecap="round"/>` +
+      `</g>` +
+      `<path d="M6 24l-1.6 4" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>` +
+      `</svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 5 28, crosshair`;
+  }
+  if (toolId === "eraser") {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">` +
+      `<g transform="rotate(-40 15 15)">` +
+      `<rect x="5" y="11" width="19" height="9" rx="2" fill="#fde2ea" stroke="#3a3a3a" stroke-width="1.6"/>` +
+      `<rect x="5" y="11" width="7.5" height="9" rx="2" fill="#f2a4b0" stroke="#3a3a3a" stroke-width="1.6"/>` +
+      `</g>` +
+      `</svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 8 22, crosshair`;
+  }
+  return "crosshair";
 }
 
 function clamp(v: number, lo: number, hi: number): number {

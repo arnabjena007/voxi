@@ -1387,6 +1387,15 @@ canvas {
   box-sizing: border-box;
 }
 
+/* Fill tool: a paint bucket tinted with the selected colour (set inline). */
+.tool-glyph {
+  font-size: 19px;
+  line-height: 1;
+  display: inline-block;
+  /* A faint outline keeps a light bucket readable on the pressed dark button. */
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
 .tool-name {
   font-size: 10.5px;
   font-weight: 500;
@@ -3066,6 +3075,31 @@ canvas {
 .mtool-size--eraser[aria-pressed="true"] .mtool-size-icon,
 .mtool-size--eraser[aria-pressed="true"] .mtool-size-label {
   color: #c96b5e;
+}
+
+/* Fill tool row on the mobile panel: bucket tinted with the selected colour. */
+.mtool-size--fill {
+  flex: 0 0 100%;
+  margin-top: 6px;
+  height: 36px;
+  gap: 6px;
+  border: 1px dashed var(--line);
+}
+.mtool-size--fill .mtool-size-icon {
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+}
+.mtool-size--fill .mtool-size-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.mtool-size--fill[aria-pressed="true"] {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: var(--ink);
+  border-style: solid;
 }
 
 .mtool-history {
