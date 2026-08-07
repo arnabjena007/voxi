@@ -51,6 +51,11 @@ pub enum RoomCmd {
         drawer: PlayerId,
         word: String,
     },
+    /// Server-triggered start with no host gate. Used by matchmaking to kick
+    /// off a matched table once its seats are filled.
+    AutoStart {
+        mode: GameMode,
+    },
 }
 
 pub struct JoinResult {
@@ -116,6 +121,11 @@ impl RoomHandle {
 
     pub async fn cancel_pending(&self, candidate: PlayerId) {
         let _ = self.cmd_tx.send(RoomCmd::CancelPending { candidate }).await;
+    }
+
+    /// Start a matched game with no host gate (matchmaking auto-start).
+    pub async fn auto_start(&self, mode: GameMode) {
+        let _ = self.cmd_tx.send(RoomCmd::AutoStart { mode }).await;
     }
 
     pub async fn set_secret(&self, drawer: PlayerId, word: impl Into<String>) {
@@ -383,6 +393,7 @@ impl Room {
             RoomCmd::CancelPending { candidate } => self.handle_cancel_pending(candidate),
             RoomCmd::FromClient { player, msg } => self.handle_client_msg(player, msg),
             RoomCmd::SetSecret { drawer, word } => self.handle_set_secret(drawer, word),
+            RoomCmd::AutoStart { mode } => self.begin_game(mode),
         }
     }
 
@@ -1167,18 +1178,24 @@ impl Room {
     // ---- game state machine ---------------------------------------------
 
     fn handle_start_game(&mut self, sender: PlayerId, mode: GameMode) {
+        // Only the host may Start via the client. Matchmaking uses begin_game
+        // directly (RoomCmd::AutoStart), which skips this gate.
+        if let Some(host) = self.game.host {
+            if host != sender {
+                tracing::debug!("ignoring Start: only host can start");
+                return;
+            }
+        }
+        self.begin_game(mode);
+    }
+
+    fn begin_game(&mut self, mode: GameMode) {
         if !matches!(self.game.phase, GamePhase::Lobby | GamePhase::GameOver) {
             return;
         }
         if self.players.len() < 2 {
             tracing::debug!("ignoring Start: at least 2 players required");
             return;
-        }
-        if let Some(host) = self.game.host {
-            if host != sender {
-                tracing::debug!("ignoring Start: only host can start");
-                return;
-            }
         }
         if self.words.is_empty() {
             tracing::warn!("ignoring Start: word lists are empty");

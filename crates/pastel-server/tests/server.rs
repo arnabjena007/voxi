@@ -225,3 +225,68 @@ async fn reqwest_get(url: &str) -> String {
 async fn drain_one(ws: &mut Client) -> Option<ServerMsg> {
     try_recv_server(ws).await
 }
+
+/// Tiny raw-TCP JSON POST (no reqwest dep).
+async fn http_post(url: &str, body: &str) -> String {
+    let url = url.strip_prefix("http://").expect("http url");
+    let (host_port, path) = url
+        .split_once('/')
+        .map(|(h, p)| (h, format!("/{p}")))
+        .unwrap();
+    let mut stream = tokio::net::TcpStream::connect(host_port).await.unwrap();
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let req = format!(
+        "POST {path} HTTP/1.1\r\nHost: {host_port}\r\nContent-Type: application/json\r\n\
+         Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    stream.write_all(req.as_bytes()).await.unwrap();
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf).await.unwrap();
+    let text = String::from_utf8_lossy(&buf);
+    let body_start = text.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+    text[body_start..].to_string()
+}
+
+#[tokio::test]
+async fn matchmake_returns_a_valid_joinable_code() {
+    let addr = spawn_server().await;
+    // size 4, 3 bots -> 1 human seat, so the table forms + a room is minted.
+    let body = http_post(
+        &format!("http://{addr}/matchmake"),
+        r#"{"size":4,"bots":3}"#,
+    )
+    .await;
+    // Body is {"code":"XXXXXX"}; pull the code out without a json dep.
+    let code = body
+        .split_once("\"code\":\"")
+        .and_then(|(_, rest)| rest.split('"').next())
+        .expect("code field")
+        .to_string();
+    assert_eq!(code.len(), 6, "6-char room code, got {code:?}");
+    assert!(RoomCode::parse(&code).is_ok(), "code parses: {code}");
+
+    // The minted room is real: /metrics should show at least one active room.
+    let metrics = reqwest_get(&format!("http://{addr}/metrics")).await;
+    assert!(
+        metrics.contains("pastel_rooms_active 1") || metrics.contains("pastel_rooms_active 2"),
+        "a room was created: {metrics}"
+    );
+
+    // And it's joinable over the normal WS path.
+    let _ws = connect(addr, &code).await;
+}
+
+#[tokio::test]
+async fn matchmake_rejects_bad_size() {
+    let addr = spawn_server().await;
+    let body = http_post(
+        &format!("http://{addr}/matchmake"),
+        r#"{"size":3,"bots":0}"#,
+    )
+    .await;
+    assert!(
+        body.to_lowercase().contains("size must be"),
+        "bad size rejected: {body}"
+    );
+}

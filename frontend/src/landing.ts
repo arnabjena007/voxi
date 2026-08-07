@@ -129,6 +129,31 @@ export function showLanding(): void {
           </div>
         </form>
 
+        <div class="landing-divider"><span>or play now</span></div>
+
+        <div class="landing-quickmatch" id="landingQuickmatch">
+          <div class="qm-row">
+            <div class="qm-field">
+              <span class="qm-label">table</span>
+              <div class="qm-sizes" role="group" aria-label="Table size">
+                <button type="button" class="qm-size" data-size="2">2</button>
+                <button type="button" class="qm-size qm-size--on" data-size="4">4</button>
+                <button type="button" class="qm-size" data-size="6">6</button>
+              </div>
+            </div>
+            <div class="qm-field">
+              <span class="qm-label">bots</span>
+              <div class="qm-bots" role="group" aria-label="Number of bots">
+                <button type="button" class="qm-step" id="qmBotsDec" aria-label="Fewer bots">−</button>
+                <span class="qm-bots-val" id="qmBotsVal">2</span>
+                <button type="button" class="qm-step" id="qmBotsInc" aria-label="More bots">+</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="landing-cta qm-cta" id="qmGo">Quick match</button>
+          <p class="qm-hint" id="qmHint">2 humans + 2 bots · matched online</p>
+        </div>
+
         <div class="landing-divider"><span>or join a friend</span></div>
 
         <form class="landing-join" id="landingJoin">
@@ -305,4 +330,66 @@ export function showLanding(): void {
     url.searchParams.set("room", code);
     window.location.href = url.toString();
   });
+
+  // --- Quick match: pick a table size + bot count, get matched into a room ---
+  const qm = document.getElementById("landingQuickmatch");
+  if (qm) {
+    let qmSize = 4;
+    let qmBots = 2;
+    const botsVal = qm.querySelector<HTMLElement>("#qmBotsVal")!;
+    const hint = qm.querySelector<HTMLElement>("#qmHint")!;
+    const goBtn = qm.querySelector<HTMLButtonElement>("#qmGo")!;
+
+    const refreshQm = (): void => {
+      if (qmBots > qmSize - 1) qmBots = qmSize - 1;
+      if (qmBots < 0) qmBots = 0;
+      botsVal.textContent = String(qmBots);
+      const humans = qmSize - qmBots;
+      const h = `${humans} human${humans === 1 ? "" : "s"}`;
+      const b = qmBots === 0 ? "no bots" : `${qmBots} bot${qmBots === 1 ? "" : "s"}`;
+      hint.textContent = `${h} + ${b} · matched online`;
+    };
+
+    for (const btn of qm.querySelectorAll<HTMLButtonElement>(".qm-size")) {
+      btn.addEventListener("click", () => {
+        qmSize = Number(btn.dataset.size);
+        for (const b of qm.querySelectorAll<HTMLButtonElement>(".qm-size")) {
+          b.classList.toggle("qm-size--on", b === btn);
+        }
+        refreshQm();
+      });
+    }
+    qm.querySelector("#qmBotsDec")?.addEventListener("click", () => {
+      qmBots -= 1;
+      refreshQm();
+    });
+    qm.querySelector("#qmBotsInc")?.addEventListener("click", () => {
+      qmBots += 1;
+      refreshQm();
+    });
+
+    goBtn.addEventListener("click", async () => {
+      goBtn.disabled = true;
+      goBtn.textContent = "finding a table…";
+      try {
+        const res = await fetch("/matchmake", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ size: qmSize, bots: qmBots }),
+        });
+        if (!res.ok) throw new Error(`matchmake failed: ${res.status}`);
+        const { code } = (await res.json()) as { code: string };
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", code);
+        window.location.href = url.toString();
+      } catch (err) {
+        console.warn("[quickmatch]", err);
+        goBtn.disabled = false;
+        goBtn.textContent = "Quick match";
+        hint.textContent = "couldn't find a table, try again";
+      }
+    });
+
+    refreshQm();
+  }
 }
