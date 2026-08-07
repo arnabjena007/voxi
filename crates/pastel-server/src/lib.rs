@@ -5,6 +5,7 @@
 //! against a port-zero listener.
 
 pub mod bot;
+pub mod matchmaker;
 pub mod rooms;
 pub mod tracker;
 pub mod voice;
@@ -12,8 +13,11 @@ pub mod words;
 pub mod ws;
 
 use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
-use axum::Router;
+use axum::{Json, Router};
+use matchmaker::Matchmaker;
 use pastel_room::WordLists;
 use std::sync::Arc;
 use tracker::Tracker;
@@ -21,6 +25,7 @@ use tracker::Tracker;
 #[derive(Clone)]
 pub struct AppState {
     pub rooms: rooms::Rooms,
+    pub matchmaker: Matchmaker,
     pub tracker: Tracker,
 }
 
@@ -38,15 +43,19 @@ impl AppState {
                 Tracker::disabled()
             }
         };
+        let rooms = rooms::Rooms::new(words);
         Self {
-            rooms: rooms::Rooms::new(words),
+            matchmaker: Matchmaker::new(rooms.clone()),
+            rooms,
             tracker,
         }
     }
 
     pub fn with_test_words() -> Self {
+        let rooms = rooms::Rooms::new(Arc::new(WordLists::test_fixture()));
         Self {
-            rooms: rooms::Rooms::new(Arc::new(WordLists::test_fixture())),
+            matchmaker: Matchmaker::new(rooms.clone()),
+            rooms,
             tracker: Tracker::disabled(),
         }
     }
@@ -59,6 +68,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/stats", get(stats))
         .route("/ws/:code", get(ws::ws_handler))
         .route("/bot/:code", post(bot::add_bot))
+        .route("/matchmake", post(matchmake))
         .route("/voice/token", get(voice::token))
         .with_state(state);
 
@@ -78,6 +88,27 @@ pub fn build_router(state: AppState) -> Router {
 
 async fn healthz() -> &'static str {
     "ok"
+}
+
+#[derive(serde::Deserialize)]
+struct MatchmakeReq {
+    size: u8,
+    bots: u8,
+}
+
+/// Quick match: place the caller into a matched table for the given size + bot
+/// count and hand back its room code to join via `/ws/:code`.
+async fn matchmake(
+    State(state): State<AppState>,
+    Json(req): Json<MatchmakeReq>,
+) -> impl IntoResponse {
+    if !matches!(req.size, 2 | 4 | 6) {
+        return (StatusCode::BAD_REQUEST, "size must be 2, 4, or 6").into_response();
+    }
+    // At least one human seat: bots can't exceed size - 1.
+    let bots = req.bots.min(req.size - 1);
+    let code = state.matchmaker.match_request(req.size, bots);
+    Json(serde_json::json!({ "code": code.as_str() })).into_response()
 }
 
 async fn metrics(State(state): State<AppState>) -> String {

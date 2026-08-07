@@ -3444,6 +3444,46 @@ canvas {
 .landing-divider::before, .landing-divider::after { content: ""; height: 0; flex: 1; border-top: 2px dashed var(--line); }
 .landing-divider span { font-family: var(--font-hand); font-size: 16px; }
 
+/* ---- quick match ------------------------------------------------- */
+.landing-quickmatch { display: flex; flex-direction: column; gap: 10px; }
+.qm-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.qm-field {
+  flex: 1 1 140px;
+  display: flex; flex-direction: column; gap: 5px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--butter) 6%, var(--paper));
+}
+.qm-label { font-family: var(--font-hand); font-size: 13px; color: var(--ink-soft); }
+.qm-sizes { display: flex; gap: 6px; }
+.qm-size {
+  flex: 1;
+  border: 2px solid var(--sketch); background: var(--paper); color: var(--ink);
+  border-radius: 10px 11px 9px 11px; padding: 7px 0; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: 15px;
+  transition: transform .1s ease, background .12s ease, color .12s ease;
+}
+.qm-size:hover { transform: translateY(-1px); }
+.qm-size--on { background: var(--sage); color: #fff; border-color: var(--sage-deep); box-shadow: 2px 3px 0 var(--sage-deep); }
+.qm-bots { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.qm-step {
+  width: 34px; height: 34px; flex: none;
+  border: 2px solid var(--sketch); background: var(--paper); color: var(--ink);
+  border-radius: 50%; cursor: pointer;
+  font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1;
+  display: grid; place-items: center;
+  transition: transform .1s ease;
+}
+.qm-step:hover { transform: translateY(-1px); }
+.qm-bots-val {
+  font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--ink);
+  min-width: 24px; text-align: center;
+}
+.qm-cta { width: 100%; }
+.qm-cta:disabled { opacity: .7; cursor: default; }
+.qm-hint { margin: 0; text-align: center; font-family: var(--font-hand); font-size: 14px; color: var(--ink-soft); }
+
 /* ---- join -------------------------------------------------------- */
 .landing-join-row { display: flex; gap: 10px; }
 .landing-code-input {
