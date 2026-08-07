@@ -10,14 +10,15 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy)]
-enum BotDifficulty {
+pub enum BotDifficulty {
     Easy,
     Medium,
     Hard,
 }
 
 impl BotDifficulty {
-    fn from_str(s: &str) -> Self {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Self {
         match s {
             "easy" => Self::Easy,
             "hard" => Self::Hard,
@@ -249,6 +250,19 @@ async fn bot_chat(room: &RoomHandle, my_id: PlayerId, text: String) {
     room.send(my_id, ClientMsg::Chat { text }).await;
 }
 
+/// Spawn one bot into an existing room. Returns the bot's display name. Shared
+/// by the lobby "+ bot" endpoint and by matchmaking's seat backfill.
+pub fn spawn_bot(handle: RoomHandle, code: RoomCode, diff: BotDifficulty) -> String {
+    let name = BOT_NAMES[rand::thread_rng().gen_range(0..BOT_NAMES.len())].to_string();
+    let spawn_name = name.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_bot(handle, code, spawn_name, diff).await {
+            tracing::debug!("bot exited: {e}");
+        }
+    });
+    name
+}
+
 pub async fn add_bot(
     State(state): State<AppState>,
     Path(code): Path<String>,
@@ -262,15 +276,8 @@ pub async fn add_bot(
     };
     let diff = BotDifficulty::from_str(query.difficulty.as_deref().unwrap_or("medium"));
     let handle = state.rooms.get_or_create(room_code);
-    let name = BOT_NAMES[rand::thread_rng().gen_range(0..BOT_NAMES.len())].to_string();
-    let label = diff.label();
-    let resp = format!("{name} joined ({label})");
-    tokio::spawn(async move {
-        if let Err(e) = run_bot(handle, room_code, name, diff).await {
-            tracing::debug!("bot exited: {e}");
-        }
-    });
-    (StatusCode::OK, resp)
+    let name = spawn_bot(handle, room_code, diff);
+    (StatusCode::OK, format!("{name} joined ({})", diff.label()))
 }
 
 fn load_all_game_words() -> Vec<String> {
@@ -383,10 +390,10 @@ async fn run_bot(
                             replay_drawing(&room, my_id, &[]).await;
                         }
                     }
-                    ServerMsg::Guess { player, kind: GuessKind::Close, .. } if *player == my_id => {
-                        if rand::thread_rng().gen_bool(0.7) {
-                            bot_chat(&room, my_id, random_from(SELF_CLOSE)).await;
-                        }
+                    ServerMsg::Guess { player, kind: GuessKind::Close, .. }
+                        if *player == my_id && rand::thread_rng().gen_bool(0.7) =>
+                    {
+                        bot_chat(&room, my_id, random_from(SELF_CLOSE)).await;
                     }
                     ServerMsg::Bye { .. } => break,
                     _ => {}
@@ -469,10 +476,10 @@ async fn run_bot(
                             bot_chat(&room, my_id, random_from(REACT_ROUND_END)).await;
                         }
                     }
-                    ServerMsg::Guess { player, kind: GuessKind::Correct, .. } if *player != my_id => {
-                        if rand::thread_rng().gen_bool(0.4) {
-                            bot_chat(&room, my_id, random_from(REACT_CORRECT)).await;
-                        }
+                    ServerMsg::Guess { player, kind: GuessKind::Correct, .. }
+                        if *player != my_id && rand::thread_rng().gen_bool(0.4) =>
+                    {
+                        bot_chat(&room, my_id, random_from(REACT_CORRECT)).await;
                     }
                     ServerMsg::Game { event: GameEvent::GameOver { .. }, .. } => {
                         // Stay in the room for rematch
