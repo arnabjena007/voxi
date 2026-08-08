@@ -381,6 +381,9 @@ export function showLanding(): void {
         const { code } = (await res.json()) as { code: string };
         const url = new URL(window.location.href);
         url.searchParams.set("room", code);
+        // Mark it a quick-match room so the lobby shows a "waiting for players"
+        // state instead of the invite-a-friend one. qm carries the table size.
+        url.searchParams.set("qm", String(qmSize));
         window.location.href = url.toString();
       } catch (err) {
         console.warn("[quickmatch]", err);
