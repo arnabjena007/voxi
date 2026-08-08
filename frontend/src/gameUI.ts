@@ -27,6 +27,9 @@ export interface RenderContext {
   onShareScorecard: () => void;
   onOpenGallery: () => void;
   galleryCount: number;
+  // Set for quick-match rooms: the lobby shows a "waiting for players" state
+  // (target = full table size) instead of the invite-a-friend copy.
+  quickMatch?: { target: number } | null;
 }
 
 export interface GameUI {
@@ -62,15 +65,22 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
       )
       .join("");
     const hostName = ctx.host !== null ? ctx.nameOf(ctx.host) : "the host";
+    const qm = ctx.quickMatch;
+    // Quick-match lobby: it fills as real people land in the same table, and
+    // only auto-starts when full. Until then we say so plainly (no silent
+    // bot-fill) so the player can start early, add a bot, or wait.
+    const qmHint = qm
+      ? ctx.playerCount >= qm.target
+        ? `<p class="lobby-hint">table's full, starting…</p>`
+        : `<p class="lobby-hint">quick match · ${ctx.playerCount}/${qm.target} at the table. no one else online yet — start now, add a bot, or hang tight.</p>`
+      : ctx.playerCount < 2
+        ? '<p class="lobby-hint">Need at least 2 to play. Share the link!</p>'
+        : `<p class="lobby-hint">${ctx.playerCount} player${ctx.playerCount !== 1 ? "s" : ""} here. Ready when you are</p>`;
     const startSection = isHost
       ? `<button type="button" class="lobby-start" ${canStart ? "" : "disabled"}>
            Let's go!
          </button>
-         ${
-           ctx.playerCount < 2
-             ? '<p class="lobby-hint">Need at least 2 to play. Share the link!</p>'
-             : `<p class="lobby-hint">${ctx.playerCount} player${ctx.playerCount !== 1 ? "s" : ""} here. Ready when you are</p>`
-         }`
+         ${qmHint}`
       : `<p class="lobby-waiting"><strong>${escapeHtml(hostName)}</strong> will kick things off soon</p>`;
 
     const timerSection = phase.deadline !== undefined
@@ -84,7 +94,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
       <div class="overlay-card overlay-card--lobby">
         ${musicChip(ctx)}
         <div class="lobby-head">
-          <h2>Waiting room</h2>
+          <h2>${qm ? "Quick match" : "Waiting room"}</h2>
           <span class="lobby-mode-badge">${escapeHtml(ctx.modeBadge)}</span>
         </div>
         ${timerSection}

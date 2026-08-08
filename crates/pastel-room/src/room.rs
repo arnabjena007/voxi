@@ -51,10 +51,12 @@ pub enum RoomCmd {
         drawer: PlayerId,
         word: String,
     },
-    /// Server-triggered start with no host gate. Used by matchmaking to kick
-    /// off a matched table once its seats are filled.
-    AutoStart {
+    /// Arm a host-less auto-start: once the room actually holds `target`
+    /// players (matched humans + the requested bots), it starts itself. Used by
+    /// matchmaking; a table that never fills just waits in the lobby.
+    ArmAutoStart {
         mode: GameMode,
+        target: usize,
     },
 }
 
@@ -123,9 +125,13 @@ impl RoomHandle {
         let _ = self.cmd_tx.send(RoomCmd::CancelPending { candidate }).await;
     }
 
-    /// Start a matched game with no host gate (matchmaking auto-start).
-    pub async fn auto_start(&self, mode: GameMode) {
-        let _ = self.cmd_tx.send(RoomCmd::AutoStart { mode }).await;
+    /// Arm a host-less auto-start that fires once `target` players are present
+    /// (matchmaking). The table waits in the lobby until then.
+    pub async fn arm_auto_start(&self, mode: GameMode, target: usize) {
+        let _ = self
+            .cmd_tx
+            .send(RoomCmd::ArmAutoStart { mode, target })
+            .await;
     }
 
     pub async fn set_secret(&self, drawer: PlayerId, word: impl Into<String>) {
@@ -324,6 +330,11 @@ struct Room {
     /// shut down. The run loop checks this after each step and finalizes
     /// (sends Bye to all, calls on_close, breaks).
     closing: bool,
+    /// Matchmaking auto-start: `(mode, target_players)`. When set, the room
+    /// starts itself once it actually holds `target_players` (humans + the
+    /// requested bots). It never fills empty human seats with bots on a timer,
+    /// so a table that wants humans just waits in the lobby until they show up.
+    auto_start: Option<(GameMode, usize)>,
 }
 
 impl Room {
@@ -348,6 +359,7 @@ impl Room {
             departed: AHashMap::new(),
             on_close: None,
             closing: false,
+            auto_start: None,
         }
     }
 
@@ -393,7 +405,7 @@ impl Room {
             RoomCmd::CancelPending { candidate } => self.handle_cancel_pending(candidate),
             RoomCmd::FromClient { player, msg } => self.handle_client_msg(player, msg),
             RoomCmd::SetSecret { drawer, word } => self.handle_set_secret(drawer, word),
-            RoomCmd::AutoStart { mode } => self.begin_game(mode),
+            RoomCmd::ArmAutoStart { mode, target } => self.arm_auto_start(mode, target),
         }
     }
 
@@ -623,11 +635,14 @@ impl Room {
             left: vec![],
         });
 
-        JoinResult {
+        let result = JoinResult {
             you: id,
             unicast_rx: uc_rx,
             broadcast_rx: bc_rx,
-        }
+        };
+        // A matchmade table starts itself once this join completes it.
+        self.maybe_auto_start();
+        result
     }
 
     fn handle_cancel_pending(&mut self, candidate: PlayerId) {
@@ -1177,6 +1192,26 @@ impl Room {
 
     // ---- game state machine ---------------------------------------------
 
+    /// Arm matchmaking auto-start and fire immediately if the table is already
+    /// full (e.g. a solo-vs-bots pick, where the bots complete the table).
+    fn arm_auto_start(&mut self, mode: GameMode, target: usize) {
+        self.auto_start = Some((mode, target));
+        self.maybe_auto_start();
+    }
+
+    /// Start a matchmade table once it actually holds its target players.
+    /// Called after every join. Never fills seats with bots on its own, so a
+    /// human-oriented table just waits in the lobby until people arrive.
+    fn maybe_auto_start(&mut self) {
+        let Some((mode, target)) = self.auto_start else {
+            return;
+        };
+        if matches!(self.game.phase, GamePhase::Lobby) && self.players.len() >= target {
+            self.auto_start = None;
+            self.begin_game(mode);
+        }
+    }
+
     fn handle_start_game(&mut self, sender: PlayerId, mode: GameMode) {
         // Only the host may Start via the client. Matchmaking uses begin_game
         // directly (RoomCmd::AutoStart), which skips this gate.
@@ -1190,6 +1225,7 @@ impl Room {
     }
 
     fn begin_game(&mut self, mode: GameMode) {
+        self.auto_start = None;
         if !matches!(self.game.phase, GamePhase::Lobby | GamePhase::GameOver) {
             return;
         }
