@@ -113,6 +113,10 @@ const stageDockEl = document.getElementById("stageDock");
 
 const room = pickRoomCode();
 const voiceRequested = new URLSearchParams(window.location.search).get("voice") === "1";
+// Quick-match rooms carry ?qm=<table size>; the lobby uses it to show a
+// "waiting for players" state instead of the invite-a-friend copy.
+const quickMatchTarget =
+  Number(new URLSearchParams(window.location.search).get("qm")) || null;
 
 // Kick off the LiveKit chunk download in parallel with the avatar picker.
 // By the time the user finishes picking, the 500KB SDK is cached and the
@@ -824,6 +828,7 @@ function renderGameUI(): void {
         .sort((a, b) => b.score - a.score);
       void openScoreCardShare(standings);
     },
+    quickMatch: quickMatchTarget ? { target: quickMatchTarget } : null,
   });
   updateBanner();
   // "Guessing" UI (badge + placeholder) only while you still need to guess.
