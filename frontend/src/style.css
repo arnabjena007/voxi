@@ -2438,6 +2438,21 @@ canvas {
     overflow: hidden;
   }
 
+  /* The landing is a tall page, not the fixed in-game view: exempt it from the
+     viewport lock above so it scrolls on phones (otherwise everything below the
+     fold -- quick match, join, footer -- is unreachable). */
+  html:has(.landing),
+  body:has(.landing) {
+    overflow: visible;
+    height: auto;
+  }
+  main.landing {
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto 1fr;
