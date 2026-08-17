@@ -11,7 +11,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/yashaswi/voxi"
+repository = "https://github.com/arnabjena007/voxi"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
