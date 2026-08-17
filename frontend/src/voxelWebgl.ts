@@ -11,6 +11,10 @@ export type VoxelWebglController = {
 };
 
 const COLORS = ["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899", "#a16207", "#f5f5f4"];
+const GRID_COLORS = {
+  light: { major: "#aeb9c6", minor: "#d7dee7" },
+  dark: { major: "#5c6674", minor: "#343d49" },
+};
 
 export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOptions = {}): VoxelWebglController {
   const darkTheme = document.body.classList.contains("voxi-theme-dark");
@@ -27,8 +31,21 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   keyLight.position.set(-8, 14, 10);
   scene.add(keyLight);
   // Grid lines sit on cell edges; integer cube positions then land in cell centers.
-  let grid = new THREE.GridHelper(20, 20, darkTheme ? "#46505d" : "#cbd3dc", darkTheme ? "#2b323d" : "#e6ebf0");
-  grid.position.set(.5, 0, .5);
+  const gridColors = darkTheme ? GRID_COLORS.dark : GRID_COLORS.light;
+  const createGrid = (size: number): THREE.GridHelper => {
+    const helper = new THREE.GridHelper(size, size, gridColors.major, gridColors.minor);
+    const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
+    materials.forEach((gridMaterial) => {
+      if (gridMaterial instanceof THREE.LineBasicMaterial) {
+        gridMaterial.transparent = true;
+        gridMaterial.opacity = darkTheme ? .9 : .96;
+        gridMaterial.depthWrite = false;
+      }
+    });
+    helper.position.set(.5, 0, .5);
+    return helper;
+  };
+  let grid = createGrid(20);
   scene.add(grid);
   const cubes = new Map<string, THREE.Mesh>();
   let selectedColor = 0;
@@ -100,8 +117,7 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       grid.geometry.dispose();
       if (Array.isArray(grid.material)) grid.material.forEach((material) => material.dispose());
       else grid.material.dispose();
-      grid = new THREE.GridHelper(gridSize, gridSize, darkTheme ? "#46505d" : "#cbd3dc", darkTheme ? "#2b323d" : "#e6ebf0");
-      grid.position.set(.5, 0, .5);
+      grid = createGrid(gridSize);
       scene.add(grid);
       render();
     },
