@@ -3334,19 +3334,34 @@ canvas {
 
 .landing-theme-toggle {
   position: absolute;
-  top: 22px;
-  right: 24px;
+  top: 10px;
+  right: 10px;
   z-index: 3;
-  display: inline-flex;
+  display: grid;
+  place-items: center;
   align-items: center;
-  gap: 7px;
+  width: 42px;
+  height: 42px;
   border: 1px solid #cfcfcf;
-  border-radius: 999px;
-  padding: 8px 12px;
+  border-radius: 50%;
+  padding: 0;
   background: rgba(255,255,255,.82);
   color: #353535;
-  font: 700 11px var(--font-body);
   cursor: pointer;
+  box-shadow: 0 6px 18px rgba(54, 43, 28, .13);
+}
+
+.landing-theme-toggle i {
+  font-size: 17px;
+}
+
+.landing-theme-toggle span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .landing-page--dark {
@@ -6142,26 +6157,32 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
 /* Shared theme control for every room and drawing screen. */
 .voxi-universal-theme-toggle {
   position: fixed;
-  top: 18px;
-  right: 20px;
+  top: 10px;
+  right: 10px;
   z-index: 1000;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 0 13px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
   border: 1px solid #b8afa0;
-  border-radius: 999px;
+  border-radius: 50%;
   background: rgba(255, 255, 255, .9);
   color: #2d3d3a;
   box-shadow: 0 4px 14px rgba(54, 43, 28, .12);
   cursor: pointer;
-  font: 700 12px/1 Kalam, sans-serif;
-  letter-spacing: .04em;
 }
 
 .voxi-universal-theme-toggle:hover { transform: translateY(-1px); }
 .voxi-universal-theme-toggle i { font-size: 17px; color: #2fb8ad; }
+.voxi-universal-theme-toggle span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 body.voxi-theme-dark .voxi-universal-theme-toggle {
   border-color: #4b5665;
@@ -6171,5 +6192,6 @@ body.voxi-theme-dark .voxi-universal-theme-toggle {
 }
 
 @media (max-width: 640px) {
-  .voxi-universal-theme-toggle { top: 10px; right: 10px; min-height: 34px; padding: 0 10px; }
+  .landing-theme-toggle,
+  .voxi-universal-theme-toggle { top: 8px; right: 8px; width: 38px; height: 38px; }
 }
