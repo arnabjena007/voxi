@@ -79,7 +79,7 @@ function bootVoxelRoom(): void {
   let pendingTemplate: string | null = null;
   let localPlayerId: number | null = null;
   let hostPlayerId: number | null = null;
-  const materialColors: Record<string, number> = { grass: 3, stone: 9, glass: 5, wood: 8, water: 4, lava: 1, light: 2 };
+  const materialColors: Record<string, number> = { grass: 10, stone: 11, glass: 12, wood: 13, water: 14, lava: 15, fire: 16 };
   const onlinePlayers = new Map<number, string>();
   document.body.innerHTML = `
     <main class="voxel-room${solo ? " voxel-room--solo" : ""}">
@@ -96,7 +96,7 @@ function bootVoxelRoom(): void {
             ${["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899", "#a16207", "#f5f5f4"].map((color, index) => `<button class="voxel-color${index === 0 ? " is-active" : ""}" data-voxel-color="${index}" style="--voxel-color:${color}" aria-label="Color ${index}"></button>`).join("")}
           </div>
           <div class="voxel-build-toolbar">
-            <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="light">LIGHT</option></select></label>
+            <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="fire">FIRE</option></select></label>
             <label class="voxel-select-group">TEMPLATE<select id="voxelTemplateSelect"><option value="">CHOOSE</option><option value="house">HOUSE</option><option value="tree">TREE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option><option value="pixel">PIXEL ART</option></select></label>
             <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
           </div>
@@ -131,7 +131,10 @@ function bootVoxelRoom(): void {
   const canvas = document.getElementById("voxelRoomCanvas") as HTMLCanvasElement | null;
   document.getElementById("voxelMaterialSelect")?.addEventListener("change", (event) => {
     const material = (event.target as HTMLSelectElement).value;
-    document.querySelector<HTMLButtonElement>(`[data-voxel-color="${materialColors[material]}"]`)?.click();
+    const color = materialColors[material];
+    if (color === undefined) return;
+    document.querySelectorAll("[data-voxel-color]").forEach((item) => item.classList.remove("is-active"));
+    voxelController?.setSelectedColor(color);
   });
   document.getElementById("voxelTemplateSelect")?.addEventListener("change", (event) => {
     const value = (event.target as HTMLSelectElement).value;
