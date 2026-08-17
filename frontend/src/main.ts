@@ -97,10 +97,25 @@ function bootVoxelRoom(): void {
           </div>
           <div class="voxel-build-toolbar">
             <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="fire">FIRE</option></select></label>
-            <label class="voxel-select-group">TEMPLATE<select id="voxelTemplateSelect"><option value="">CHOOSE</option><option value="house">HOUSE</option><option value="tree">TREE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option></select></label>
             <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
           </div>
         </div>
+        <aside class="voxel-template-menu" aria-label="Build templates">
+          <div class="voxel-template-menu-head">
+            <span>Templates</span>
+            <button type="button" id="clearPendingTemplate" aria-label="Cancel selected template" title="Cancel template"><i class="ph ph-x"></i></button>
+          </div>
+          <div class="voxel-template-category">
+            <span>Structures</span>
+            <button type="button" data-voxel-template="house">House</button>
+            <button type="button" data-voxel-template="castle">Castle</button>
+            <button type="button" data-voxel-template="bridge">Bridge</button>
+          </div>
+          <div class="voxel-template-category">
+            <span>Nature</span>
+            <button type="button" data-voxel-template="tree">Tree</button>
+          </div>
+        </aside>
         <div class="voxel-name-gate" id="voxelNameGate"${invitedName || solo ? " hidden" : ""}>
           <form id="voxelNameForm" class="voxel-name-card">
             <h1>${solo ? "Set your name" : "Join this room"}</h1>
@@ -136,18 +151,17 @@ function bootVoxelRoom(): void {
     document.querySelectorAll("[data-voxel-color]").forEach((item) => item.classList.remove("is-active"));
     voxelController?.setSelectedColor(color);
   });
-  document.getElementById("voxelTemplateSelect")?.addEventListener("change", (event) => {
-    const value = (event.target as HTMLSelectElement).value;
-    if (!value) return;
+  const setPendingTemplate = (value: string | null): void => {
     pendingTemplate = value;
+    document.querySelectorAll<HTMLButtonElement>("[data-voxel-template]").forEach((button) => button.classList.toggle("is-active", button.dataset.voxelTemplate === value));
     const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
-    if (note) note.textContent = `PLACE ${pendingTemplate.toUpperCase()}: CLICK CANVAS · ESC TO CANCEL`;
-  });
+    if (note) note.textContent = value ? `PLACE ${value.toUpperCase()}: CLICK CANVAS · ESC TO CANCEL` : "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
+  };
+  document.querySelectorAll<HTMLButtonElement>("[data-voxel-template]").forEach((button) => button.addEventListener("click", () => setPendingTemplate(button.dataset.voxelTemplate ?? null)));
+  document.getElementById("clearPendingTemplate")?.addEventListener("click", () => setPendingTemplate(null));
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      pendingTemplate = null;
-      const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
-      if (note) note.textContent = "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
+      setPendingTemplate(null);
     }
   });
   document.getElementById("voxelGridSelect")?.addEventListener("change", (event) => {
@@ -300,14 +314,12 @@ function bootVoxelRoom(): void {
   function placePendingTemplate(x: number, z: number): boolean {
     if (!pendingTemplate) return false;
     const selected = pendingTemplate;
-    pendingTemplate = null;
+    setPendingTemplate(null);
     buildTemplate(selected).forEach((block) => {
       const placed = { x: block.x + x, y: block.y, z: block.z + z, color: block.color };
       voxelController?.applyVoxel({ ...placed, remove: false });
       voxelConn?.send({ kind: "Voxel", x: placed.x, z: placed.z, color: placed.color, remove: false });
     });
-    const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
-    if (note) note.textContent = "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
     return true;
   }
 
