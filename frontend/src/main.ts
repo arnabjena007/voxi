@@ -97,7 +97,7 @@ function bootVoxelRoom(): void {
           </div>
           <div class="voxel-build-toolbar">
             <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="fire">FIRE</option></select></label>
-            <label class="voxel-select-group">TEMPLATE<select id="voxelTemplateSelect"><option value="">CHOOSE</option><option value="house">HOUSE</option><option value="tree">TREE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option><option value="pixel">PIXEL ART</option></select></label>
+            <label class="voxel-select-group">TEMPLATE<select id="voxelTemplateSelect"><option value="">CHOOSE</option><option value="house">HOUSE</option><option value="tree">TREE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option></select></label>
             <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
           </div>
         </div>
@@ -323,22 +323,49 @@ function bootVoxelRoom(): void {
   function buildTemplate(kind: string): Array<{ x: number; y: number; z: number; color: number }> {
     const blocks: Array<{ x: number; y: number; z: number; color: number }> = [];
     const add = (x: number, y: number, z: number, color: number) => blocks.push({ x, y, z, color });
+    const grass = 10;
+    const stone = 11;
+    const glass = 12;
+    const wood = 13;
     if (kind === "tree") {
-      for (let y = 0; y < 4; y++) add(0, y, 0, 8);
-      for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) for (let y = 4; y < 6; y++) add(x, y, z, 3);
+      for (let y = 0; y < 5; y++) add(0, y, 0, wood);
+      for (let y = 3; y <= 5; y++) {
+        const radius = y === 5 ? 1 : 2;
+        for (let x = -radius; x <= radius; x++) {
+          for (let z = -radius; z <= radius; z++) {
+            if (Math.abs(x) + Math.abs(z) <= radius + 1) add(x, y, z, grass);
+          }
+        }
+      }
+      add(0, 6, 0, grass);
     } else if (kind === "bridge") {
-      for (let x = -4; x <= 4; x++) { add(x, 0, 0, 8); add(x, 0, 1, 8); }
-      add(-4, 1, 0, 9); add(4, 1, 0, 9);
+      for (let x = -5; x <= 5; x++) {
+        add(x, 1, -1, wood); add(x, 1, 0, wood); add(x, 1, 1, wood);
+        if (x % 2 === 0) { add(x, 2, -2, wood); add(x, 2, 2, wood); }
+      }
+      for (const x of [-5, 5]) for (let z = -2; z <= 2; z++) add(x, 0, z, stone);
+      for (let x = -4; x <= 4; x += 2) { add(x, 0, -1, stone); add(x, 0, 1, stone); }
     } else if (kind === "castle") {
-      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (let y = 0; y < 2; y++) add(x, y, z, 9);
-      for (const [x, z] of [[-3, -3], [-3, 3], [3, -3], [3, 3]]) for (let y = 2; y < 5; y++) add(x, y, z, 9);
-    } else if (kind === "pixel") {
-      ["01110", "11011", "11111", "01110", "00100"].forEach((row, y) => [...row].forEach((cell, x) => cell === "1" && add(x - 2, 2 - y, 0, (x + y) % 8)));
+      for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) if (Math.abs(x) === 4 || Math.abs(z) === 4) for (let y = 0; y < 3; y++) add(x, y, z, stone);
+      for (const [x, z] of [[-4, -4], [-4, 4], [4, -4], [4, 4]]) for (let y = 0; y < 6; y++) add(x, y, z, stone);
+      for (let x = -1; x <= 1; x++) add(x, 0, -4, wood);
+      add(0, 1, -4, wood);
     } else {
-      for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) add(x, 0, z, 8);
-      for (let x = -2; x <= 2; x++) for (let y = 1; y < 3; y++) { add(x, y, -2, 8); add(x, y, 2, 8); }
-      for (let z = -2; z <= 2; z++) for (let y = 1; y < 3; y++) { add(-2, y, z, 8); add(2, y, z, 8); }
-      add(0, 1, -2, 5); add(0, 2, -2, 5);
+      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) add(x, 0, z, stone);
+      for (let x = -3; x <= 3; x++) for (let y = 1; y <= 3; y++) { add(x, y, -3, wood); add(x, y, 3, wood); }
+      for (let z = -2; z <= 2; z++) for (let y = 1; y <= 3; y++) { add(-3, y, z, wood); add(3, y, z, wood); }
+      for (let x = -1; x <= 1; x++) { add(x, 1, -3, glass); add(x, 2, -3, glass); }
+      add(0, 1, 3, stone); add(0, 2, 3, stone);
+      for (let layer = 0; layer < 3; layer++) {
+        for (let x = -3 + layer; x <= 3 - layer; x++) {
+          add(x, 4 + layer, -3 + layer, wood);
+          add(x, 4 + layer, 3 - layer, wood);
+        }
+        for (let z = -2 + layer; z <= 2 - layer; z++) {
+          add(-3 + layer, 4 + layer, z, wood);
+          add(3 - layer, 4 + layer, z, wood);
+        }
+      }
     }
     return blocks;
   }
