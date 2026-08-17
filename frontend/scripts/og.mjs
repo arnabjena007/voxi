@@ -123,7 +123,7 @@ const node = {
             lineHeight: 1,
             letterSpacing: "-6px",
           },
-          children: "pastel",
+          children: "voxi",
         },
       },
       {
@@ -193,7 +193,7 @@ const node = {
             paddingRight: "20px",
             borderTop: `2px dashed ${LINE}`,
           },
-          children: "playpastel.com",
+          children: "playvoxi.com",
         },
       },
     ],

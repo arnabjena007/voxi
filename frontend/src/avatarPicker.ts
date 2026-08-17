@@ -13,13 +13,13 @@ import {
 } from "./avatar";
 import type { Avatar } from "./proto";
 
-const STORAGE_NAME = "pastel.name";
-const STORAGE_AVATAR = "pastel.avatar";
+const STORAGE_NAME = "voxi.name";
+const STORAGE_AVATAR = "voxi.avatar";
 const PART_ORDER: PartKey[] = ["skin", "hair", "eyes", "mouth", "accessory"];
 
 /// True when the browser has a saved name + avatar from a previous session.
 /// When true, callers can skip the picker and reuse the stored identity,
-/// pairing with the `pastel.client_token` fingerprint so a reload lands as
+/// pairing with the `voxi.client_token` fingerprint so a reload lands as
 /// the same player on the server.
 export function hasStoredIdentity(): boolean {
   const name = window.localStorage.getItem(STORAGE_NAME);

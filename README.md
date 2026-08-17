@@ -197,7 +197,7 @@ Stable Rust (edition 2021), Node 20+, npm. Two terminals:
 
 ```sh
 # Backend
-cargo run -p pastel-server
+cargo run -p voxi-server
 # listens on 0.0.0.0:7070
 
 # Frontend
@@ -212,7 +212,7 @@ curl -X POST 'http://localhost:7070/bot/ROOMCODE?difficulty=medium'
 ```
 
 Voice is optional. Create a project at [cloud.livekit.io](https://cloud.livekit.io)
-and drop your three keys into `crates/pastel-server/.env`:
+and drop your three keys into `crates/voxi-server/.env`:
 
 ```
 LIVEKIT_URL=wss://your-project.livekit.cloud
@@ -283,7 +283,7 @@ max:         46.21 ms
 p99 round-trip under half a millisecond. Faster than one animation frame at 60 Hz.
 
 ```sh
-cargo run --release -p pastel-loadtest -- \
+cargo run --release -p voxi-loadtest -- \
     --clients 1000 --per-room 8 --duration 30 --rate 10
 ```
 
@@ -306,12 +306,12 @@ TLS + WS + Hello + Welcome round-trips per second.
 
 ```sh
 # Steady-state
-cargo run --release -p pastel-loadtest -- \
+cargo run --release -p voxi-loadtest -- \
     --addr wss://<your-cloud-run-url> \
     --clients 200 --per-room 8 --duration 30 --rate 2
 
 # Pure handshake throughput (no stroke loop)
-cargo run --release -p pastel-loadtest -- \
+cargo run --release -p voxi-loadtest -- \
     --addr wss://<your-cloud-run-url> \
     --clients 500 --per-room 8 --connect-only --duration 1 --rate 0
 ```
@@ -519,7 +519,7 @@ or abandoned room sends every participant a "this room is gone" card.
 ### Voice: JWTs + lazy SDK
 
 LiveKit Cloud handles the WebRTC; we just mint JWTs. The token endpoint
-(`crates/pastel-server/src/voice.rs`) signs with `jsonwebtoken` using
+(`crates/voxi-server/src/voice.rs`) signs with `jsonwebtoken` using
 HS256 and the claims LiveKit expects: `iss` is your API key, `sub` is
 `name-XXXXXX`, `video` grant maps `room` to the VOXI room code,
 `roomJoin / canPublish / canSubscribe` all true.
@@ -547,10 +547,10 @@ survive resize, DPI change, and reload.
 
 ```
 crates/
-  pastel-proto/        wire types, codec, validation, proptest fixtures
-  pastel-room/         per-room actor, game state machine, scoring, voting, lifecycle
-  pastel-server/       axum + WS, room registry, bot spawner, LiveKit tokens, Turso play tracking
-  pastel-loadtest/     simulated WS clients, standalone bot, Quick Draw data
+  voxi-proto/        wire types, codec, validation, proptest fixtures
+  voxi-room/         per-room actor, game state machine, scoring, voting, lifecycle
+  voxi-server/       axum + WS, room registry, bot spawner, LiveKit tokens, Turso play tracking
+  voxi-loadtest/     simulated WS clients, standalone bot, Quick Draw data
 frontend/
   public/music/        three CC0 lofi tracks (landing / lobby / game)
   stats.html           tiny /stats dashboard page

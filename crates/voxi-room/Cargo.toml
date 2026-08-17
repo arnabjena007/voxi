@@ -1,0 +1,18 @@
+[package]
+name = "voxi-room"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+voxi-proto = { path = "../voxi-proto" }
+serde = { workspace = true }
+postcard = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+ahash = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

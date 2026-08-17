@@ -6,8 +6,8 @@
 
 import * as Tone from "tone";
 
-const BG_KEY = "pastel.bg";
-const SFX_KEY = "pastel.sfx";
+const BG_KEY = "voxi.bg";
+const SFX_KEY = "voxi.sfx";
 
 export type BgScene = "landing" | "lobby" | "game";
 

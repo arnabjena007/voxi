@@ -110,7 +110,7 @@ describe("room code", () => {
 });
 
 // These hex strings are the cross-codec contract. The Rust side asserts the
-// same bytes in `crates/pastel-proto/tests/fixtures.rs`. If you change
+// same bytes in `crates/voxi-proto/tests/fixtures.rs`. If you change
 // either, change both.
 describe("wire fixtures (must match Rust)", () => {
   it("ClientMsg::Pong { nonce: 7 }", () => {

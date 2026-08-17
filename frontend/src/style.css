@@ -453,7 +453,7 @@ canvas {
   text-align: center;
 }
 
-/* Guessers' react strip on the in-game banner. Two pastel pills. */
+/* Guessers' react strip on the in-game banner. Two voxi pills. */
 .banner-reactions {
   display: flex;
   gap: 8px;
@@ -500,7 +500,7 @@ canvas {
   box-shadow: var(--shadow);
 }
 
-/* Drawer's feedback pill: soft pastel banner saying how the room feels. */
+/* Drawer's feedback pill: soft voxi banner saying how the room feels. */
 .feedback-pill {
   margin-top: 8px;
   display: inline-flex;
@@ -4426,7 +4426,7 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
 }
 .landing-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 0 var(--blush-deep), 0 16px 26px -8px var(--blush-deep); }
 .landing-cta:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--blush-deep); }
-.landing-arrow { position: absolute; right: -6px; top: -30px; width: 92px; height: 62px; color: var(--sketch); filter: url(#pastelRough); pointer-events: none; }
+.landing-arrow { position: absolute; right: -6px; top: -30px; width: 92px; height: 62px; color: var(--sketch); filter: url(#voxiRough); pointer-events: none; }
 .landing-arrow-note { position: absolute; right: 74px; top: -34px; font-family: var(--font-hand); font-size: 15px; color: var(--ink-soft); transform: rotate(-8deg); }
 
 /* ---- divider ----------------------------------------------------- */

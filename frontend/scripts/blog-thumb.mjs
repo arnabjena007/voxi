@@ -1,6 +1,6 @@
 // Generates assets/blog-thumb.png for the engineering write-up at
 // .docs/notes/blogv1.md. Classic grained-gradient background, big
-// title typeset in Fredoka, small pastel wordmark in the corner.
+// title typeset in Fredoka, small voxi wordmark in the corner.
 //
 // Run with:  node scripts/blog-thumb.mjs
 
@@ -65,7 +65,7 @@ function buildNoiseDataUri() {
 const NOISE = buildNoiseDataUri();
 
 // -----------------------------------------------------------------------
-// Palette: pastel brand. Background is a soft diagonal gradient of
+// Palette: voxi brand. Background is a soft diagonal gradient of
 // cream into peach into a warm beige, so the grain reads against a
 // living background rather than a dead solid colour.
 // -----------------------------------------------------------------------
@@ -145,7 +145,7 @@ const node = {
                     type: "div",
                     props: {
                       style: { display: "flex" },
-                      children: "pastel",
+                      children: "voxi",
                     },
                   },
                 ],
@@ -176,7 +176,7 @@ const node = {
       },
 
       // Title block: the actual blog title, wrapped onto two lines, with
-      // a thin pastel accent rule above to anchor it.
+      // a thin voxi accent rule above to anchor it.
       {
         type: "div",
         props: {
@@ -235,7 +235,7 @@ const node = {
       },
 
       // Bottom row: a tagline pulled from the post's lede, plus three
-      // pastel dots that echo the wordmark dot. Quiet, no logos beyond
+      // voxi dots that echo the wordmark dot. Quiet, no logos beyond
       // the brand itself.
       {
         type: "div",

@@ -19,11 +19,11 @@ import {
   type Tool,
 } from "./palette";
 
-const STORAGE_COLOR = "pastel.color";
-const STORAGE_TOOL = "pastel.tool";
-const STORAGE_PALETTE = "pastel.palette";
-const STORAGE_POS = "pastel.mtool.pos";
-const STORAGE_OPEN = "pastel.mtool.open";
+const STORAGE_COLOR = "voxi.color";
+const STORAGE_TOOL = "voxi.tool";
+const STORAGE_PALETTE = "voxi.palette";
+const STORAGE_POS = "voxi.mtool.pos";
+const STORAGE_OPEN = "voxi.mtool.open";
 
 // Puck diameter (keep in sync with .mtool-puck in style.css). Used for
 // clamping, edge-snapping, and anchoring the panel.
@@ -38,7 +38,7 @@ const DISPLAY_DOT: Record<string, number> = {
   nib: 8,
   pencil: 11,
   brush: 14,
-  pastel: 18,
+  voxi: 18,
   crayon: 22,
   eraser: 14,
 };

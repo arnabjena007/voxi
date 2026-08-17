@@ -7,9 +7,9 @@ import {
   type Tool,
 } from "./palette";
 
-const STORAGE_COLOR = "pastel.color";
-const STORAGE_TOOL = "pastel.tool";
-const STORAGE_PALETTE = "pastel.palette";
+const STORAGE_COLOR = "voxi.color";
+const STORAGE_TOOL = "voxi.tool";
+const STORAGE_PALETTE = "voxi.palette";
 
 export interface ToolbarHandlers {
   onColor: (rgb: number) => void;
@@ -35,7 +35,7 @@ const DISPLAY_DOT: Record<string, number> = {
   nib: 9,
   pencil: 12,
   brush: 16,
-  pastel: 20,
+  voxi: 20,
   crayon: 24,
   eraser: 16,
 };

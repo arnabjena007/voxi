@@ -2,7 +2,7 @@
 // lets them tap an emoji; the server rebroadcasts it. On receipt every client
 // pops a badge on the reactor's avatar AND bubbles the emoji up from that same
 // avatar -- attribution plus energy, and it never covers the canvas.
-// The index set MUST match EMOTE_COUNT on the server (pastel-room).
+// The index set MUST match EMOTE_COUNT on the server (voxi-room).
 
 export const EMOTES = ["😂", "🔥", "😮", "❤️", "👏", "😭", "🐐", "💀", "🎨"];
 

@@ -18,10 +18,10 @@ Thanks for wanting to help out! voxi is a small, opinionated codebase, and the b
 
 ```
 crates/
-  pastel-proto/      wire format (postcard binary), shared types
-  pastel-room/       room actor, game loop, scoring, word lists
-  pastel-server/     axum HTTP + WebSocket entrypoint
-  pastel-loadtest/   k-client load harness
+  voxi-proto/      wire format (postcard binary), shared types
+  voxi-room/       room actor, game loop, scoring, word lists
+  voxi-server/     axum HTTP + WebSocket entrypoint
+  voxi-loadtest/   k-client load harness
 frontend/
   src/               TypeScript app (Vite)
   tests/             vitest specs
@@ -33,8 +33,8 @@ frontend/
 A few files encode tuned, cross-cutting invariants that a well-meaning refactor can break invisibly: the change looks clean, the tests still pass, and the game quietly desyncs in production. These are off-limits for drive-by PRs. If you have a real reason to touch them, open an issue first; changes here merge only with maintainer sign-off.
 
 - `frontend/src/canvas.ts`: the drawing + stroke pipeline. It holds the 960x600 logical-coordinate contract that every client and the server snapshot replay agree on, the per-point signed-byte (i8) delta encoding, and the jitter-buffer (50ms) plus batch (16ms) timings. Those three are tuned together; nudging one in isolation degrades every player's experience without failing a test.
-- `frontend/src/proto.ts` and `crates/pastel-proto/`: the binary wire format. The canvas delta encoding is coupled to this. Change one side without the other and strokes corrupt on the wire.
-- Stroke handling and snapshots in `crates/pastel-room/`: the server has to store and replay strokes in the same coordinate space clients draw in.
+- `frontend/src/proto.ts` and `crates/voxi-proto/`: the binary wire format. The canvas delta encoding is coupled to this. Change one side without the other and strokes corrupt on the wire.
+- Stroke handling and snapshots in `crates/voxi-room/`: the server has to store and replay strokes in the same coordinate space clients draw in.
 
 Genuine bug fixes (a real crash, a correctness fix) are still welcome. What needs a prior conversation is reworking *how* any of this functions: "I rewrote the canvas layer to use X" without a scoped issue will get bounced on process, not quality.
 
@@ -59,7 +59,7 @@ Run both in two terminals:
 
 ```bash
 # terminal 1
-cargo run -p pastel-server
+cargo run -p voxi-server
 
 # terminal 2
 cd frontend && npm run dev
@@ -92,8 +92,8 @@ cargo test --workspace
 ```
 
 This runs:
-- `pastel-proto` codec round-trip tests
-- `pastel-room` integration tests (full game loops, reconnect, kick, bot, etc.)
+- `voxi-proto` codec round-trip tests
+- `voxi-room` integration tests (full game loops, reconnect, kick, bot, etc.)
 
 If you changed wire format, scoring, or the room state machine, you almost certainly need new tests here.
 
@@ -154,7 +154,7 @@ Tests are the contract. If you add a feature without tests, expect to be asked t
 
 ### Backend tests
 
-Live next to the code they cover (`crates/pastel-room/tests/game.rs` etc.). Use `tokio::test(start_paused = true)` so the long pick/draw windows pass instantly via `advance`. The pattern is:
+Live next to the code they cover (`crates/voxi-room/tests/game.rs` etc.). Use `tokio::test(start_paused = true)` so the long pick/draw windows pass instantly via `advance`. The pattern is:
 
 1. Spawn a room with a known word list
 2. Join N players via the helper
