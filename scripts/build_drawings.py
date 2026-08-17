@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Regenerate crates/pastel-loadtest/data/drawings.bin by appending new
+Regenerate crates/voxi-loadtest/data/drawings.bin by appending new
 Quick Draw categories to the existing pool.
 
 Bin format (little-endian, no header):
@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-BIN_PATH = REPO_ROOT / "crates" / "pastel-loadtest" / "data" / "drawings.bin"
+BIN_PATH = REPO_ROOT / "crates" / "voxi-loadtest" / "data" / "drawings.bin"
 
 # Hand-picked categories from Quick Draw that aren't in the current bin.
 # Skipped: abstract / ambiguous (animal migration, camouflage, squiggle,
@@ -151,7 +151,7 @@ def fetch_one_sample(category: str) -> Optional[list[list[tuple[int, int]]]]:
     if nothing acceptable was found in the first chunk we read."""
     url = QD_BASE + urllib.parse.quote(category) + ".ndjson"
     print(f"  GET {url}", flush=True)
-    req = urllib.request.Request(url, headers={"User-Agent": "pastel-bot-builder"})
+    req = urllib.request.Request(url, headers={"User-Agent": "voxi-bot-builder"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         # Read up to ~5 MB; that's hundreds of samples, way more than enough
         # to find one acceptable one. Streaming further wastes bandwidth.
@@ -262,7 +262,7 @@ def main() -> int:
     # Also write a sorted word list for the bot-guess pool. The loader in
     # bot.rs already unions this with the game word lists, but keeping
     # this file authoritative is the convention.
-    words_bot = REPO_ROOT / "crates" / "pastel-server" / "data" / "words-bot.txt"
+    words_bot = REPO_ROOT / "crates" / "voxi-server" / "data" / "words-bot.txt"
     sorted_words = sorted(entries.keys(), key=lambda s: s.lower())
     words_bot.write_text("\n".join(sorted_words) + "\n")
     print(f"Wrote {words_bot} ({len(sorted_words)} lines)")

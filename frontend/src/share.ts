@@ -1,12 +1,12 @@
 // Shareable result card. The downloaded / shared image is a branded portrait
-// PNG (drawing + word + pastel mark); the in-app preview shows just the drawing
+// PNG (drawing + word + voxi mark); the in-app preview shows just the drawing
 // for a clean look. Native share (Web Share API) with a download fallback.
 
 import { renderDrawing, type DrawingRecord } from "./canvas";
 
 const CARD_W = 1080;
 const CARD_H = 1350;
-const SITE = "playpastel.com";
+const SITE = "playvoxi.com";
 
 export interface ShareCardOpts {
   records: DrawingRecord[];
@@ -102,7 +102,7 @@ function buildCard({ records, word, drawerName }: ShareCardOpts): HTMLCanvasElem
   card.height = CARD_H;
   const ctx = card.getContext("2d")!;
 
-  // Background: warm paper with two soft pastel blooms.
+  // Background: warm paper with two soft voxi blooms.
   ctx.fillStyle = "#fdfbf7";
   ctx.fillRect(0, 0, CARD_W, CARD_H);
   bloom(ctx, CARD_W * 0.2, CARD_H * 0.08, 520, "rgba(242,164,176,0.20)");
@@ -249,7 +249,7 @@ function presentShare(
 
   const shareBtn = overlay.querySelector<HTMLButtonElement>(".share-do")!;
   const dlBtn = overlay.querySelector<HTMLButtonElement>(".share-download")!;
-  const filename = `pastel-${name}.png`;
+  const filename = `voxi-${name}.png`;
 
   const probe = new File([new Blob()], filename, { type: "image/png" });
   if (!navigator.canShare?.({ files: [probe] })) {

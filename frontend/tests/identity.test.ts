@@ -51,27 +51,27 @@ describe("hasStoredIdentity", () => {
   });
 
   it("returns false when only the name is saved", async () => {
-    store["pastel.name"] = "alice";
+    store["voxi.name"] = "alice";
     const { hasStoredIdentity } = await load();
     expect(hasStoredIdentity()).toBe(false);
   });
 
   it("returns false when only the avatar is saved", async () => {
-    store["pastel.avatar"] = JSON.stringify({ skin: 1 });
+    store["voxi.avatar"] = JSON.stringify({ skin: 1 });
     const { hasStoredIdentity } = await load();
     expect(hasStoredIdentity()).toBe(false);
   });
 
   it("returns false when the saved name is whitespace-only", async () => {
-    store["pastel.name"] = "   ";
-    store["pastel.avatar"] = JSON.stringify({ skin: 1 });
+    store["voxi.name"] = "   ";
+    store["voxi.avatar"] = JSON.stringify({ skin: 1 });
     const { hasStoredIdentity } = await load();
     expect(hasStoredIdentity()).toBe(false);
   });
 
   it("returns true when both name and avatar are saved", async () => {
-    store["pastel.name"] = "alice";
-    store["pastel.avatar"] = JSON.stringify({
+    store["voxi.name"] = "alice";
+    store["voxi.avatar"] = JSON.stringify({
       skin: 1,
       hat: 0,
       hair: 2,
@@ -87,7 +87,7 @@ describe("hasStoredIdentity", () => {
 
 describe("loadStoredIdentity", () => {
   it("returns the saved name and avatar verbatim", async () => {
-    store["pastel.name"] = "alice";
+    store["voxi.name"] = "alice";
     const savedAvatar = {
       skin: 2,
       hat: 1,
@@ -97,7 +97,7 @@ describe("loadStoredIdentity", () => {
       specs: 0,
       earrings: 0,
     };
-    store["pastel.avatar"] = JSON.stringify(savedAvatar);
+    store["voxi.avatar"] = JSON.stringify(savedAvatar);
 
     const { loadStoredIdentity } = await load();
     const id = loadStoredIdentity();
@@ -106,8 +106,8 @@ describe("loadStoredIdentity", () => {
   });
 
   it("trims whitespace around the stored name", async () => {
-    store["pastel.name"] = "  bob   ";
-    store["pastel.avatar"] = JSON.stringify({ skin: 1 });
+    store["voxi.name"] = "  bob   ";
+    store["voxi.avatar"] = JSON.stringify({ skin: 1 });
     const { loadStoredIdentity } = await load();
     expect(loadStoredIdentity().name).toBe("bob");
   });
@@ -119,8 +119,8 @@ describe("loadStoredIdentity", () => {
 // the helpers return what main.ts needs to make that decision.
 describe("rejoin fingerprint", () => {
   it("a previous session's name+avatar persist across module reloads", async () => {
-    store["pastel.name"] = "alice";
-    store["pastel.avatar"] = JSON.stringify({
+    store["voxi.name"] = "alice";
+    store["voxi.avatar"] = JSON.stringify({
       skin: 1,
       hat: 0,
       hair: 0,

@@ -1,11 +1,11 @@
-// TypeScript mirror of pastel-proto. Each type's variant order MUST match
-// the Rust enum declaration order in `pastel-proto/src/msg.rs` and
-// `pastel-proto/src/types.rs`. Variant indices are taken from declaration
+// TypeScript mirror of voxi-proto. Each type's variant order MUST match
+// the Rust enum declaration order in `voxi-proto/src/msg.rs` and
+// `voxi-proto/src/types.rs`. Variant indices are taken from declaration
 // position (0-based).
 
 import { Reader, Writer } from "./postcard";
 
-// --------- limits (kept in sync with pastel-proto/src/limits.rs) ----------
+// --------- limits (kept in sync with voxi-proto/src/limits.rs) ----------
 
 export const ROOM_CODE_LEN = 6;
 export const MAX_NAME_LEN = 32;

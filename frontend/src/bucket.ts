@@ -1,5 +1,5 @@
-// Mirrors the Rust `TokenBucket` in `pastel-room/src/bucket.rs`. The numbers
-// here MUST match the server's limits in `pastel-room/src/room.rs` so the
+// Mirrors the Rust `TokenBucket` in `voxi-room/src/bucket.rs`. The numbers
+// here MUST match the server's limits in `voxi-room/src/room.rs` so the
 // client's preview of "you'll be rate-limited" lines up with what the server
 // actually enforces.
 

@@ -19,7 +19,7 @@ interface PartDef {
   options: { id: number; label: string }[];
 }
 
-// Map our skin IDs (0..6) to a desaturated pastel palette. Matches the
+// Map our skin IDs (0..6) to a desaturated voxi palette. Matches the
 // "porcelain / peach / tan / olive / hazel / cocoa / espresso" line from the
 // avatar plan.
 const SKIN_HEX = [
@@ -177,7 +177,7 @@ export function randomAvatar(): Avatar {
 }
 
 export function loadStoredAvatar(): Avatar {
-  const raw = window.localStorage.getItem("pastel.avatar");
+  const raw = window.localStorage.getItem("voxi.avatar");
   if (!raw) return randomAvatar();
   try {
     const parsed = JSON.parse(raw) as Partial<Avatar>;
@@ -188,7 +188,7 @@ export function loadStoredAvatar(): Avatar {
 }
 
 export function saveAvatar(a: Avatar): void {
-  window.localStorage.setItem("pastel.avatar", JSON.stringify(a));
+  window.localStorage.setItem("voxi.avatar", JSON.stringify(a));
 }
 
 export function setPart(a: Avatar, key: PartKey, id: number): Avatar {

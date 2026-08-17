@@ -1,0 +1,27 @@
+[package]
+name = "voxi-loadtest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "voxi-loadtest"
+path = "src/main.rs"
+
+[[bin]]
+name = "voxi-bot"
+path = "src/bot.rs"
+
+[dependencies]
+voxi-proto = { path = "../voxi-proto" }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+hdrhistogram = { workspace = true }
+rand = "0.8"
+# tokio-tungstenite 0.21 with the rustls-tls-webpki-roots feature pins rustls
+# 0.22 transitively. We bring it in directly so --insecure can swap in a
+# no-verify ServerCertVerifier without forking the connector.
+rustls = { version = "0.22", features = ["ring"] }

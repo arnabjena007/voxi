@@ -1638,68 +1638,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pastel-loadtest"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "futures-util",
- "hdrhistogram",
- "pastel-proto",
- "rand 0.8.6",
- "rustls",
- "tokio",
- "tokio-tungstenite 0.21.0",
-]
-
-[[package]]
-name = "pastel-proto"
-version = "0.1.0"
-dependencies = [
- "postcard",
- "proptest",
- "serde",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "pastel-room"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "pastel-proto",
- "postcard",
- "rand 0.8.6",
- "serde",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "pastel-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum 0.7.9",
- "dashmap",
- "dotenvy",
- "futures-util",
- "jsonwebtoken",
- "libsql",
- "pastel-proto",
- "pastel-room",
- "rand 0.8.6",
- "serde",
- "serde_json",
- "tokio",
- "tokio-tungstenite 0.21.0",
- "tower-http 0.6.11",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2951,6 +2889,68 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "voxi-loadtest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "futures-util",
+ "hdrhistogram",
+ "rand 0.8.6",
+ "rustls",
+ "tokio",
+ "tokio-tungstenite 0.21.0",
+ "voxi-proto",
+]
+
+[[package]]
+name = "voxi-proto"
+version = "0.1.0"
+dependencies = [
+ "postcard",
+ "proptest",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "voxi-room"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "postcard",
+ "rand 0.8.6",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "voxi-proto",
+]
+
+[[package]]
+name = "voxi-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum 0.7.9",
+ "dashmap",
+ "dotenvy",
+ "futures-util",
+ "jsonwebtoken",
+ "libsql",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.21.0",
+ "tower-http 0.6.11",
+ "tracing",
+ "tracing-subscriber",
+ "voxi-proto",
+ "voxi-room",
+]
 
 [[package]]
 name = "wait-timeout"

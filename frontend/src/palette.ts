@@ -63,7 +63,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export interface Tool {
-  id: "pen" | "nib" | "pencil" | "brush" | "pastel" | "crayon" | "eraser" | "fill";
+  id: "pen" | "nib" | "pencil" | "brush" | "voxi" | "crayon" | "eraser" | "fill";
   label: string;
   width: number;
   // When set, choosing this tool forces colour to this value. Used by the
@@ -80,7 +80,7 @@ export const TOOLS: Tool[] = [
   { id: "nib", label: "Nib", width: 3 },
   { id: "pencil", label: "Pencil", width: 4 },
   { id: "brush", label: "Brush", width: 8 },
-  { id: "pastel", label: "Pastel", width: 14 },
+  { id: "voxi", label: "Voxi", width: 14 },
   { id: "crayon", label: "Crayon", width: 20 },
   { id: "fill", label: "Fill", width: 0 },
   { id: "eraser", label: "Eraser", width: 16, forcedColor: 0xffffff },

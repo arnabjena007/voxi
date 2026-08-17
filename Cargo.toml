@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/pastel-proto",
-    "crates/pastel-room",
-    "crates/pastel-server",
-    "crates/pastel-loadtest",
+    "crates/voxi-proto",
+    "crates/voxi-room",
+    "crates/voxi-server",
+    "crates/voxi-loadtest",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/yashaswi/pastel"
+repository = "https://github.com/yashaswi/voxi"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

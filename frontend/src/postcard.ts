@@ -1,4 +1,4 @@
-// Minimal postcard codec for the messages we exchange with pastel-server.
+// Minimal postcard codec for the messages we exchange with voxi-server.
 // Wire format matches the Rust `postcard` crate:
 //   - u8, i8           : 1 raw byte (i8 is zig-zagged into a varint, see writeI8)
 //   - u16/u32/u64      : varint (LEB128)
