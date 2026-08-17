@@ -3926,44 +3926,29 @@ body.voxel-room-body > main {
 .voxel-canvas-tools .voxel-build-toolbar { flex: 0 1 auto; }
 .voxel-canvas-tools .voxel-color-strip { order: 1; }
 .voxel-canvas-tools .voxel-build-toolbar { order: 2; }
-.voxel-canvas-tools .voxel-template-menu { order: 3; }
+.voxel-canvas-tools .voxel-template-select-group { order: 3; }
+.voxel-canvas-tools .voxel-clear-workspace { order: 4; }
 .voxel-canvas-tools .voxel-toolbar-note { display: none; }
 .voxel-canvas-tools .voxel-color { border-radius: 50%; }
 .voxel-canvas-tools .voxel-select-group { color: #6a5538; }
 .voxel-canvas-tools .voxel-select-group select { border-color: rgba(73,54,30,.24); background: #ffffff; color: #2c9e93; }
 .voxel-room-canvas-shell > .voxel-toolbar-note { position: absolute; left: 50%; bottom: 7px; z-index: 3; transform: translateX(-50%); width: 100%; text-align: center; color: #6a5538; font-size: 10px; letter-spacing: .04em; pointer-events: none; }
-.voxel-template-menu {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 5px 8px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.voxel-template-menu-head { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font: 800 10px var(--font-body); text-transform: uppercase; letter-spacing: .04em; }
-.voxel-template-menu-head button { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgba(73,54,30,.18); border-radius: 50%; background: #fffaf0; color: #2c9e93; cursor: pointer; }
-.voxel-template-category { display: inline-flex; align-items: center; gap: 4px; margin-top: 0; }
-.voxel-template-category > span { color: #7a674f; font: 800 9px var(--font-body); text-transform: uppercase; letter-spacing: .08em; }
-.voxel-template-category button { border: 1px solid rgba(73,54,30,.2); border-radius: 6px; padding: 4px 7px; background: #fffaf0; color: #2c9e93; font: 800 9px var(--font-display); cursor: pointer; }
-.voxel-template-category button:hover,
-.voxel-template-category button.is-active { border-color: #d953c8; background: #ffe4f8; color: #b13ca4; }
+.voxel-template-select-group { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.voxel-template-select-group select { appearance: auto; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
 body.voxi-theme-dark .voxel-canvas-tools { border: 0; background: transparent; box-shadow: none; }
 body.voxi-theme-dark .voxel-canvas-tools .voxel-select-group { color: #9ea7b5; }
 body.voxi-theme-dark .voxel-canvas-tools .voxel-select-group select { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
 body.voxi-theme-dark .voxel-room-canvas-shell > .voxel-toolbar-note { color: #9ea7b5; }
-body.voxi-theme-dark .voxel-template-menu-head { color: #f4f5f7; }
-body.voxi-theme-dark .voxel-template-menu-head button,
-body.voxi-theme-dark .voxel-template-category button { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
-body.voxi-theme-dark .voxel-template-category > span { color: #9ea7b5; }
-body.voxi-theme-dark .voxel-template-category button:hover,
-body.voxi-theme-dark .voxel-template-category button.is-active { border-color: #d953c8; background: #332039; color: #f069dd; }
+body.voxi-theme-dark .voxel-template-select-group { color: #9ea7b5; }
+body.voxi-theme-dark .voxel-template-select-group select { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
 .voxel-select-group { display: inline-flex; align-items: center; gap: 5px; color: #9ea7b5; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .voxel-select-group select { appearance: auto; border: 1px solid rgba(255,255,255,.16); border-radius: 5px; padding: 4px 20px 4px 7px; background: #1b2028; color: #64dfd1; font: 700 10px var(--font-display); cursor: pointer; }
+.voxel-clear-workspace { width: 22px; height: 22px; display: inline-grid; place-items: center; border: 1px solid rgba(73,54,30,.24); border-radius: 50%; padding: 0; background: #fffaf0; color: #b13c4e; font: 800 9px var(--font-display); cursor: pointer; }
+.voxel-clear-workspace:hover { background: #ffe4e8; border-color: #d95368; }
 body:not(.voxi-theme-dark) .voxel-select-group { color: #6a5538; }
 body:not(.voxi-theme-dark) .voxel-select-group select { border-color: rgba(73,54,30,.24); background: #fffaf0; color: #2c9e93; }
+body.voxi-theme-dark .voxel-clear-workspace { border-color: #4d5664; background: #1b2028; color: #ff8795; }
+body.voxi-theme-dark .voxel-clear-workspace:hover { background: #33212a; border-color: #ff8795; }
 .voxel-room-help { margin: 14px 0 0; text-align: center; color: #6a5538; font-size: 13px; }
 .voxel-room-help { display: none; }
 
@@ -4004,14 +3989,6 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
   .voxel-room-head { grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
   .voxel-room-head .voxel-color-strip { justify-content: center; text-align: center; }
   .voxel-room-canvas-shell { min-height: 360px; height: 65dvh; }
-  .voxel-template-menu {
-    width: auto;
-    gap: 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  .voxel-template-menu-head { min-width: 88px; margin: 0; }
-  .voxel-template-category { min-width: 112px; margin-top: 0; }
   .voxel-chat-panel { height: 260px; margin-top: 14px; }
 }
 

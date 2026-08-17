@@ -99,22 +99,12 @@ function bootVoxelRoom(): void {
             <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="fire">FIRE</option></select></label>
             <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
           </div>
-          <div class="voxel-template-menu" aria-label="Build templates">
-            <div class="voxel-template-menu-head">
-              <span>Templates</span>
-              <button type="button" id="clearPendingTemplate" aria-label="Cancel selected template" title="Cancel template"><i class="ph ph-x"></i></button>
-            </div>
-            <div class="voxel-template-category">
-              <span>Structures</span>
-              <button type="button" data-voxel-template="house">House</button>
-              <button type="button" data-voxel-template="castle">Castle</button>
-              <button type="button" data-voxel-template="bridge">Bridge</button>
-            </div>
-            <div class="voxel-template-category">
-              <span>Nature</span>
-              <button type="button" data-voxel-template="tree">Tree</button>
-            </div>
-          </div>
+          <label class="voxel-template-select-group">TEMPLATES<select id="voxelTemplateSelect" aria-label="Choose a build template">
+            <option value="">CHOOSE</option>
+            <optgroup label="STRUCTURES"><option value="house">HOUSE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option></optgroup>
+            <optgroup label="NATURE"><option value="tree">TREE</option></optgroup>
+          </select></label>
+          <button type="button" class="voxel-clear-workspace" id="clearVoxelWorkspace" aria-label="Clear workspace" title="Remove every block from this workspace"><i class="ph ph-trash"></i></button>
         </div>
         <div class="voxel-name-gate" id="voxelNameGate"${invitedName || solo ? " hidden" : ""}>
           <form id="voxelNameForm" class="voxel-name-card">
@@ -153,12 +143,14 @@ function bootVoxelRoom(): void {
   });
   const setPendingTemplate = (value: string | null): void => {
     pendingTemplate = value;
-    document.querySelectorAll<HTMLButtonElement>("[data-voxel-template]").forEach((button) => button.classList.toggle("is-active", button.dataset.voxelTemplate === value));
+    const select = document.getElementById("voxelTemplateSelect") as HTMLSelectElement | null;
+    if (select && select.value !== (value ?? "")) select.value = value ?? "";
     const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
     if (note) note.textContent = value ? `PLACE ${value.toUpperCase()}: CLICK CANVAS · ESC TO CANCEL` : "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
   };
-  document.querySelectorAll<HTMLButtonElement>("[data-voxel-template]").forEach((button) => button.addEventListener("click", () => setPendingTemplate(button.dataset.voxelTemplate ?? null)));
-  document.getElementById("clearPendingTemplate")?.addEventListener("click", () => setPendingTemplate(null));
+  document.getElementById("voxelTemplateSelect")?.addEventListener("change", (event) => {
+    setPendingTemplate((event.target as HTMLSelectElement).value || null);
+  });
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       setPendingTemplate(null);
@@ -168,6 +160,19 @@ function bootVoxelRoom(): void {
     const size = Number((event.target as HTMLSelectElement).value);
     voxelController?.setGridSize(size);
     if (!solo && localPlayerId !== null && localPlayerId === hostPlayerId) voxelConn?.send({ kind: "GridSize", size });
+  });
+  document.getElementById("clearVoxelWorkspace")?.addEventListener("click", () => {
+    if (!voxelController) return;
+    const blocks = voxelController.clearWorkspace();
+    setPendingTemplate(null);
+    if (!blocks.length) return;
+    if (!window.confirm(`Clear ${blocks.length} block${blocks.length === 1 ? "" : "s"} from this workspace?`)) {
+      blocks.forEach((block) => voxelController?.applyVoxel({ ...block, remove: false }));
+      return;
+    }
+    if (!solo) {
+      [...blocks].sort((a, b) => b.y - a.y).forEach((block) => voxelConn?.send({ kind: "Voxel", x: block.x, z: block.z, color: block.color, remove: true }));
+    }
   });
   document.getElementById("copyRoomCode")?.addEventListener("click", async () => {
     try {
