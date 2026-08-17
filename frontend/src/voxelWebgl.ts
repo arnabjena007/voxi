@@ -55,46 +55,52 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
     ctx.fillRect(0, 0, size, size);
   };
   const noise = (alpha: number, colors: string[]): void => {
-    for (let i = 0; i < 420; i++) {
-      ctx.globalAlpha = alpha * (.45 + Math.random() * .8);
+    for (let i = 0; i < 160; i++) {
+      ctx.globalAlpha = alpha * (.22 + Math.random() * .45);
       ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-      const s = 1 + Math.random() * 5;
-      ctx.fillRect(Math.random() * size, Math.random() * size, s, s);
+      const s = 2 + Math.random() * 9;
+      ctx.beginPath();
+      ctx.ellipse(Math.random() * size, Math.random() * size, s, s * .65, Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   };
 
   if (kind === "grass") {
     fill("#4f9f38");
-    noise(.42, ["#2f7d2d", "#75bf48", "#1f5f27", "#a4d96d"]);
-    for (let i = 0; i < 26; i++) {
+    noise(.3, ["#2f7d2d", "#75bf48", "#1f5f27", "#a4d96d"]);
+    for (let i = 0; i < 10; i++) {
       ctx.strokeStyle = i % 2 ? "#2e7d31" : "#8ccc55";
-      ctx.lineWidth = 1 + Math.random() * 2;
+      ctx.globalAlpha = .26;
+      ctx.lineWidth = 1 + Math.random();
       const x = Math.random() * size;
       ctx.beginPath();
       ctx.moveTo(x, size);
-      ctx.lineTo(x + (Math.random() * 14 - 7), Math.random() * size);
+      ctx.lineTo(x + (Math.random() * 10 - 5), size * (.35 + Math.random() * .5));
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
   } else if (kind === "stone") {
     fill("#8f969c");
-    noise(.5, ["#6f767d", "#b6bcc1", "#555c63", "#9fa6ac"]);
-    ctx.strokeStyle = "rgba(52,58,64,.42)";
-    for (let i = 0; i < 9; i++) {
+    noise(.32, ["#6f767d", "#b6bcc1", "#555c63", "#9fa6ac"]);
+    ctx.strokeStyle = "rgba(52,58,64,.2)";
+    for (let i = 0; i < 4; i++) {
       ctx.beginPath();
       ctx.moveTo(Math.random() * size, Math.random() * size);
-      for (let j = 0; j < 4; j++) ctx.lineTo(Math.random() * size, Math.random() * size);
+      for (let j = 0; j < 3; j++) ctx.lineTo(Math.random() * size, Math.random() * size);
       ctx.stroke();
     }
   } else if (kind === "wood") {
     fill("#8c552c");
-    for (let y = 0; y < size; y += 6) {
+    for (let y = 0; y < size; y += 12) {
       ctx.fillStyle = y % 12 ? "#73401e" : "#a76a35";
-      ctx.fillRect(0, y + Math.sin(y * .35) * 2, size, 3);
+      ctx.globalAlpha = .36;
+      ctx.fillRect(0, y + Math.sin(y * .22) * 2, size, 4);
     }
-    noise(.2, ["#532b16", "#c08445"]);
-    ctx.strokeStyle = "rgba(55,28,12,.45)";
-    for (let i = 0; i < 4; i++) {
+    ctx.globalAlpha = 1;
+    noise(.14, ["#532b16", "#c08445"]);
+    ctx.strokeStyle = "rgba(55,28,12,.26)";
+    for (let i = 0; i < 2; i++) {
       ctx.beginPath();
       ctx.ellipse(22 + i * 16, 24 + (i % 2) * 28, 8, 4, Math.random(), 0, Math.PI * 2);
       ctx.stroke();
@@ -105,12 +111,13 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
     gradient.addColorStop(1, "#127fc2");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, size, size);
-    ctx.strokeStyle = "rgba(255,255,255,.42)";
-    for (let i = 0; i < 12; i++) {
+    ctx.strokeStyle = "rgba(255,255,255,.24)";
+    ctx.lineWidth = 1.3;
+    for (let i = 0; i < 5; i++) {
       ctx.beginPath();
-      const y = i * 8 + Math.random() * 4;
+      const y = i * 18 + Math.random() * 5;
       ctx.moveTo(0, y);
-      for (let x = 0; x <= size; x += 12) ctx.lineTo(x, y + Math.sin(x * .18 + i) * 4);
+      for (let x = 0; x <= size; x += 18) ctx.lineTo(x, y + Math.sin(x * .11 + i) * 3);
       ctx.stroke();
     }
   } else if (kind === "lava" || kind === "fire") {
@@ -120,9 +127,10 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
     gradient.addColorStop(1, kind === "fire" ? "#901414" : "#3c1111");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, size, size);
-    noise(.5, ["#fff176", "#ff8a1c", "#e11d1d", "#5f1717"]);
-    ctx.strokeStyle = "rgba(255,238,130,.8)";
-    for (let i = 0; i < 7; i++) {
+    noise(.32, ["#fff176", "#ff8a1c", "#e11d1d", "#5f1717"]);
+    ctx.strokeStyle = "rgba(255,238,130,.36)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
       ctx.beginPath();
       ctx.moveTo(Math.random() * size, size);
       ctx.bezierCurveTo(Math.random() * size, size * .65, Math.random() * size, size * .35, Math.random() * size, 0);
@@ -136,7 +144,7 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(1, 1);
   if (kind === "water") texture.repeat.set(1.4, 1.4);
-  if (kind === "lava" || kind === "fire") texture.repeat.set(1.2, 1.2);
+  if (kind === "lava" || kind === "fire") texture.repeat.set(1.05, 1.05);
   texture.anisotropy = 4;
   return texture;
 };
@@ -276,21 +284,21 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       const texture = meshMaterial.map;
       if (kind === "water") {
         if (texture) {
-          texture.offset.x = (time * .035 + data.phase * .04) % 1;
-          texture.offset.y = (Math.sin(time * .7 + data.phase) * .025 + data.phase * .03) % 1;
-          texture.rotation = Math.sin(time * .45 + data.phase) * .08;
+          texture.offset.x = (time * .018 + data.phase * .03) % 1;
+          texture.offset.y = (Math.sin(time * .38 + data.phase) * .012 + data.phase * .025) % 1;
+          texture.rotation = Math.sin(time * .28 + data.phase) * .035;
         }
-        meshMaterial.opacity = .66 + Math.sin(time * 2.2 + data.phase) * .07;
-        meshMaterial.clearcoatRoughness = .08 + Math.sin(time * 1.7 + data.phase) * .045;
+        meshMaterial.opacity = .7 + Math.sin(time * 1.25 + data.phase) * .035;
+        meshMaterial.clearcoatRoughness = .1 + Math.sin(time * .9 + data.phase) * .025;
       } else if (kind === "lava" || kind === "fire") {
         if (texture) {
-          texture.offset.y = (time * (kind === "fire" ? .16 : .06) + data.phase * .05) % 1;
-          texture.offset.x = Math.sin(time * 1.4 + data.phase) * .035;
+          texture.offset.y = (time * (kind === "fire" ? .06 : .032) + data.phase * .04) % 1;
+          texture.offset.x = Math.sin(time * .75 + data.phase) * .016;
         }
-        const flicker = Math.sin(time * 6.4 + data.phase) * .16 + Math.sin(time * 11.7 + data.phase * 2) * .08;
-        meshMaterial.emissiveIntensity = (kind === "fire" ? 1.15 : .8) + flicker;
-        mesh.scale.setScalar(1 + Math.max(0, flicker) * (kind === "fire" ? .035 : .018));
-        data.light && (data.light.intensity = (kind === "fire" ? .75 : .55) + Math.max(0, flicker) * 1.3);
+        const flicker = Math.sin(time * 2.8 + data.phase) * .07 + Math.sin(time * 5.2 + data.phase * 2) * .035;
+        meshMaterial.emissiveIntensity = (kind === "fire" ? .98 : .72) + flicker;
+        mesh.scale.setScalar(1 + Math.max(0, flicker) * (kind === "fire" ? .012 : .008));
+        data.light && (data.light.intensity = (kind === "fire" ? .58 : .45) + Math.max(0, flicker) * .55);
       }
     });
     renderer.render(scene, camera);
