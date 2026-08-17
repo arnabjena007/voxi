@@ -140,6 +140,14 @@ pub struct CompletedStroke {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VoxelBlock {
+    pub x: i8,
+    pub y: u8,
+    pub z: i8,
+    pub color: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ChatLine {
     pub seq: Seq,
     pub player: PlayerId,
@@ -203,10 +211,16 @@ impl Default for GameSnapshot {
 pub struct RoomSnapshot {
     pub players: Vec<Player>,
     pub completed: Vec<CompletedStroke>,
+    #[serde(default)]
+    pub voxels: Vec<VoxelBlock>,
     pub seq: Seq,
     pub chat: Vec<ChatLine>,
     pub game: GameSnapshot,
+    #[serde(default = "default_grid_size")]
+    pub grid_size: u8,
 }
+
+fn default_grid_size() -> u8 { 20 }
 
 #[cfg(test)]
 mod tests {

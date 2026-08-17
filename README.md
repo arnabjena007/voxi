@@ -1,10 +1,10 @@
 <div align="center">
 
-# pastel
+# voxi
 
-**Real-time multiplayer drawing & guessing.**
+**Real-time multiplayer voxel canvas.**
 
-No accounts. No ads. No JSON. Just grab a link and draw.
+No accounts. No ads. No JSON. Just grab a link and build together.
 
 Rust on the back. TypeScript on the front. Binary WebSockets between.
 
@@ -15,7 +15,7 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 
 
 <p align="center">
-  <img alt="pastel architecture" src="https://raw.githubusercontent.com/pixperk/pastel/main/assets/architecture.png" width="900" />
+<img alt="voxi architecture" src="https://raw.githubusercontent.com/pixperk/pastel/main/assets/architecture.png" width="900" />
 </p>
 
 ---
@@ -36,22 +36,20 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 
 ---
 
-## The game in 30 seconds
+## The app in 30 seconds
 
-Pick a mode. Start a room. Share the link.
+Pick a room. Share the link. Build on the same canvas together.
 
-When a friend joins, hit "Let's go!" Or add a bot.
+When a friend joins, start placing blocks together. Or add a bot.
 
-| Mode | Rounds | Words offered |
+| Mode | Rooms | Players |
 |---|---:|---:|
 | Sprint | 3 | 7 |
 | Standard | 5 | 5 |
 | Marathon | 7 | 3 |
 
-Every player draws once per round. The drawer picks a word, everyone else
-guesses in chat. Hints reveal automatically (one letter at 60s, 30s, 10s
-remaining). First correct guess scores most, each next earns 0.7x of the
-previous. The drawer earns half the round total.
+Everyone can place voxels on the shared canvas in multiplayer. Use voice or
+text chat while you build, coordinate, or just hang out.
 
 A room sits in the lobby for **120 seconds** before it expires and frees
 its six-character code. The host sees a live countdown.
@@ -60,15 +58,12 @@ its six-character code. The host sees a live countdown.
 
 ## Features
 
-### Gameplay
-- Three modes: Sprint (3 rounds), Standard (5), Marathon (7)
-- Mode-driven word offering: 7 / 5 / 3 choices respectively
-- Per-round drawer rotation, every player draws once
-- Auto hint reveal at 60s, 30s, 10s remaining
-- Tiered scoring: first correct guesser scores most, each next gets 0.7x
-- Drawer earns half the round total
-- Close-guess detection via Levenshtein distance, surfaced as a private "so close!" pill
-- Two-minute lobby expiry with live countdown so dead rooms free their codes
+### Multiplayer
+- Shared voxel canvas that multiple players can build on at the same time
+- Room-based sessions with a simple shareable link
+- Live voice chat for talking while you build
+- Live text chat for quick coordination and conversation
+- Host-visible lobby countdown so idle rooms still time out cleanly
 
 ### Voice
 - Opt-in per room from the landing page
@@ -80,15 +75,14 @@ its six-character code. The host sees a live countdown.
 - Bg music ducks automatically while your mic is live so it doesn't bleed through WebRTC
 
 ### Reactions
-- Guessers can tap "looking good" (sparkle) or "i'm lost" (question) during a round
+- Quick emoji reactions for the room while you build
 - Each reaction broadcasts as a small system line in chat
-- When 50%+ of guessers agree on a mood, the drawer sees a soft pastel banner
-  ("they're loving it" or "they're a bit lost, try clearer strokes")
-- Resets every round
+- Gives the room a lightweight way to react without interrupting voice or text
+- Resets with the session
 
 ### Audio
 - Three CC0 lofi tracks fade between scenes (landing, lobby, in-game)
-- Short procedural Tone.js SFX for round start, correct guess, round end, join, game over
+- Short procedural Tone.js SFX for join, build actions, and room events
 - Separate toggles for bg music and sfx, both persist in localStorage, both default on
 - Music auto-ducks under live voice
 - Draggable on-canvas control cluster (mic / music / sfx) that gets out of the
@@ -105,17 +99,16 @@ its six-character code. The host sees a live countdown.
 
 ### Bots
 - Three difficulties: chill, normal, sweaty
-- Real human sketches from Google Quick Draw (295 words, 30KB binary asset)
-- Tiered bot word pool so a bot never picks a word it has no drawing for
-- Per-difficulty guess pacing only; drawing speed is identical and feels human
-- Personality chat: greets on join, reacts to others' correct guesses, announces own turn, reacts to reveals
+- Bots can join the same room as extra builders or chat companions
+- Per-difficulty pacing keeps them feeling more human
+- Personality chat: greets on join and reacts to room activity
 - Bots never hold the host badge; an all-bot room auto-shuts-down
 
 ### Reload safety
 - Per-browser `client_token` UUID in localStorage
-- Reload skips the avatar picker entirely
+- Reload keeps your identity in the same room
 - Server matches the token against a `departed` map and restores the original `PlayerId`
-- Same row on the scoreboard, same accumulated score, same rotation slot
+- Same room presence after refresh instead of showing up as a new user
 - Bye-on-room-close routes to a friendly "this room is gone" screen
 
 ### Host controls
@@ -148,28 +141,21 @@ its six-character code. The host sees a live countdown.
   you instead, so still-guessing players never see a spoiler
 
 ### Share & gallery
-- Every drawing is captured client-side as it's made; at game over the gallery
-  auto-opens (after a short countdown) into a wall of every drawing with its word
-- One-tap **shareable card**: a branded PNG of the drawing + word, sent through
-  the native Web Share sheet (great on phones) or downloaded
+- Every session can be captured client-side and reopened as a gallery
+- One-tap **shareable card**: a branded PNG of the build, sent through the
+  native Web Share sheet (great on phones) or downloaded
 - **Scorecard** sharing too: a branded image of the final standings
-- **Stroke-by-stroke replay**: watch any (or every) drawing redraw itself, played
-  back from the captured per-point timing
+- **Stroke-by-stroke replay**: watch any build redraw itself from the captured timing
 
 ### Best-artist vote
-- At game over, rate any drawing you didn't make with up to **3 hearts**; ratings
-  are changeable and you never rate your own
-- The winner is the **player** whose drawings earned the most hearts overall, not
-  a single picture. With few players this stays meaningful (you're judging each
-  other's whole body of work) instead of degenerating into a 1-1 tie
-- The **bot votes too**, by clarity: it hearts drawings by how readable they were
-  (how many guessers got them), so it's a neutral extra opinion and its own art
-  can win
+- At session end, rate builds you like with up to **3 hearts**
+- The winner is the **player** whose work earned the most hearts overall
+- The **bot votes too**, so solo rooms still have some energy
 - Counts stay hidden until a single reveal: the Best Artist is named, the most
-  loved drawing is crowned, every tile shows the hearts it earned, and confetti
-  fires. The window runs a fixed timer (no early close)
+  loved build is crowned, every tile shows the hearts it earned, and confetti
+  fires
 - Keyed on a server-authoritative turn id so late-joiners and reloads still rate
-  the right drawing
+  the right session
 
 ### Emoji reactions
 - A floating emoji bar for guessers: laugh, fire, wow, heart, clap, sad, goat,

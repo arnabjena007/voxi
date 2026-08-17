@@ -155,6 +155,7 @@ describe("wire fixtures (must match Rust)", () => {
       snapshot: {
         players: [],
         completed: [],
+        voxels: [],
         seq: 0,
         chat: [],
         game: {
@@ -250,6 +251,7 @@ describe("client/server round-trips", () => {
             points: [{ dx: 1, dy: 1, dt: 16, pressure: 200 }],
           },
         ],
+        voxels: [],
         seq: 3,
         chat: [{ seq: 2, player: 1, text: "hi" }],
         game: {

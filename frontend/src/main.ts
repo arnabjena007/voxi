@@ -42,25 +42,343 @@ import {
   showJoinPendingScreen,
 } from "./kicked";
 import { showLanding } from "./landing";
+import { mountVoxelWebgl, type VoxelWebglController } from "./voxelWebgl";
 import {
   parseRoomCode,
   type Player,
   type ServerMsg,
 } from "./proto";
+import { DEFAULT_AVATAR } from "./proto";
 import { isPhoneViewport, loadInitialColor, loadInitialTool, mountToolbar } from "./toolbar";
 import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
+import { connectVoice, isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
 
 // Show the landing screen if no room is in the URL. The landing form
 // redirects to ?room=CODE&host=1&mode=MODE on submit.
 const params = new URLSearchParams(window.location.search);
 if (!params.has("room")) {
   showLanding();
+} else if (params.get("mode") === "voxel") {
+  bootVoxelRoom();
 } else {
   void bootRoom();
 }
 
+function bootVoxelRoom(): void {
+  document.body.classList.add("voxel-room-body");
+  if (window.localStorage.getItem("voxi.landing-theme") === "dark") document.body.classList.add("voxi-theme-dark");
+  const roomCode = params.get("room") ?? "";
+  const invitedName = params.get("name")?.trim() ?? "";
+  const solo = params.get("solo") === "1";
+  const safeText = (value: string): string => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
+  let voxelConn: Conn | null = null;
+  let activeName = invitedName;
+  let voxelController: VoxelWebglController | null = null;
+  let pendingTemplate: string | null = null;
+  let localPlayerId: number | null = null;
+  let hostPlayerId: number | null = null;
+  const materialColors: Record<string, number> = { grass: 3, stone: 9, glass: 5, wood: 8, water: 4, lava: 1, light: 2 };
+  const onlinePlayers = new Map<number, string>();
+  document.body.innerHTML = `
+    <main class="voxel-room${solo ? " voxel-room--solo" : ""}">
+      <header class="voxel-room-head">
+        <a class="voxel-room-back" href="/" aria-label="Back to home" title="Back to home"><i class="ph ph-house"></i></a>
+        <div>
+          <div class="voxi-wordmark">VOXI</div>
+        </div>
+        ${solo ? "" : `<button class="voxel-room-code" id="copyRoomCode" type="button" title="Copy room code"><span>${roomCode}</span><i class="ph ph-copy"></i></button>`}
+      </header>
+      <section class="voxel-room-canvas-shell${invitedName || solo ? "" : " is-locked"}">
+        <div class="voxel-canvas-tools">
+          <div class="voxel-color-strip" aria-label="Block colors">
+            ${["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899", "#a16207", "#f5f5f4"].map((color, index) => `<button class="voxel-color${index === 0 ? " is-active" : ""}" data-voxel-color="${index}" style="--voxel-color:${color}" aria-label="Color ${index}"></button>`).join("")}
+          </div>
+          <div class="voxel-build-toolbar">
+            <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="light">LIGHT</option></select></label>
+            <label class="voxel-select-group">TEMPLATE<select id="voxelTemplateSelect"><option value="">CHOOSE</option><option value="house">HOUSE</option><option value="tree">TREE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option><option value="pixel">PIXEL ART</option></select></label>
+            <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
+          </div>
+        </div>
+        <div class="voxel-name-gate" id="voxelNameGate"${invitedName || solo ? " hidden" : ""}>
+          <form id="voxelNameForm" class="voxel-name-card">
+            <h1>${solo ? "Set your name" : "Join this room"}</h1>
+            <p>${solo ? "Choose a name for your build." : "Choose the name other builders will see."}</p>
+            <input id="voxelNameInput" maxlength="24" autocomplete="name" placeholder="Your name" required />
+            <button type="submit">Enter canvas</button>
+          </form>
+        </div>
+        <canvas id="voxelRoomCanvas" aria-label="Shared voxel canvas"></canvas>
+        <div class="voxel-toolbar-note">1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM</div>
+      </section>
+      <aside class="voxel-chat-panel" aria-label="Room chat">
+        <div class="voxel-chat-head">
+          <div><strong>Room chat</strong><span id="voxelOnlineCount">1 builder online</span><span id="voxelOnlineNames"></span></div>
+          <button class="voxel-voice-toggle" id="voxelVoiceToggle" type="button" title="Enable voice"><i class="ph ph-microphone-slash"></i></button>
+          <span class="voxel-online-dot"></span>
+        </div>
+        <div class="voxel-chat-messages" id="voxelChatMessages"></div>
+        <form class="voxel-chat-form" id="voxelChatForm">
+          <input id="voxelChatInput" maxlength="180" placeholder="Say something..." autocomplete="off" />
+          <button type="submit" aria-label="Send message">Send</button>
+        </form>
+      </aside>
+      <p class="voxel-room-help">click to add a block · shift-click to remove · drag to orbit · scroll to zoom</p>
+    </main>
+  `;
+  const canvas = document.getElementById("voxelRoomCanvas") as HTMLCanvasElement | null;
+  document.getElementById("voxelMaterialSelect")?.addEventListener("change", (event) => {
+    const material = (event.target as HTMLSelectElement).value;
+    document.querySelector<HTMLButtonElement>(`[data-voxel-color="${materialColors[material]}"]`)?.click();
+  });
+  document.getElementById("voxelTemplateSelect")?.addEventListener("change", (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+    if (!value) return;
+    pendingTemplate = value;
+    const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
+    if (note) note.textContent = `PLACE ${pendingTemplate.toUpperCase()}: CLICK CANVAS · ESC TO CANCEL`;
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      pendingTemplate = null;
+      const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
+      if (note) note.textContent = "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
+    }
+  });
+  document.getElementById("voxelGridSelect")?.addEventListener("change", (event) => {
+    const size = Number((event.target as HTMLSelectElement).value);
+    voxelController?.setGridSize(size);
+    if (!solo && localPlayerId !== null && localPlayerId === hostPlayerId) voxelConn?.send({ kind: "GridSize", size });
+  });
+  document.getElementById("copyRoomCode")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      const button = document.getElementById("copyRoomCode");
+      if (button) {
+        button.classList.add("is-copied");
+        button.setAttribute("aria-label", "Room code copied");
+        window.setTimeout(() => button.classList.remove("is-copied"), 1500);
+      }
+    } catch {
+      // Clipboard access can be unavailable on non-secure local contexts.
+    }
+  });
+  const enter = (name: string): void => {
+    activeName = name.trim();
+    const url = new URL(window.location.href);
+    url.searchParams.set("name", name.trim());
+    window.history.replaceState({}, "", url.toString());
+    document.getElementById("voxelNameGate")?.setAttribute("hidden", "");
+    document.querySelector(".voxel-room-canvas-shell")?.classList.remove("is-locked");
+    if (canvas) voxelController = mountVoxelWebgl(canvas, { onVoxel: (voxel) => voxelConn?.send({ kind: "Voxel", ...voxel }), onCellClick: (cell) => placePendingTemplate(cell.x, cell.z) });
+    if (!solo) showJoined(name);
+    if (!solo) connectVoxel(name);
+  };
+  const mountCanvas = (): void => {
+    if (canvas && !voxelController) voxelController = mountVoxelWebgl(canvas, { onVoxel: (voxel) => voxelConn?.send({ kind: "Voxel", ...voxel }), onCellClick: (cell) => placePendingTemplate(cell.x, cell.z) });
+  };
+  if (solo) {
+    mountCanvas();
+  } else if (invitedName) {
+    mountCanvas();
+    if (!solo) showJoined(invitedName);
+    if (!solo) connectVoxel(invitedName);
+  } else {
+    document.getElementById("voxelNameForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = document.getElementById("voxelNameInput") as HTMLInputElement | null;
+      if (input?.value.trim()) enter(input.value);
+    });
+  }
+
+  const chatForm = document.getElementById("voxelChatForm") as HTMLFormElement | null;
+  const chatInput = document.getElementById("voxelChatInput") as HTMLInputElement | null;
+  const chatMessages = document.getElementById("voxelChatMessages");
+  chatForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = chatInput?.value.trim();
+    if (!text || !chatMessages) return;
+    chatInput!.value = "";
+    voxelConn?.send({ kind: "Chat", text });
+  });
+  document.getElementById("voxelVoiceToggle")?.addEventListener("click", async () => {
+    const button = document.getElementById("voxelVoiceToggle");
+    if (!button || solo) return;
+    try {
+      const state = await toggleMic(roomCode, activeName || "Builder");
+      button.innerHTML = `<i class="ph ${state === "live" ? "ph-microphone" : "ph-microphone-slash"}"></i>`;
+      button.title = state === "live" ? "Mute microphone" : "Enable voice";
+      button.classList.toggle("is-live", state === "live");
+    } catch (error) {
+      button.innerHTML = `<i class="ph ph-warning"></i>`;
+      button.title = "Voice unavailable - click to retry";
+      const message = error instanceof Error ? error.message : "Microphone permission or voice server unavailable";
+      showToast(message);
+    }
+  });
+
+  function connectVoxel(name: string): void {
+    if (voxelConn) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const tokenKey = "voxi.client_token";
+    const token = window.localStorage.getItem(tokenKey) ?? crypto.randomUUID();
+    window.localStorage.setItem(tokenKey, token);
+    voxelConn = new Conn({
+      url: `${protocol}//${window.location.host}/ws/${roomCode}`,
+      hello: () => ({ kind: "Hello", hello: {
+        room: roomCode,
+        name,
+        resume_from: null,
+        client_token: token,
+        avatar: DEFAULT_AVATAR,
+      } }),
+      onMessage: (message) => {
+        if (message.kind === "Welcome") {
+          localPlayerId = message.you;
+          hostPlayerId = message.snapshot.game.host;
+          voxelController?.setGridSize(message.snapshot.grid_size ?? 20);
+          const gridSelect = document.getElementById("voxelGridSelect") as HTMLSelectElement | null;
+          if (gridSelect) gridSelect.value = String(message.snapshot.grid_size ?? 20);
+          onlinePlayers.clear();
+          message.snapshot.players.forEach((player) => onlinePlayers.set(player.id, player.name));
+          updateOnlinePlayers();
+          message.snapshot.voxels.forEach((voxel) => voxelController?.applyVoxel({ ...voxel, remove: false }));
+          message.snapshot.chat.forEach((line) => appendChat(onlinePlayers.get(line.player) ?? "Player", line.text));
+        } else if (message.kind === "Presence") {
+          message.joined.forEach((player) => onlinePlayers.set(player.id, player.name));
+          message.left.forEach((player) => onlinePlayers.delete(player));
+          updateOnlinePlayers();
+          message.joined.forEach((player) => {
+            if (player.name !== name) {
+              showJoined(player.name);
+            }
+          });
+        } else if (message.kind === "Chat") {
+          appendChat(onlinePlayers.get(message.player) ?? "Player", message.text);
+        } else if (message.kind === "Voxel") {
+          voxelController?.applyVoxel(message);
+        } else if (message.kind === "GridSize") {
+          voxelController?.setGridSize(message.size);
+          const gridSelect = document.getElementById("voxelGridSelect") as HTMLSelectElement | null;
+          if (gridSelect) gridSelect.value = String(message.size);
+        }
+      },
+    });
+    void connectVoice(roomCode, name).catch(() => undefined);
+  }
+
+  function appendChat(author: string, text: string): void {
+    if (!chatMessages) return;
+    const item = document.createElement("div");
+    item.className = "voxel-chat-message";
+    item.innerHTML = `<strong>${safeText(author)}</strong><span>${safeText(text)}</span>`;
+    chatMessages.appendChild(item);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function updateOnlinePlayers(): void {
+    const count = document.getElementById("voxelOnlineCount");
+    const names = document.getElementById("voxelOnlineNames");
+    const players = [...onlinePlayers.values()];
+    if (count) count.textContent = `${players.length} builder${players.length === 1 ? "" : "s"} online`;
+    if (names) {
+      names.innerHTML = players.map((player) => `<span class="voxel-player-audio"><span>${safeText(player)}</span><button type="button" data-voxel-mute="${safeText(player)}" title="Mute ${safeText(player)}"><i class="ph ${isRemoteMutedByName(player) ? "ph-speaker-slash" : "ph-speaker-high"}"></i></button></span>`).join("");
+      names.querySelectorAll<HTMLButtonElement>("[data-voxel-mute]").forEach((button) => button.addEventListener("click", () => {
+        const player = button.dataset.voxelMute ?? "";
+        const muted = toggleRemoteMute(player);
+        button.innerHTML = `<i class="ph ${muted ? "ph-speaker-slash" : "ph-speaker-high"}"></i>`;
+      }));
+    }
+  }
+
+  function placePendingTemplate(x: number, z: number): boolean {
+    if (!pendingTemplate) return false;
+    const selected = pendingTemplate;
+    pendingTemplate = null;
+    buildTemplate(selected).forEach((block) => {
+      const placed = { x: block.x + x, y: block.y, z: block.z + z, color: block.color };
+      voxelController?.applyVoxel({ ...placed, remove: false });
+      voxelConn?.send({ kind: "Voxel", x: placed.x, z: placed.z, color: placed.color, remove: false });
+    });
+    const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
+    if (note) note.textContent = "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
+    return true;
+  }
+
+  function showJoined(name: string): void {
+    const toast = document.createElement("div");
+    toast.className = "voxel-joined-toast";
+    toast.textContent = `${name} joined the room`;
+    document.querySelector(".voxel-room")?.appendChild(toast);
+    window.setTimeout(() => toast.classList.add("is-hidden"), 2600);
+    window.setTimeout(() => toast.remove(), 3100);
+  }
+
+  function buildTemplate(kind: string): Array<{ x: number; y: number; z: number; color: number }> {
+    const blocks: Array<{ x: number; y: number; z: number; color: number }> = [];
+    const add = (x: number, y: number, z: number, color: number) => blocks.push({ x, y, z, color });
+    if (kind === "tree") {
+      for (let y = 0; y < 4; y++) add(0, y, 0, 8);
+      for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) for (let y = 4; y < 6; y++) add(x, y, z, 3);
+    } else if (kind === "bridge") {
+      for (let x = -4; x <= 4; x++) { add(x, 0, 0, 8); add(x, 0, 1, 8); }
+      add(-4, 1, 0, 9); add(4, 1, 0, 9);
+    } else if (kind === "castle") {
+      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (let y = 0; y < 2; y++) add(x, y, z, 9);
+      for (const [x, z] of [[-3, -3], [-3, 3], [3, -3], [3, 3]]) for (let y = 2; y < 5; y++) add(x, y, z, 9);
+    } else if (kind === "pixel") {
+      ["01110", "11011", "11111", "01110", "00100"].forEach((row, y) => [...row].forEach((cell, x) => cell === "1" && add(x - 2, 2 - y, 0, (x + y) % 8)));
+    } else {
+      for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) add(x, 0, z, 8);
+      for (let x = -2; x <= 2; x++) for (let y = 1; y < 3; y++) { add(x, y, -2, 8); add(x, y, 2, 8); }
+      for (let z = -2; z <= 2; z++) for (let y = 1; y < 3; y++) { add(-2, y, z, 8); add(2, y, z, 8); }
+      add(0, 1, -2, 5); add(0, 2, -2, 5);
+    }
+    return blocks;
+  }
+}
+
 async function bootRoom(): Promise<void> {
+  document.body.innerHTML = `
+    <main>
+      <header>
+        <h1 class="logo"><span class="voxel-room-logo">voxi</span></h1>
+        <div id="status" class="status">finding the room...</div>
+      </header>
+      <div class="workspace">
+        <aside class="sidebar sidebar--left">
+          <div id="players" class="players"></div>
+        </aside>
+        <section class="stage">
+          <div id="toolbar"></div>
+          <div id="banner" class="banner banner--hidden"></div>
+          <div class="canvas-wrap">
+            <canvas id="canvas"></canvas>
+            <div id="gameOverlay"></div>
+          </div>
+          <div class="stage-dock" id="stageDock">
+            <div class="canvas-settings" id="canvasSettings">
+              <button id="micToggle" class="canvas-setting" type="button"
+                      aria-label="Toggle microphone" title="Voice chat">
+                <i class="ph ph-microphone-slash" aria-hidden="true"></i>
+              </button>
+              <button id="bgToggle" class="canvas-setting" type="button"
+                      aria-label="Toggle background music" title="Background music">
+                <i class="ph ph-music-notes" aria-hidden="true"></i>
+              </button>
+              <button id="sfxToggle" class="canvas-setting" type="button"
+                      aria-label="Toggle sound effects" title="Sound effects">
+                <i class="ph ph-speaker-high" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+        <aside class="sidebar sidebar--right">
+          <div id="chat"></div>
+        </aside>
+      </div>
+    </main>
+  `;
 
 function pickRoomCode(): string {
   const params = new URLSearchParams(window.location.search);
@@ -83,7 +401,7 @@ function randomCode(): string {
 }
 
 function pickClientToken(): string {
-  const key = "pastel.client_token";
+  const key = "voxi.client_token";
   const existing = window.localStorage.getItem(key);
   if (existing) return existing;
   const tok = (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2))
@@ -113,6 +431,8 @@ const stageDockEl = document.getElementById("stageDock");
 
 const room = pickRoomCode();
 const voiceRequested = new URLSearchParams(window.location.search).get("voice") === "1";
+const experimentRequested = new URLSearchParams(window.location.search).get("experiment") === "1";
+const soloRequested = new URLSearchParams(window.location.search).get("solo") === "1";
 // Quick-match rooms carry ?qm=<table size>; the lobby uses it to show a
 // "waiting for players" state instead of the invite-a-friend copy.
 const quickMatchTarget =
@@ -135,7 +455,10 @@ const voicePrefetch: Promise<typeof import("./voice")> | null = voiceRequested
 // of a room already joined this session (a rejoin) slips straight back in with
 // no prompt. First-time visitors with no saved identity get the full picker.
 async function pickOrConfirmIdentity() {
-  const enteredKey = `pastel.entered.${room}`;
+  if (soloRequested) {
+    return { name: "Solo", avatar: DEFAULT_AVATAR };
+  }
+  const enteredKey = `voxi.entered.${room}`;
   const firstEntry = !window.sessionStorage.getItem(enteredKey);
   window.sessionStorage.setItem(enteredKey, "1");
 
@@ -151,11 +474,11 @@ async function pickOrConfirmIdentity() {
 }
 const { name, avatar } = await pickOrConfirmIdentity();
 const clientToken = pickClientToken();
-document.title = `pastel -- room ${room}`;
+document.title = `voxi -- room ${room}`;
+  if (voiceRequested && voicePrefetch) {
+    await prewarmVoice(room, name, voicePrefetch);
+  }
 
-if (voiceRequested && voicePrefetch) {
-  await prewarmVoice(room, name, voicePrefetch);
-}
 
 async function prewarmVoice(
   roomCode: string,
@@ -729,15 +1052,24 @@ if (voiceRequested) {
 } else {
   refreshMicBtn("off");
   // Voice is icon-only, so first-timers don't know it exists. Nudge once.
-  if (window.localStorage.getItem("pastel.voicehint.seen") !== "1") {
+  if (window.localStorage.getItem("voxi.voicehint.seen") !== "1") {
     window.setTimeout(() => {
       showToast("Tap the mic to talk with your room 🎙️", {
         kind: "info",
         durationMs: 4500,
       });
-      window.localStorage.setItem("pastel.voicehint.seen", "1");
+      window.localStorage.setItem("voxi.voicehint.seen", "1");
     }, 3000);
   }
+}
+
+if (experimentRequested) {
+  window.setTimeout(() => {
+    showToast("experiment mode is on: keep the room live and talk while you play", {
+      kind: "info",
+      durationMs: 4200,
+    });
+  }, 600);
 }
 
 const wsUrl = (() => {
@@ -880,7 +1212,7 @@ async function copyInviteLink(): Promise<void> {
 // Surfaces a soft confirm with a "share feedback" CTA that opens the GitHub
 // issues page in a new tab. localStorage keys make it idempotent: once
 // dismissed or actioned, it never appears again from this browser.
-const FEEDBACK_SHOWN_KEY = "pastel.feedback-prompted";
+const FEEDBACK_SHOWN_KEY = "voxi.feedback-prompted";
 const FEEDBACK_URL =
   "https://github.com/pixperk/pastel/issues/new?template=feedback.yml";
 async function maybeAskForFeedback(): Promise<void> {
@@ -892,7 +1224,7 @@ async function maybeAskForFeedback(): Promise<void> {
   const wantsToShare = await showConfirm({
     title: "Thanks for playing!",
     message:
-      "You're one of the first to try pastel. Got 30 seconds to share what worked and what didn't? It really helps shape the launch.",
+    "You're one of the first to try voxi. Got 30 seconds to share what worked and what didn't? It really helps shape the launch.",
     confirmLabel: "Share feedback on GitHub",
     cancelLabel: "Maybe later",
   });

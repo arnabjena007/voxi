@@ -174,7 +174,7 @@ export async function toggleMic(roomCode: string, name: string): Promise<MicStat
   } catch (e) {
     console.warn("[voice] toggle failed", e);
     setMicState("off");
-    return micState;
+    throw e;
   }
 }
 
