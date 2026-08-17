@@ -164,14 +164,15 @@ describe("wire fixtures (must match Rust)", () => {
           scores: [],
           phase: { kind: "Lobby", deadline_ms: null },
         },
+        grid_size: 20,
       },
       seq: 0,
       lk_token: "",
     };
     // variant 0, you 1, players 0, completed 0, snap.seq 0, chat 0,
     // game.mode Standard=1, game.host None=0, game.scores 0,
-    // game.phase Lobby=0 + deadline_ms Option::None=0, outer seq 0, lk_token 0
-    expect(hex(encodeServerMsg(msg))).toBe("00010000000001000000000000");
+    // game.phase Lobby=0 + deadline_ms Option::None=0, grid_size 20, outer seq 0, lk_token 0
+    expect(hex(encodeServerMsg(msg))).toBe("000100000000000100000000140000");
     expect(decodeServerMsg(encodeServerMsg(msg))).toEqual(msg);
   });
 });
@@ -267,6 +268,7 @@ describe("client/server round-trips", () => {
             total_rounds: 3,
           },
         },
+        grid_size: 20,
       },
       seq: 3,
       lk_token: "fake.jwt.token",
