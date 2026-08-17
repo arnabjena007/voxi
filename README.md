@@ -15,7 +15,7 @@ https://github.com/user-attachments/assets/5d0c977b-6995-44a9-b730-a60cd85d396d
 
 
 <p align="center">
-<img alt="voxi architecture" src="https://raw.githubusercontent.com/pixperk/pastel/main/assets/architecture.png" width="900" />
+<img alt="VOXI architecture" src="https://raw.githubusercontent.com/arnabjena007/voxi/main/assets/architecture.png" width="900" />
 </p>
 
 ---
@@ -434,7 +434,7 @@ Each room is one `tokio` task that owns its state. Lock-free hot path:
 Biased select gives commands strict priority over deadlines.
 
 <p align="center">
-  <img alt="Room actor internals" src="https://raw.githubusercontent.com/pixperk/pastel/main/assets/room-actor.png" width="800" />
+  <img alt="VOXI room actor internals" src="https://raw.githubusercontent.com/arnabjena007/voxi/main/assets/room-actor.png" width="800" />
 </p>
 
 ### Avatar wire format
@@ -521,7 +521,7 @@ or abandoned room sends every participant a "this room is gone" card.
 LiveKit Cloud handles the WebRTC; we just mint JWTs. The token endpoint
 (`crates/pastel-server/src/voice.rs`) signs with `jsonwebtoken` using
 HS256 and the claims LiveKit expects: `iss` is your API key, `sub` is
-`name-XXXXXX`, `video` grant maps `room` to the pastel room code,
+`name-XXXXXX`, `video` grant maps `room` to the VOXI room code,
 `roomJoin / canPublish / canSubscribe` all true.
 
 The frontend dynamic-imports `livekit-client` only on first mic tap.
