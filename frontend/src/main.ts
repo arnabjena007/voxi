@@ -52,7 +52,7 @@ import { DEFAULT_AVATAR } from "./proto";
 import { isPhoneViewport, loadInitialColor, loadInitialTool, mountToolbar } from "./toolbar";
 import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
-import { connectVoice, isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
+import { isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
 
 // Show the landing screen if no room is in the URL. The landing form
 // redirects to ?room=CODE&host=1&mode=MODE on submit.
@@ -264,7 +264,8 @@ function bootVoxelRoom(): void {
         }
       },
     });
-    void connectVoice(roomCode, name).catch(() => undefined);
+    // Voice is deliberately lazy in voxel rooms. Connecting here can race
+    // with the mic button and surface duplicate/stale-token errors.
   }
 
   function appendChat(author: string, text: string): void {
@@ -475,7 +476,7 @@ async function pickOrConfirmIdentity() {
 const { name, avatar } = await pickOrConfirmIdentity();
 const clientToken = pickClientToken();
 document.title = `voxi -- room ${room}`;
-  if (voiceRequested && voicePrefetch) {
+if (voiceRequested && voicePrefetch && params.get("mode") !== "voxel") {
     await prewarmVoice(room, name, voicePrefetch);
   }
 
