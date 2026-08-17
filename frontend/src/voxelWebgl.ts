@@ -7,6 +7,7 @@ export type VoxelWebglOptions = {
 
 export type VoxelWebglController = {
   applyVoxel: (voxel: { x: number; y: number; z: number; color: number; remove: boolean }) => void;
+  clearWorkspace: () => Array<{ x: number; y: number; z: number; color: number }>;
   setSelectedColor: (color: number) => void;
   setGridSize: (size: number) => void;
 };
@@ -27,7 +28,7 @@ const GRID_COLORS = {
 };
 
 type MaterialKind = "solid" | "grass" | "stone" | "glass" | "wood" | "water" | "lava" | "fire";
-type AnimatedVoxelData = { x: number; y: number; z: number; kind: MaterialKind; phase: number; light?: THREE.PointLight };
+type AnimatedVoxelData = { x: number; y: number; z: number; color: number; kind: MaterialKind; phase: number; light?: THREE.PointLight };
 
 const materialKind = (color: number): MaterialKind => {
   if (color === 10) return "grass";
@@ -199,7 +200,7 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
     const kind = materialKind(color);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material(color));
     mesh.position.set(x, y + .5, z);
-    mesh.userData = { x, y, z, kind, phase: Math.random() * Math.PI * 2 } satisfies AnimatedVoxelData;
+    mesh.userData = { x, y, z, color, kind, phase: Math.random() * Math.PI * 2 } satisfies AnimatedVoxelData;
     if (kind === "lava" || kind === "fire") {
       const glow = new THREE.PointLight(kind === "fire" ? "#ffcf46" : "#ff4b1f", kind === "fire" ? .75 : .55, 4);
       glow.position.set(0, .2, 0);
@@ -263,6 +264,15 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   const loop = (): void => { render(); requestAnimationFrame(loop); };
   const controller: VoxelWebglController = {
     applyVoxel: (v) => { if (v.remove) remove(v.x, v.y, v.z); else add(v.x, v.y, v.z, v.color); },
+    clearWorkspace: () => {
+      const blocks = [...cubes.values()].map((mesh) => {
+        const data = mesh.userData as AnimatedVoxelData;
+        return { x: data.x, y: data.y, z: data.z, color: data.color };
+      });
+      blocks.forEach((block) => remove(block.x, block.y, block.z));
+      ghost.visible = false;
+      return blocks;
+    },
     setSelectedColor: selectColor,
     setGridSize: (size) => {
       gridSize = Math.max(12, Math.min(40, size));
