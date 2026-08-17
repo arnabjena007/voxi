@@ -8,10 +8,10 @@ export function showLanding(): void {
   void setBgScene("landing");
 
   document.body.innerHTML = `
+    <button class="landing-theme-toggle" id="landingThemeToggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><i class="ph ph-moon"></i><span>Dark</span></button>
     <main class="landing">
       <div class="landing-page landing-page--minimal">
         <div class="landing-head">
-          <button class="landing-theme-toggle" id="landingThemeToggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><i class="ph ph-moon"></i><span>Dark</span></button>
           <div class="landing-brand">
             <div class="voxi-wordmark">VOXI</div>
             <div class="voxi-wordmark-sub">VOXEL ROOM</div>

@@ -61,10 +61,8 @@ const params = new URLSearchParams(window.location.search);
 if (!params.has("room")) {
   showLanding();
 } else if (params.get("mode") === "voxel") {
-  mountUniversalThemeToggle();
   bootVoxelRoom();
 } else {
-  mountUniversalThemeToggle();
   void bootRoom();
 }
 
@@ -86,10 +84,10 @@ function bootVoxelRoom(): void {
   document.body.innerHTML = `
     <main class="voxel-room${solo ? " voxel-room--solo" : ""}">
       <header class="voxel-room-head">
-        <a class="voxel-room-back" href="/" aria-label="Back to home" title="Back to home"><i class="ph ph-house"></i></a>
-        <div>
+        <div></div>
+        <a class="voxi-wordmark-link" href="/" aria-label="Back to home" title="Back to home">
           <div class="voxi-wordmark">VOXI</div>
-        </div>
+        </a>
         ${solo ? "" : `<button class="voxel-room-code" id="copyRoomCode" type="button" title="Copy room code"><span>${roomCode}</span><i class="ph ph-copy"></i></button>`}
       </header>
       <section class="voxel-room-canvas-shell${invitedName || solo ? "" : " is-locked"}">
@@ -129,6 +127,7 @@ function bootVoxelRoom(): void {
       <p class="voxel-room-help">click to add a block · shift-click to remove · drag to orbit · scroll to zoom</p>
     </main>
   `;
+  mountUniversalThemeToggle();
   const canvas = document.getElementById("voxelRoomCanvas") as HTMLCanvasElement | null;
   document.getElementById("voxelMaterialSelect")?.addEventListener("change", (event) => {
     const material = (event.target as HTMLSelectElement).value;
@@ -383,6 +382,7 @@ async function bootRoom(): Promise<void> {
       </div>
     </main>
   `;
+  mountUniversalThemeToggle();
 
 function pickRoomCode(): string {
   const params = new URLSearchParams(window.location.search);

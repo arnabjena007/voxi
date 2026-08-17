@@ -3333,10 +3333,10 @@ canvas {
 }
 
 .landing-theme-toggle {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 3;
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
   display: grid;
   place-items: center;
   align-items: center;
@@ -3437,7 +3437,6 @@ body.voxi-theme-dark .voxel-chat-panel {
   background: #111419;
   border-color: #414a57;
 }
-body.voxi-theme-dark .voxel-room-back,
 body.voxi-theme-dark .voxel-room-code {
   background: #252b34;
   border-color: #4d5664;
@@ -3891,8 +3890,6 @@ body.voxel-room-body > main {
 }
 
 .voxel-room-sub span { color: #2c9e93; }
-.voxel-room-back { color: #2c9e93; font-size: 22px; justify-self: start; padding: 9px 11px; border: 2px solid #d5dce4; border-radius: 10px; background: #ffffff; box-shadow: 0 3px 0 rgba(35,49,64,.1); }
-.voxel-room-back:hover { background: rgba(83,205,191,.16); }
 .voxel-room-code { justify-self: end; display: inline-flex; align-items: center; gap: 8px; border: 2px solid #d5dce4; border-radius: 10px; padding: 9px 12px; background: #ffffff; color: #2c9e93; font-family: var(--font-display); font-weight: 700; letter-spacing: .12em; cursor: pointer; }
 .voxel-room-code.is-copied { background: #dffbf4; border-color: #2c9e93; }
 .voxel-room-head .voxel-color-strip { justify-content: flex-end; }
@@ -3980,7 +3977,7 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
 @media (max-width: 650px) {
   .voxel-room { display: block; height: 100dvh; overflow-y: auto; }
   .voxel-room-head { grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
-  .voxel-room-head .voxel-color-strip, .voxel-room-back { justify-content: center; text-align: center; }
+  .voxel-room-head .voxel-color-strip { justify-content: center; text-align: center; }
   .voxel-room-canvas-shell { min-height: 360px; height: 65dvh; }
   .voxel-chat-panel { height: 260px; margin-top: 14px; }
 }
@@ -4003,6 +4000,24 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
   letter-spacing: .01em;
   text-transform: uppercase;
   text-shadow: 3px 3px 0 #299b94;
+}
+
+.voxi-wordmark-link {
+  display: inline-block;
+  justify-self: center;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.voxi-wordmark-link:focus-visible {
+  outline: 2px solid #48c9bd;
+  outline-offset: 8px;
+  border-radius: 8px;
+}
+
+.voxi-wordmark-link:hover .voxi-wordmark {
+  transform: translateY(-1px);
 }
 
 .voxi-wordmark-sub {
@@ -6157,8 +6172,8 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
 /* Shared theme control for every room and drawing screen. */
 .voxi-universal-theme-toggle {
   position: fixed;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   z-index: 1000;
   display: grid;
   place-items: center;
