@@ -27,6 +27,7 @@ const GRID_COLORS = {
 };
 
 type MaterialKind = "solid" | "grass" | "stone" | "glass" | "wood" | "water" | "lava" | "fire";
+type AnimatedVoxelData = { x: number; y: number; z: number; kind: MaterialKind; phase: number; light?: THREE.PointLight };
 
 const materialKind = (color: number): MaterialKind => {
   if (color === 10) return "grass";
@@ -134,6 +135,8 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(1, 1);
+  if (kind === "water") texture.repeat.set(1.4, 1.4);
+  if (kind === "lava" || kind === "fire") texture.repeat.set(1.2, 1.2);
   texture.anisotropy = 4;
   return texture;
 };
@@ -199,6 +202,11 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       });
     }
     const texture = makeTexture(kind);
+    if (texture) {
+      texture.offset.set(Math.random(), Math.random());
+      texture.rotation = kind === "water" ? Math.random() * .25 : 0;
+      texture.center.set(.5, .5);
+    }
     const mat = new THREE.MeshPhysicalMaterial({
       color: kind === "glass" ? "#b9f5ff" : "#ffffff",
       map: texture ?? undefined,
@@ -223,9 +231,16 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   const add = (x: number, y: number, z: number, color: number): void => {
     const id = key(x, y, z);
     if (cubes.has(id)) return;
+    const kind = materialKind(color);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material(color));
     mesh.position.set(x, y + .5, z);
-    mesh.userData = { x, y, z, kind: materialKind(color) };
+    mesh.userData = { x, y, z, kind, phase: Math.random() * Math.PI * 2 } satisfies AnimatedVoxelData;
+    if (kind === "lava" || kind === "fire") {
+      const glow = new THREE.PointLight(kind === "fire" ? "#ffcf46" : "#ff4b1f", kind === "fire" ? .75 : .55, 4);
+      glow.position.set(0, .2, 0);
+      mesh.add(glow);
+      (mesh.userData as AnimatedVoxelData).light = glow;
+    }
     scene.add(mesh); cubes.set(id, mesh);
   };
   const remove = (x: number, y: number, z: number): void => {
@@ -255,13 +270,27 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   const render = (): void => {
     const time = clock.getElapsedTime();
     cubes.forEach((mesh) => {
-      const kind = mesh.userData.kind as MaterialKind | undefined;
+      const data = mesh.userData as AnimatedVoxelData;
+      const kind = data.kind;
       const meshMaterial = mesh.material as THREE.MeshPhysicalMaterial;
+      const texture = meshMaterial.map;
       if (kind === "water") {
-        meshMaterial.opacity = .68 + Math.sin(time * 2.2 + mesh.position.x) * .06;
-        meshMaterial.clearcoatRoughness = .1 + Math.sin(time * 1.7 + mesh.position.z) * .04;
+        if (texture) {
+          texture.offset.x = (time * .035 + data.phase * .04) % 1;
+          texture.offset.y = (Math.sin(time * .7 + data.phase) * .025 + data.phase * .03) % 1;
+          texture.rotation = Math.sin(time * .45 + data.phase) * .08;
+        }
+        meshMaterial.opacity = .66 + Math.sin(time * 2.2 + data.phase) * .07;
+        meshMaterial.clearcoatRoughness = .08 + Math.sin(time * 1.7 + data.phase) * .045;
       } else if (kind === "lava" || kind === "fire") {
-        meshMaterial.emissiveIntensity = (kind === "fire" ? 1.08 : .72) + Math.sin(time * 5.5 + mesh.position.x + mesh.position.z) * .18;
+        if (texture) {
+          texture.offset.y = (time * (kind === "fire" ? .16 : .06) + data.phase * .05) % 1;
+          texture.offset.x = Math.sin(time * 1.4 + data.phase) * .035;
+        }
+        const flicker = Math.sin(time * 6.4 + data.phase) * .16 + Math.sin(time * 11.7 + data.phase * 2) * .08;
+        meshMaterial.emissiveIntensity = (kind === "fire" ? 1.15 : .8) + flicker;
+        mesh.scale.setScalar(1 + Math.max(0, flicker) * (kind === "fire" ? .035 : .018));
+        data.light && (data.light.intensity = (kind === "fire" ? .75 : .55) + Math.max(0, flicker) * 1.3);
       }
     });
     renderer.render(scene, camera);
