@@ -54,88 +54,43 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, size, size);
   };
-  const noise = (alpha: number, colors: string[]): void => {
-    for (let i = 0; i < 160; i++) {
-      ctx.globalAlpha = alpha * (.22 + Math.random() * .45);
-      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-      const s = 2 + Math.random() * 9;
-      ctx.beginPath();
-      ctx.ellipse(Math.random() * size, Math.random() * size, s, s * .65, Math.random() * Math.PI, 0, Math.PI * 2);
-      ctx.fill();
+  const blockTiles = (base: string, colors: string[], alpha = .55): void => {
+    fill(base);
+    const unit = 12;
+    for (let y = 0; y < size; y += unit) {
+      for (let x = 0; x < size; x += unit) {
+        if (Math.random() < .72) {
+          ctx.globalAlpha = alpha * (.55 + Math.random() * .45);
+          ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+          ctx.fillRect(x, y, unit, unit);
+        }
+      }
     }
     ctx.globalAlpha = 1;
   };
 
   if (kind === "grass") {
-    fill("#4f9f38");
-    noise(.3, ["#2f7d2d", "#75bf48", "#1f5f27", "#a4d96d"]);
-    for (let i = 0; i < 10; i++) {
-      ctx.strokeStyle = i % 2 ? "#2e7d31" : "#8ccc55";
-      ctx.globalAlpha = .26;
-      ctx.lineWidth = 1 + Math.random();
-      const x = Math.random() * size;
-      ctx.beginPath();
-      ctx.moveTo(x, size);
-      ctx.lineTo(x + (Math.random() * 10 - 5), size * (.35 + Math.random() * .5));
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
+    blockTiles("#4f9f38", ["#2f7d2d", "#75bf48", "#1f5f27", "#a4d96d"], .42);
   } else if (kind === "stone") {
-    fill("#8f969c");
-    noise(.32, ["#6f767d", "#b6bcc1", "#555c63", "#9fa6ac"]);
-    ctx.strokeStyle = "rgba(52,58,64,.2)";
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.moveTo(Math.random() * size, Math.random() * size);
-      for (let j = 0; j < 3; j++) ctx.lineTo(Math.random() * size, Math.random() * size);
-      ctx.stroke();
-    }
+    blockTiles("#8f969c", ["#6f767d", "#b6bcc1", "#555c63", "#9fa6ac"], .38);
   } else if (kind === "wood") {
-    fill("#8c552c");
-    for (let y = 0; y < size; y += 12) {
-      ctx.fillStyle = y % 12 ? "#73401e" : "#a76a35";
-      ctx.globalAlpha = .36;
-      ctx.fillRect(0, y + Math.sin(y * .22) * 2, size, 4);
-    }
+    blockTiles("#8c552c", ["#673719", "#a76a35", "#74431f", "#bd7b3d"], .36);
+    ctx.globalAlpha = .18;
+    ctx.fillStyle = "#3d1d0e";
+    for (let x = 0; x < size; x += 24) ctx.fillRect(x, 0, 12, size);
     ctx.globalAlpha = 1;
-    noise(.14, ["#532b16", "#c08445"]);
-    ctx.strokeStyle = "rgba(55,28,12,.26)";
-    for (let i = 0; i < 2; i++) {
-      ctx.beginPath();
-      ctx.ellipse(22 + i * 16, 24 + (i % 2) * 28, 8, 4, Math.random(), 0, Math.PI * 2);
-      ctx.stroke();
-    }
   } else if (kind === "water") {
-    const gradient = ctx.createLinearGradient(0, 0, size, size);
-    gradient.addColorStop(0, "#67dcff");
-    gradient.addColorStop(1, "#127fc2");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    ctx.strokeStyle = "rgba(255,255,255,.24)";
-    ctx.lineWidth = 1.3;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      const y = i * 18 + Math.random() * 5;
-      ctx.moveTo(0, y);
-      for (let x = 0; x <= size; x += 18) ctx.lineTo(x, y + Math.sin(x * .11 + i) * 3);
-      ctx.stroke();
-    }
+    blockTiles("#1ca5dc", ["#67dcff", "#2db7e8", "#127fc2", "#9eeaf6"], .34);
+    ctx.globalAlpha = .2;
+    ctx.fillStyle = "#e8fbff";
+    for (let i = 0; i < 7; i++) ctx.fillRect(Math.floor(Math.random() * 8) * 12, Math.floor(Math.random() * 8) * 12, 12, 12);
+    ctx.globalAlpha = 1;
   } else if (kind === "lava" || kind === "fire") {
-    const gradient = ctx.createRadialGradient(size * .45, size * .45, 4, size * .5, size * .5, size * .8);
-    gradient.addColorStop(0, kind === "fire" ? "#fff7a8" : "#ffd15a");
-    gradient.addColorStop(.45, "#ff6a18");
-    gradient.addColorStop(1, kind === "fire" ? "#901414" : "#3c1111");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    noise(.32, ["#fff176", "#ff8a1c", "#e11d1d", "#5f1717"]);
-    ctx.strokeStyle = "rgba(255,238,130,.36)";
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.moveTo(Math.random() * size, size);
-      ctx.bezierCurveTo(Math.random() * size, size * .65, Math.random() * size, size * .35, Math.random() * size, 0);
-      ctx.stroke();
-    }
+    blockTiles(kind === "fire" ? "#ff8a1c" : "#b82816", ["#fff176", "#ff8a1c", "#e11d1d", "#5f1717"], kind === "fire" ? .5 : .44);
+    ctx.globalAlpha = .26;
+    ctx.fillStyle = "#fff7a8";
+    for (let i = 0; i < 8; i++) ctx.fillRect(Math.floor(Math.random() * 8) * 12, Math.floor(Math.random() * 8) * 12, 12, 12);
+    ctx.globalAlpha = 1;
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -143,8 +98,10 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(1, 1);
-  if (kind === "water") texture.repeat.set(1.4, 1.4);
-  if (kind === "lava" || kind === "fire") texture.repeat.set(1.05, 1.05);
+  if (kind === "water") texture.repeat.set(1.15, 1.15);
+  if (kind === "lava" || kind === "fire") texture.repeat.set(1, 1);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
   texture.anisotropy = 4;
   return texture;
 };
