@@ -1,6 +1,6 @@
-# Contributing to pastel
+# Contributing to voxi
 
-Thanks for wanting to help out! pastel is a small, opinionated codebase, and the bar for contributions is "does it ship without breaking the golden path." This guide explains how to get there.
+Thanks for wanting to help out! voxi is a small, opinionated codebase, and the bar for contributions is "does it ship without breaking the golden path." This guide explains how to get there.
 
 ## Quick links
 
@@ -228,4 +228,4 @@ If you're looking for somewhere to start, these areas always need eyes:
 
 Open an issue first if you're planning anything larger than ~50 lines so we can scope it together. PRs that start with "I rewrote the canvas layer to use" without a prior issue are likely to get bounced for scope, not quality.
 
-Thanks for reading this far. pastel exists because a bunch of small contributions added up. Yours will too.
+Thanks for reading this far. voxi exists because a bunch of small contributions added up. Yours will too.

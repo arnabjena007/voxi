@@ -19,5 +19,5 @@ pub use msg::{
 };
 pub use types::{
     Avatar, ChatLine, CompletedStroke, GameMode, GamePhaseSnapshot, GameSnapshot, Player, PlayerId,
-    Point, RoomCode, RoomCodeError, RoomSnapshot, Seq,
+    Point, RoomCode, RoomCodeError, RoomSnapshot, Seq, VoxelBlock,
 };

@@ -307,6 +307,8 @@ struct Room {
     next_player_id: PlayerId,
     players: AHashMap<PlayerId, PlayerSlot>,
     completed: VecDeque<CompletedStroke>,
+    voxels: Vec<VoxelBlock>,
+    grid_size: u8,
     in_progress: AHashMap<(PlayerId, u32), InProgressStroke>,
     chat: VecDeque<(Seq, PlayerId, String)>,
     game: GameState,
@@ -349,6 +351,8 @@ impl Room {
             next_player_id: 1,
             players: AHashMap::new(),
             completed: VecDeque::with_capacity(COMPLETED_STROKES_RING),
+            voxels: Vec::new(),
+            grid_size: 20,
             in_progress: AHashMap::new(),
             chat: VecDeque::with_capacity(CHAT_RING),
             game: GameState::default(),
@@ -437,6 +441,7 @@ impl Room {
                 })
                 .collect(),
             completed: self.completed.iter().cloned().collect(),
+            voxels: self.voxels.clone(),
             seq: self.seq,
             chat: self
                 .chat
@@ -448,6 +453,7 @@ impl Room {
                 })
                 .collect(),
             game: self.game_snapshot(),
+            grid_size: self.grid_size,
         }
     }
 
@@ -798,6 +804,13 @@ impl Room {
             ClientMsg::Undo => self.handle_undo(player),
             ClientMsg::Emote { idx } => self.handle_emote(player, idx),
             ClientMsg::Vote { turn, hearts } => self.handle_vote(player, turn, hearts),
+            ClientMsg::Voxel {
+                x,
+                z,
+                color,
+                remove,
+            } => self.handle_voxel(player, x, z, color, remove),
+            ClientMsg::GridSize { size } => self.handle_grid_size(player, size),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
             }
@@ -1638,6 +1651,55 @@ impl Room {
         // No early close: the multi-heart model has no "submit", and a lone
         // human (playing with bots) must be free to rate several drawings. The
         // window always runs its full `VOTE_WINDOW`.
+    }
+
+    fn handle_voxel(&mut self, player: PlayerId, x: i8, z: i8, color: u8, remove: bool) {
+        if x.abs() > 20 || z.abs() > 20 {
+            return;
+        }
+        if remove {
+            if let Some(idx) = self.voxels.iter().rposition(|v| v.x == x && v.z == z) {
+                let removed = self.voxels.remove(idx);
+                let seq = self.next_seq();
+                self.broadcast(ServerMsg::Voxel {
+                    seq,
+                    player,
+                    x: removed.x,
+                    y: removed.y,
+                    z: removed.z,
+                    color: removed.color,
+                    remove: true,
+                });
+            }
+            return;
+        }
+        let y = self
+            .voxels
+            .iter()
+            .filter(|v| v.x == x && v.z == z)
+            .map(|v| v.y)
+            .max()
+            .map(|y| y.saturating_add(1))
+            .unwrap_or(0);
+        self.voxels.push(VoxelBlock { x, y, z, color });
+        let seq = self.next_seq();
+        self.broadcast(ServerMsg::Voxel {
+            seq,
+            player,
+            x,
+            y,
+            z,
+            color,
+            remove: false,
+        });
+    }
+
+    fn handle_grid_size(&mut self, player: PlayerId, size: u8) {
+        if self.game.host != Some(player) || !matches!(size, 12 | 20 | 32 | 40) {
+            return;
+        }
+        self.grid_size = size;
+        self.broadcast(ServerMsg::GridSize { size });
     }
 
     /// Tally hearts, pick the top drawing + best artist, broadcast, and close.

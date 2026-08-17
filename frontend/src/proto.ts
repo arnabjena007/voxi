@@ -139,6 +139,21 @@ export interface CompletedStroke {
   points: Point[];
 }
 
+export interface VoxelBlock {
+  x: number;
+  y: number;
+  z: number;
+  color: number;
+}
+
+function writeVoxelBlock(w: Writer, v: VoxelBlock): void {
+  w.i8(v.x).u8(v.y).i8(v.z).u8(v.color);
+}
+
+function readVoxelBlock(r: Reader): VoxelBlock {
+  return { x: r.i8(), y: r.u8(), z: r.i8(), color: r.u8() };
+}
+
 function writeCompletedStroke(w: Writer, s: CompletedStroke): void {
   w.varint(s.player).varint(s.stroke_id);
   w.varint(s.origin[0]).varint(s.origin[1]);
@@ -293,26 +308,32 @@ export function emptyGameSnapshot(): GameSnapshot {
 export interface RoomSnapshot {
   players: Player[];
   completed: CompletedStroke[];
+  voxels: VoxelBlock[];
   seq: number;
   chat: ChatLine[];
   game: GameSnapshot;
+  grid_size?: number;
 }
 
 function writeSnapshot(w: Writer, s: RoomSnapshot): void {
   w.vec(s.players, writePlayer);
   w.vec(s.completed, writeCompletedStroke);
+  w.vec(s.voxels, writeVoxelBlock);
   w.varint(s.seq);
   w.vec(s.chat, writeChatLine);
   writeGameSnapshot(w, s.game);
+  w.u8(s.grid_size ?? 20);
 }
 
 function readSnapshot(r: Reader): RoomSnapshot {
   return {
     players: r.vec(readPlayer),
     completed: r.vec(readCompletedStroke),
+    voxels: r.vec(readVoxelBlock),
     seq: r.varint(),
     chat: r.vec(readChatLine),
     game: readGameSnapshot(r),
+    grid_size: r.u8(),
   };
 }
 
@@ -699,7 +720,9 @@ export type ClientMsg =
   | { kind: "React"; mood: DrawingMood }
   | { kind: "Undo" }
   | { kind: "Emote"; idx: number }
-  | { kind: "Vote"; turn: number; hearts: number };
+  | { kind: "Vote"; turn: number; hearts: number }
+  | { kind: "Voxel"; x: number; z: number; color: number; remove: boolean }
+  | { kind: "GridSize"; size: number };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -744,6 +767,12 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
     case "Vote":
       w.variant(9).varint(msg.turn).u8(msg.hearts);
       break;
+    case "Voxel":
+      w.variant(10).i8(msg.x).i8(msg.z).u8(msg.color).bool(msg.remove);
+      break;
+    case "GridSize":
+      w.variant(11).u8(msg.size);
+      break;
   }
   return w.bytes();
 }
@@ -780,6 +809,10 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
       return { kind: "Emote", idx: r.u8() };
     case 9:
       return { kind: "Vote", turn: r.varint(), hearts: r.u8() };
+    case 10:
+      return { kind: "Voxel", x: r.i8(), z: r.i8(), color: r.u8(), remove: r.bool() };
+    case 11:
+      return { kind: "GridSize", size: r.u8() };
     default:
       throw new Error(`unknown ClientMsg variant: ${v}`);
   }
@@ -817,7 +850,9 @@ export type ServerMsg =
   | { kind: "DrawerWord"; word: string; duration_ms: number }
   | { kind: "JoinPending" }
   | { kind: "DrawingFeedback"; mood: DrawingMood }
-  | { kind: "Emote"; player: number; idx: number };
+  | { kind: "Emote"; player: number; idx: number }
+  | { kind: "Voxel"; seq: number; player: number; x: number; y: number; z: number; color: number; remove: boolean }
+  | { kind: "GridSize"; size: number };
 
 export function encodeServerMsg(msg: ServerMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -888,6 +923,12 @@ function writeServerMsg(w: Writer, msg: ServerMsg): void {
       return;
     case "Emote":
       w.variant(13).varint(msg.player).u8(msg.idx);
+      return;
+    case "Voxel":
+      w.variant(14).varint(msg.seq).varint(msg.player).i8(msg.x).u8(msg.y).i8(msg.z).u8(msg.color).bool(msg.remove);
+      return;
+    case "GridSize":
+      w.variant(15).u8(msg.size);
       return;
   }
 }
@@ -969,6 +1010,19 @@ function readServerMsg(r: Reader, depth = 0): ServerMsg {
       return { kind: "DrawingFeedback", mood: readDrawingMood(r) };
     case 13:
       return { kind: "Emote", player: r.varint(), idx: r.u8() };
+    case 14:
+      return {
+        kind: "Voxel",
+        seq: r.varint(),
+        player: r.varint(),
+        x: r.i8(),
+        y: r.u8(),
+        z: r.i8(),
+        color: r.u8(),
+        remove: r.bool(),
+      };
+    case 15:
+      return { kind: "GridSize", size: r.u8() };
     default:
       throw new Error(`unknown ServerMsg variant: ${v}`);
   }

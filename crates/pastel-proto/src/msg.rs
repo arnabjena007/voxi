@@ -192,6 +192,14 @@ pub enum ClientMsg {
         turn: u16,
         hearts: u8,
     },
+    /// Place or remove a voxel in the shared build canvas.
+    Voxel {
+        x: i8,
+        z: i8,
+        color: u8,
+        remove: bool,
+    },
+    GridSize { size: u8 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -265,4 +273,15 @@ pub enum ServerMsg {
         player: PlayerId,
         idx: u8,
     },
+    /// A voxel was placed or removed in the shared build canvas.
+    Voxel {
+        seq: Seq,
+        player: PlayerId,
+        x: i8,
+        y: u8,
+        z: i8,
+        color: u8,
+        remove: bool,
+    },
+    GridSize { size: u8 },
 }

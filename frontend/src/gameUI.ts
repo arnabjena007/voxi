@@ -72,7 +72,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
     const qmHint = qm
       ? ctx.playerCount >= qm.target
         ? `<p class="lobby-hint">table's full, starting…</p>`
-        : `<p class="lobby-hint">quick match · ${ctx.playerCount}/${qm.target} at the table. no one else online yet — start now, add a bot, or hang tight.</p>`
+        : `<p class="lobby-hint">quick match · ${ctx.playerCount}/${qm.target} at the table. share the room link, start now, add a bot, or hang tight.</p>`
       : ctx.playerCount < 2
         ? '<p class="lobby-hint">Need at least 2 to play. Share the link!</p>'
         : `<p class="lobby-hint">${ctx.playerCount} player${ctx.playerCount !== 1 ? "s" : ""} here. Ready when you are</p>`;
@@ -103,7 +103,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
           ${startSection}
         </div>
         <div class="lobby-invite">
-          <button type="button" class="invite-secondary">Share invite link</button>
+          <button type="button" class="invite-secondary">Copy room link</button>
           ${isHost ? `<span class="lobby-bot-group">
             <button type="button" class="lobby-bot" data-diff="easy">+ chill bot</button>
             <button type="button" class="lobby-bot" data-diff="medium">+ normal bot</button>
@@ -206,7 +206,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
           </div>
           <div class="word-pick-grid">${cards}</div>
           <p class="overlay-hint">Take too long and we'll pick one for you.</p>
-          <button type="button" class="invite-secondary">Share invite link</button>
+          <button type="button" class="invite-secondary">Copy room link</button>
         </div>
       `;
       for (const btn of root.querySelectorAll<HTMLButtonElement>(".word-pick-card")) {
@@ -224,7 +224,7 @@ export function mountGameUI(root: HTMLElement, handlers: GameUIHandlers): GameUI
             <h2>${escapeHtml(nameOf(phase.drawer))} is picking a word</h2>
           </div>
           <p class="overlay-hint">Get your guessing hat on.</p>
-          <button type="button" class="invite-secondary">Share invite link</button>
+          <button type="button" class="invite-secondary">Copy room link</button>
         </div>
       `;
     }

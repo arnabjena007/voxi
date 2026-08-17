@@ -77,34 +77,40 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
   root.innerHTML = "";
   root.classList.add("toolbar");
   root.innerHTML = `
-    <div class="toolbar-row">
-      <div class="tb-group" role="toolbar" aria-label="Brushes">
-        <div class="brushes"></div>
-        <div class="tb-divider tb-divider--vertical"></div>
-        <div class="fill-slot"></div>
-        <div class="eraser-slot"></div>
+    <div class="toolbar-shell">
+      <div class="toolbar-head">
+        <div class="toolbar-brand">
+          <span class="toolbar-brand-chip">voxi</span>
+          <span class="toolbar-brand-copy">room builder</span>
+        </div>
+        <div class="toolbar-hint">paint the room, then share the code</div>
       </div>
-      <div class="tb-divider tb-divider--vertical"></div>
-      <div class="tb-group palette-group">
-        <nav class="palette-tabs" role="tablist" aria-label="Palettes"></nav>
+      <div class="toolbar-row">
+        <div class="tb-group tb-group--tools" role="toolbar" aria-label="Brushes">
+          <div class="brushes"></div>
+          <div class="fill-slot"></div>
+          <div class="eraser-slot"></div>
+        </div>
+        <div class="tb-group palette-group">
+          <nav class="palette-tabs" role="tablist" aria-label="Palettes"></nav>
+        </div>
+        <button type="button" class="clear-btn" title="Clear the canvas for everyone">
+          <span class="clear-x" aria-hidden="true">⌫</span>
+          <span>Wipe room</span>
+        </button>
       </div>
-      <div class="tb-spacer"></div>
-      <button type="button" class="clear-btn" title="Clear the canvas for everyone">
-        <span class="clear-x" aria-hidden="true">×</span>
-        <span>Clear</span>
-      </button>
-    </div>
-    <div class="toolbar-row toolbar-row--swatches">
-      <div class="swatches" role="listbox" aria-label="Colours"></div>
-      <div class="tb-history" role="group" aria-label="Undo / Redo">
-        <button type="button" class="history-btn history-undo"
-                title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
-          <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
-        </button>
-        <button type="button" class="history-btn history-redo"
-                title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
-          <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
-        </button>
+      <div class="toolbar-row toolbar-row--swatches">
+        <div class="swatches" role="listbox" aria-label="Colours"></div>
+        <div class="tb-history" role="group" aria-label="Undo / Redo">
+          <button type="button" class="history-btn history-undo"
+                  title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+            <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="history-btn history-redo"
+                  title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+            <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -189,12 +195,13 @@ export function mountToolbar(root: HTMLElement, handlers: ToolbarHandlers): void
     btn.dataset.toolId = t.id;
     btn.setAttribute("aria-pressed", String(t.id === state.tool.id));
     btn.title = t.label;
+    btn.dataset.toolKind = t.id;
     // Fill is an action, not a brush size -- show a bucket carrying the
     // currently selected colour, not a size dot.
     const glyph =
       t.id === "fill"
-        ? `<i class="ph-fill ph-paint-bucket tool-glyph" style="color:${rgbToCss(state.color)}" aria-hidden="true"></i>`
-        : `<span class="tool-dot" style="width:${DISPLAY_DOT[t.id] ?? 12}px;height:${DISPLAY_DOT[t.id] ?? 12}px"></span>`;
+      ? `<i class="ph-fill ph-paint-bucket tool-glyph" style="color:${rgbToCss(state.color)}" aria-hidden="true"></i>`
+      : `<span class="tool-dot" style="width:${DISPLAY_DOT[t.id] ?? 12}px;height:${DISPLAY_DOT[t.id] ?? 12}px"></span>`;
     btn.innerHTML = `
       ${glyph}
       <span class="tool-name">${t.label}</span>

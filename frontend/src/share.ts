@@ -19,7 +19,7 @@ export async function openShareCard(opts: ShareCardOpts): Promise<void> {
   const card = buildCard(opts); // branded card -> what gets shared/downloaded
   const preview = buildDrawingPreview(opts.records); // drawing only -> shown
   preview.classList.add("share-preview-img");
-  presentShare(card, preview, slug(opts.word), `I drew "${opts.word}" on pastel!`);
+  presentShare(card, preview, slug(opts.word), `I drew "${opts.word}" on voxi!`);
 }
 
 export interface ScoreEntry {
@@ -33,7 +33,7 @@ export async function openScoreCardShare(standings: ScoreEntry[]): Promise<void>
   await loadFonts();
   const card = buildScoreCard(standings);
   const preview = buildScoreCardPreview(standings);
-  presentShare(card, preview, "scorecard", "Final scores on pastel!");
+  presentShare(card, preview, "scorecard", "Final scores on voxi!");
 }
 
 function escapeHtml(s: string): string {
@@ -60,12 +60,12 @@ function buildScoreCardPreview(standings: ScoreEntry[]): HTMLElement {
     .join("");
   el.innerHTML = `
     <div class="share-sc-head">
-      <span class="share-sc-logo">pastel</span>
+      <span class="share-sc-logo">voxi</span>
       <span class="share-sc-sub">final scores</span>
     </div>
     ${winner ? `<div class="share-sc-winner">🏆 ${escapeHtml(winner.name)} wins!</div>` : ""}
     <ul class="share-sc-list">${rows}</ul>
-    <div class="share-sc-foot">playpastel.com</div>
+    <div class="share-sc-foot">voxi</div>
   `;
   return el;
 }
@@ -113,7 +113,7 @@ function buildCard({ records, word, drawerName }: ShareCardOpts): HTMLCanvasElem
   ctx.textBaseline = "top";
   ctx.fillStyle = "#e58aa0";
   ctx.font = "700 92px Fredoka, sans-serif";
-  ctx.fillText("pastel", CARD_W / 2, 70);
+  ctx.fillText("voxi", CARD_W / 2, 70);
   ctx.fillStyle = "#9a9aa0";
   ctx.font = "500 30px 'Plus Jakarta Sans', sans-serif";
   ctx.fillText("draw. guess. laugh.", CARD_W / 2, 176);
@@ -297,7 +297,7 @@ function buildScoreCard(standings: ScoreEntry[]): HTMLCanvasElement {
   ctx.textBaseline = "top";
   ctx.fillStyle = "#e58aa0";
   ctx.font = "700 92px Fredoka, sans-serif";
-  ctx.fillText("pastel", CARD_W / 2, 80);
+  ctx.fillText("voxi", CARD_W / 2, 80);
   ctx.fillStyle = "#9a9aa0";
   ctx.font = "500 30px 'Plus Jakarta Sans', sans-serif";
   ctx.fillText("final scores", CARD_W / 2, 186);
