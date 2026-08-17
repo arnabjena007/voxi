@@ -3926,38 +3926,34 @@ body.voxel-room-body > main {
 .voxel-canvas-tools .voxel-build-toolbar { flex: 0 1 auto; }
 .voxel-canvas-tools .voxel-color-strip { order: 1; }
 .voxel-canvas-tools .voxel-build-toolbar { order: 2; }
+.voxel-canvas-tools .voxel-template-menu { order: 3; }
 .voxel-canvas-tools .voxel-toolbar-note { display: none; }
 .voxel-canvas-tools .voxel-color { border-radius: 50%; }
 .voxel-canvas-tools .voxel-select-group { color: #6a5538; }
 .voxel-canvas-tools .voxel-select-group select { border-color: rgba(73,54,30,.24); background: #ffffff; color: #2c9e93; }
 .voxel-room-canvas-shell > .voxel-toolbar-note { position: absolute; left: 50%; bottom: 7px; z-index: 3; transform: translateX(-50%); width: 100%; text-align: center; color: #6a5538; font-size: 10px; letter-spacing: .04em; pointer-events: none; }
 .voxel-template-menu {
-  position: absolute;
-  top: 86px;
-  right: 12px;
-  z-index: 4;
-  width: 138px;
-  max-height: calc(100% - 128px);
-  overflow-y: auto;
-  padding: 9px;
-  border: 1px solid rgba(73,54,30,.2);
-  border-radius: 10px;
-  background: rgba(255,255,255,.9);
-  box-shadow: 0 10px 24px rgba(73,54,30,.14);
-  backdrop-filter: blur(8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
-.voxel-template-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; color: #3c2b18; font: 800 11px var(--font-display); text-transform: uppercase; letter-spacing: .04em; }
-.voxel-template-menu-head button { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid rgba(73,54,30,.18); border-radius: 7px; background: #fffaf0; color: #2c9e93; cursor: pointer; }
-.voxel-template-category { display: grid; gap: 5px; margin-top: 9px; }
+.voxel-template-menu-head { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font: 800 10px var(--font-body); text-transform: uppercase; letter-spacing: .04em; }
+.voxel-template-menu-head button { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgba(73,54,30,.18); border-radius: 50%; background: #fffaf0; color: #2c9e93; cursor: pointer; }
+.voxel-template-category { display: inline-flex; align-items: center; gap: 4px; margin-top: 0; }
 .voxel-template-category > span { color: #7a674f; font: 800 9px var(--font-body); text-transform: uppercase; letter-spacing: .08em; }
-.voxel-template-category button { width: 100%; border: 1px solid rgba(73,54,30,.2); border-radius: 8px; padding: 7px 8px; background: #fffaf0; color: #2c9e93; font: 800 10px var(--font-display); text-align: left; cursor: pointer; }
+.voxel-template-category button { border: 1px solid rgba(73,54,30,.2); border-radius: 6px; padding: 4px 7px; background: #fffaf0; color: #2c9e93; font: 800 9px var(--font-display); cursor: pointer; }
 .voxel-template-category button:hover,
 .voxel-template-category button.is-active { border-color: #d953c8; background: #ffe4f8; color: #b13ca4; }
 body.voxi-theme-dark .voxel-canvas-tools { border: 0; background: transparent; box-shadow: none; }
 body.voxi-theme-dark .voxel-canvas-tools .voxel-select-group { color: #9ea7b5; }
 body.voxi-theme-dark .voxel-canvas-tools .voxel-select-group select { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
 body.voxi-theme-dark .voxel-room-canvas-shell > .voxel-toolbar-note { color: #9ea7b5; }
-body.voxi-theme-dark .voxel-template-menu { border-color: #4d5664; background: rgba(17,20,25,.9); box-shadow: 0 10px 24px rgba(0,0,0,.28); }
 body.voxi-theme-dark .voxel-template-menu-head { color: #f4f5f7; }
 body.voxi-theme-dark .voxel-template-menu-head button,
 body.voxi-theme-dark .voxel-template-category button { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
@@ -4009,13 +4005,7 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
   .voxel-room-head .voxel-color-strip { justify-content: center; text-align: center; }
   .voxel-room-canvas-shell { min-height: 360px; height: 65dvh; }
   .voxel-template-menu {
-    top: auto;
-    right: 8px;
-    bottom: 30px;
-    left: 8px;
     width: auto;
-    max-height: 118px;
-    display: flex;
     gap: 10px;
     overflow-x: auto;
     overflow-y: hidden;

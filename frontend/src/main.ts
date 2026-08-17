@@ -99,23 +99,23 @@ function bootVoxelRoom(): void {
             <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="fire">FIRE</option></select></label>
             <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
           </div>
+          <div class="voxel-template-menu" aria-label="Build templates">
+            <div class="voxel-template-menu-head">
+              <span>Templates</span>
+              <button type="button" id="clearPendingTemplate" aria-label="Cancel selected template" title="Cancel template"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="voxel-template-category">
+              <span>Structures</span>
+              <button type="button" data-voxel-template="house">House</button>
+              <button type="button" data-voxel-template="castle">Castle</button>
+              <button type="button" data-voxel-template="bridge">Bridge</button>
+            </div>
+            <div class="voxel-template-category">
+              <span>Nature</span>
+              <button type="button" data-voxel-template="tree">Tree</button>
+            </div>
+          </div>
         </div>
-        <aside class="voxel-template-menu" aria-label="Build templates">
-          <div class="voxel-template-menu-head">
-            <span>Templates</span>
-            <button type="button" id="clearPendingTemplate" aria-label="Cancel selected template" title="Cancel template"><i class="ph ph-x"></i></button>
-          </div>
-          <div class="voxel-template-category">
-            <span>Structures</span>
-            <button type="button" data-voxel-template="house">House</button>
-            <button type="button" data-voxel-template="castle">Castle</button>
-            <button type="button" data-voxel-template="bridge">Bridge</button>
-          </div>
-          <div class="voxel-template-category">
-            <span>Nature</span>
-            <button type="button" data-voxel-template="tree">Tree</button>
-          </div>
-        </aside>
         <div class="voxel-name-gate" id="voxelNameGate"${invitedName || solo ? " hidden" : ""}>
           <form id="voxelNameForm" class="voxel-name-card">
             <h1>${solo ? "Set your name" : "Join this room"}</h1>
