@@ -69,7 +69,8 @@ its six-character code. The host sees a live countdown.
 - Opt-in per room from the landing page
 - LiveKit Cloud + WebRTC under the hood
 - 500KB SDK lazy-loaded only when the mic is tapped
-- Pre-warmed in parallel with the avatar picker if you ticked the voice toggle
+- Connects only when a player clicks the microphone, avoiding unnecessary
+  connections and stale-token errors
 - Green ring + bouncing equalizer on active speakers' avatars
 - Per-speaker mute on your end without telling anyone
 - Bg music ducks automatically while your mic is live so it doesn't bleed through WebRTC
@@ -528,8 +529,26 @@ The frontend dynamic-imports `livekit-client` only on first mic tap.
 That keeps the main bundle at ~360KB / 105KB gzip. The voice chunk is
 500KB / 132KB gzip and only loaded for users who actually want voice.
 
-If you opt into voice on the landing page, both the chunk and the
-LiveKit room connection are warmed in parallel with the avatar picker
+The LiveKit client and room connection are started only after the player
+clicks the microphone. This keeps voice opt-in and avoids opening duplicate
+connections while a room is loading.
+
+### LiveKit deployment checklist
+
+For a hosted deployment, set these variables on the backend service (for
+example, in Render) using credentials from the same LiveKit Cloud project:
+
+```text
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your-project-api-key
+LIVEKIT_API_SECRET=your-project-api-secret
+```
+
+After changing either credential, redeploy the backend. The API key and secret
+must be a matching pair, and the URL must belong to that same LiveKit project.
+Never commit these values or include them in screenshots. If the browser gets
+`401 invalid API key`, inspect `/voice/token` and confirm the token issuer
+matches the current LiveKit API key, then redeploy the backend again.
 so the only post-tap cost is the browser mic permission and the publish.
 
 ### Canvas rendering
