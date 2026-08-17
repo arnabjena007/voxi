@@ -53,6 +53,7 @@ import { isPhoneViewport, loadInitialColor, loadInitialTool, mountToolbar } from
 import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
 import { isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
+import { mountUniversalThemeToggle } from "./theme";
 
 // Show the landing screen if no room is in the URL. The landing form
 // redirects to ?room=CODE&host=1&mode=MODE on submit.
@@ -60,8 +61,10 @@ const params = new URLSearchParams(window.location.search);
 if (!params.has("room")) {
   showLanding();
 } else if (params.get("mode") === "voxel") {
+  mountUniversalThemeToggle();
   bootVoxelRoom();
 } else {
+  mountUniversalThemeToggle();
   void bootRoom();
 }
 

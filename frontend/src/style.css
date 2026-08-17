@@ -6139,3 +6139,37 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
   box-shadow: 0 0 0 2px #f0c64f, 0 0 0 5px rgba(214, 83, 111, 0.35),
     0 10px 26px rgba(240, 198, 79, 0.4);
 }
+/* Shared theme control for every room and drawing screen. */
+.voxi-universal-theme-toggle {
+  position: fixed;
+  top: 18px;
+  right: 20px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #b8afa0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .9);
+  color: #2d3d3a;
+  box-shadow: 0 4px 14px rgba(54, 43, 28, .12);
+  cursor: pointer;
+  font: 700 12px/1 Kalam, sans-serif;
+  letter-spacing: .04em;
+}
+
+.voxi-universal-theme-toggle:hover { transform: translateY(-1px); }
+.voxi-universal-theme-toggle i { font-size: 17px; color: #2fb8ad; }
+
+body.voxi-theme-dark .voxi-universal-theme-toggle {
+  border-color: #4b5665;
+  background: rgba(27, 32, 40, .94);
+  color: #f4f6f8;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
+}
+
+@media (max-width: 640px) {
+  .voxi-universal-theme-toggle { top: 10px; right: 10px; min-height: 34px; padding: 0 10px; }
+}
