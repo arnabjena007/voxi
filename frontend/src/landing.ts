@@ -101,27 +101,30 @@ export function showLanding(): void {
   const landingStatus = document.getElementById("landingStatus");
   const joinRoomForm = document.getElementById("joinRoomForm") as HTMLFormElement | null;
   const joinStatus = document.getElementById("joinStatus");
+  const waitForPressAnimation = (): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, 130));
 
   const startMode = async (button: HTMLButtonElement, multiplayer: boolean): Promise<void> => {
-      if (!multiplayer) {
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", "SOLO01");
-        url.searchParams.set("mode", "voxel");
-        url.searchParams.set("solo", "1");
-        url.searchParams.delete("voice");
-        window.location.href = url.toString();
-        return;
-      }
-      button.disabled = true;
-      button.classList.add("is-loading");
-      if (landingStatus) landingStatus.textContent = "Opening room...";
+    button.disabled = true;
+    button.classList.add("is-loading");
+    if (landingStatus) landingStatus.textContent = "Opening room...";
+    if (!multiplayer) {
       const url = new URL(window.location.href);
-      url.searchParams.set("room", randomRoomCode());
+      url.searchParams.set("room", "SOLO01");
       url.searchParams.set("mode", "voxel");
-      url.searchParams.delete("solo");
-      url.searchParams.delete("qm");
-      url.searchParams.set("voice", "1");
+      url.searchParams.set("solo", "1");
+      url.searchParams.delete("voice");
+      await waitForPressAnimation();
       window.location.href = url.toString();
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", randomRoomCode());
+    url.searchParams.set("mode", "voxel");
+    url.searchParams.delete("solo");
+    url.searchParams.delete("qm");
+    url.searchParams.set("voice", "1");
+    await waitForPressAnimation();
+    window.location.href = url.toString();
   };
 
   singleModeBtn?.addEventListener("click", () => void startMode(singleModeBtn, false));
