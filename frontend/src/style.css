@@ -3675,7 +3675,9 @@ canvas {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 45%),
     #f3a6d2;
-  box-shadow: none;
+  box-shadow:
+    0 9px 0 #c95a9f,
+    0 12px 0 #5b354d;
   transform: translateY(0);
   transition:
     transform .12s cubic-bezier(.2, 1.1, .35, 1),
@@ -3696,37 +3698,24 @@ canvas {
 }
 
 .landing-page--minimal .mode-tile::after {
-  content: "";
-  position: absolute;
-  left: -3px;
-  right: -3px;
-  bottom: -12px;
-  height: 18px;
-  z-index: -2;
-  border: 3px solid #5b354d;
-  border-top: 0;
-  border-radius: 0 0 18px 18px;
-  background: #c95a9f;
-  pointer-events: none;
+  content: none;
 }
 
 .landing-page--minimal .mode-tile:hover {
   filter: saturate(1.04) brightness(1.015);
-  box-shadow: none;
+  box-shadow:
+    0 11px 0 #c95a9f,
+    0 14px 0 #5b354d;
   transform: translateY(-2px);
 }
 
 .landing-page--minimal .mode-tile:active,
 .landing-page--minimal .mode-tile.is-loading {
   opacity: 1;
-  box-shadow: none;
+  box-shadow:
+    0 2px 0 #c95a9f,
+    0 5px 0 #5b354d;
   transform: translateY(8px);
-}
-
-.landing-page--minimal .mode-tile:active::after,
-.landing-page--minimal .mode-tile.is-loading::after {
-  bottom: -5px;
-  height: 8px;
 }
 
 .landing-join-box > label {
