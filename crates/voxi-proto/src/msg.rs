@@ -195,6 +195,7 @@ pub enum ClientMsg {
     /// Place or remove a voxel in the shared build canvas.
     Voxel {
         x: i8,
+        y: Option<u8>,
         z: i8,
         color: u8,
         remove: bool,

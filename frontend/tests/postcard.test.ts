@@ -142,6 +142,12 @@ describe("wire fixtures (must match Rust)", () => {
     expect(round).toEqual(msg);
   });
 
+  it("ClientMsg::Voxel with height", () => {
+    const msg: ClientMsg = { kind: "Voxel", x: -2, y: 3, z: 4, color: 13, remove: false };
+    expect(hex(encodeClientMsg(msg))).toBe("0afe0103040d00");
+    expect(decodeClientMsg(encodeClientMsg(msg))).toEqual(msg);
+  });
+
   it("ServerMsg::Bye { reason: Reconnect }", () => {
     const msg: ServerMsg = { kind: "Bye", reason: "Reconnect" };
     expect(hex(encodeServerMsg(msg))).toBe("0800");

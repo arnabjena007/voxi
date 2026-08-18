@@ -3817,7 +3817,7 @@ body:not(.voxi-theme-dark) .voxel-tool-group {
 }
 
 .voxel-room-canvas-shell.is-locked #voxelRoomCanvas { filter: blur(4px); }
-.voxel-name-gate { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: rgba(255,255,255,.78); }
+.voxel-name-gate { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: rgba(255,255,255,.78); }
 .voxel-name-gate[hidden] { display: none; }
 .voxel-room-canvas-shell { position: relative; }
 .voxel-name-card { width: min(360px, calc(100% - 32px)); padding: 24px; border: 3px solid #d5dce4; border-radius: 16px; background: #ffffff; box-shadow: 0 8px 0 rgba(35,49,64,.12); text-align: center; }
@@ -3968,6 +3968,8 @@ body.voxi-theme-dark .voxel-clear-workspace:hover { background: #33212a; border-
 .voxel-chat-head strong { font-family: var(--font-display); text-transform: uppercase; font-size: 14px; }
 .voxel-chat-head span { margin-top: 3px; color: #6a5538; font-size: 11px; }
 .voxel-online-dot { width: 10px; height: 10px; border-radius: 50%; background: #38b98a; box-shadow: 0 0 0 4px rgba(56,185,138,.16); }
+.voxel-room.is-disconnected .voxel-online-dot { background: #f97316; box-shadow: 0 0 0 4px rgba(249,115,22,.18); }
+.voxel-room.is-disconnected #voxelRoomCanvas { cursor: wait; }
 .voxel-chat-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
 .voxel-chat-message { display: grid; gap: 3px; margin-bottom: 10px; font-size: 12px; color: #4b3a24; overflow-wrap: anywhere; }
 .voxel-chat-message strong { color: #2c9e93; font-family: var(--font-display); font-size: 11px; text-transform: uppercase; }
@@ -3975,6 +3977,9 @@ body.voxi-theme-dark .voxel-clear-workspace:hover { background: #33212a; border-
 .voxel-chat-form { display: flex; gap: 6px; padding: 10px; border-top: 2px solid rgba(73,54,30,.15); }
 .voxel-chat-form input { min-width: 0; flex: 1; border: 2px solid rgba(73,54,30,.25); border-radius: 8px; padding: 8px; background: #fff; font: inherit; }
 .voxel-chat-form button { border: 0; border-radius: 8px; padding: 0 10px; background: #53cdbf; color: #173c37; font-weight: 700; cursor: pointer; }
+.voxel-chat-form input:disabled,
+.voxel-chat-form button:disabled,
+.voxel-select-group select:disabled { opacity: .58; cursor: not-allowed; }
 .voxel-voice-toggle { border: 1px solid rgba(73,54,30,.25); border-radius: 7px; width: 30px; height: 30px; background: #fffaf0; color: #2c9e93; cursor: pointer; }
 .voxel-voice-toggle.is-live { background: #53cdbf; color: #173c37; }
 .voxel-player-audio { display: inline-flex; align-items: center; gap: 3px; margin-right: 5px; }

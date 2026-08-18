@@ -806,10 +806,11 @@ impl Room {
             ClientMsg::Vote { turn, hearts } => self.handle_vote(player, turn, hearts),
             ClientMsg::Voxel {
                 x,
+                y,
                 z,
                 color,
                 remove,
-            } => self.handle_voxel(player, x, z, color, remove),
+            } => self.handle_voxel(player, x, y, z, color, remove),
             ClientMsg::GridSize { size } => self.handle_grid_size(player, size),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
@@ -1653,12 +1654,27 @@ impl Room {
         // window always runs its full `VOTE_WINDOW`.
     }
 
-    fn handle_voxel(&mut self, player: PlayerId, x: i8, z: i8, color: u8, remove: bool) {
+    fn handle_voxel(
+        &mut self,
+        player: PlayerId,
+        x: i8,
+        y: Option<u8>,
+        z: i8,
+        color: u8,
+        remove: bool,
+    ) {
         if x.abs() > 20 || z.abs() > 20 {
             return;
         }
         if remove {
-            if let Some(idx) = self.voxels.iter().rposition(|v| v.x == x && v.z == z) {
+            let idx = if let Some(y) = y {
+                self.voxels
+                    .iter()
+                    .position(|v| v.x == x && v.y == y && v.z == z)
+            } else {
+                self.voxels.iter().rposition(|v| v.x == x && v.z == z)
+            };
+            if let Some(idx) = idx {
                 let removed = self.voxels.remove(idx);
                 let seq = self.next_seq();
                 self.broadcast(ServerMsg::Voxel {
@@ -1673,14 +1689,22 @@ impl Room {
             }
             return;
         }
-        let y = self
-            .voxels
-            .iter()
-            .filter(|v| v.x == x && v.z == z)
-            .map(|v| v.y)
-            .max()
-            .map(|y| y.saturating_add(1))
-            .unwrap_or(0);
+        let y = y
+            .filter(|candidate| {
+                !self
+                    .voxels
+                    .iter()
+                    .any(|v| v.x == x && v.y == *candidate && v.z == z)
+            })
+            .unwrap_or_else(|| {
+                self.voxels
+                    .iter()
+                    .filter(|v| v.x == x && v.z == z)
+                    .map(|v| v.y)
+                    .max()
+                    .map(|y| y.saturating_add(1))
+                    .unwrap_or(0)
+            });
         self.voxels.push(VoxelBlock { x, y, z, color });
         let seq = self.next_seq();
         self.broadcast(ServerMsg::Voxel {
@@ -1698,6 +1722,7 @@ impl Room {
         if self.game.host != Some(player) || !matches!(size, 12 | 20 | 32 | 40) {
             return;
         }
+        self.game.lobby_deadline = None;
         self.grid_size = size;
         self.broadcast(ServerMsg::GridSize { size });
     }

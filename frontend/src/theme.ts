@@ -12,6 +12,7 @@ export function mountUniversalThemeToggle(): void {
     const dark = document.body.classList.toggle("voxi-theme-dark");
     localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
     updateThemeButton(button, dark);
+    window.dispatchEvent(new CustomEvent("voxi:theme-change", { detail: { dark } }));
   });
   document.body.appendChild(button);
   updateThemeButton(button, document.body.classList.contains("voxi-theme-dark"));

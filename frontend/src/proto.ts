@@ -721,7 +721,7 @@ export type ClientMsg =
   | { kind: "Undo" }
   | { kind: "Emote"; idx: number }
   | { kind: "Vote"; turn: number; hearts: number }
-  | { kind: "Voxel"; x: number; z: number; color: number; remove: boolean }
+  | { kind: "Voxel"; x: number; y?: number; z: number; color: number; remove: boolean }
   | { kind: "GridSize"; size: number };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
@@ -768,7 +768,7 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
       w.variant(9).varint(msg.turn).u8(msg.hearts);
       break;
     case "Voxel":
-      w.variant(10).i8(msg.x).i8(msg.z).u8(msg.color).bool(msg.remove);
+      w.variant(10).i8(msg.x).option(msg.y, (ww, y) => ww.u8(y)).i8(msg.z).u8(msg.color).bool(msg.remove);
       break;
     case "GridSize":
       w.variant(11).u8(msg.size);
@@ -810,7 +810,7 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
     case 9:
       return { kind: "Vote", turn: r.varint(), hearts: r.u8() };
     case 10:
-      return { kind: "Voxel", x: r.i8(), z: r.i8(), color: r.u8(), remove: r.bool() };
+      return { kind: "Voxel", x: r.i8(), y: r.option((rr) => rr.u8()) ?? undefined, z: r.i8(), color: r.u8(), remove: r.bool() };
     case 11:
       return { kind: "GridSize", size: r.u8() };
     default:

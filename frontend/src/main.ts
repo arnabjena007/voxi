@@ -80,6 +80,7 @@ function bootVoxelRoom(): void {
   let pendingTemplate: string | null = null;
   let localPlayerId: number | null = null;
   let hostPlayerId: number | null = null;
+  let voxelConnected = solo;
   const materialColors: Record<string, number> = { grass: 10, stone: 11, glass: 12, wood: 13, water: 14, lava: 15, fire: 16 };
   const onlinePlayers = new Map<number, string>();
   document.body.innerHTML = `
@@ -135,6 +136,10 @@ function bootVoxelRoom(): void {
   `;
   mountUniversalThemeToggle();
   const canvas = document.getElementById("voxelRoomCanvas") as HTMLCanvasElement | null;
+  window.addEventListener("voxi:theme-change", (event) => {
+    const dark = event instanceof CustomEvent && Boolean(event.detail?.dark);
+    voxelController?.setTheme(dark);
+  });
   document.getElementById("voxelMaterialSelect")?.addEventListener("change", (event) => {
     const material = (event.target as HTMLSelectElement).value;
     const color = materialColors[material];
@@ -159,7 +164,14 @@ function bootVoxelRoom(): void {
   });
   document.getElementById("voxelGridSelect")?.addEventListener("change", (event) => {
     const size = Number((event.target as HTMLSelectElement).value);
+    if (!solo && localPlayerId !== hostPlayerId) {
+      const select = event.target as HTMLSelectElement;
+      select.value = String(voxelController ? Number(select.dataset.currentGrid ?? 20) : 20);
+      showToast("Only the room host can change the grid.");
+      return;
+    }
     voxelController?.setGridSize(size);
+    (event.target as HTMLSelectElement).dataset.currentGrid = String(size);
     if (!solo && localPlayerId !== null && localPlayerId === hostPlayerId) voxelConn?.send({ kind: "GridSize", size });
   });
   document.getElementById("clearVoxelWorkspace")?.addEventListener("click", () => {
@@ -172,7 +184,7 @@ function bootVoxelRoom(): void {
       return;
     }
     if (!solo) {
-      [...blocks].sort((a, b) => b.y - a.y).forEach((block) => voxelConn?.send({ kind: "Voxel", x: block.x, z: block.z, color: block.color, remove: true }));
+      [...blocks].sort((a, b) => b.y - a.y).forEach((block) => voxelConn?.send({ kind: "Voxel", x: block.x, y: block.y, z: block.z, color: block.color, remove: true }));
     }
   });
   document.getElementById("copyRoomCode")?.addEventListener("click", async () => {
@@ -195,12 +207,12 @@ function bootVoxelRoom(): void {
     window.history.replaceState({}, "", url.toString());
     document.getElementById("voxelNameGate")?.setAttribute("hidden", "");
     document.querySelector(".voxel-room-canvas-shell")?.classList.remove("is-locked");
-    if (canvas) voxelController = mountVoxelWebgl(canvas, { onVoxel: (voxel) => voxelConn?.send({ kind: "Voxel", ...voxel }), onCellClick: (cell) => placePendingTemplate(cell.x, cell.z) });
+    if (canvas) voxelController = mountVoxelWebgl(canvas, { onVoxel: sendVoxel, onCellClick: (cell) => placePendingTemplate(cell.x, cell.z) });
     if (!solo) showJoined(name);
     if (!solo) connectVoxel(name);
   };
   const mountCanvas = (): void => {
-    if (canvas && !voxelController) voxelController = mountVoxelWebgl(canvas, { onVoxel: (voxel) => voxelConn?.send({ kind: "Voxel", ...voxel }), onCellClick: (cell) => placePendingTemplate(cell.x, cell.z) });
+    if (canvas && !voxelController) voxelController = mountVoxelWebgl(canvas, { onVoxel: sendVoxel, onCellClick: (cell) => placePendingTemplate(cell.x, cell.z) });
   };
   if (solo) {
     mountCanvas();
@@ -223,6 +235,10 @@ function bootVoxelRoom(): void {
     event.preventDefault();
     const text = chatInput?.value.trim();
     if (!text || !chatMessages) return;
+    if (!solo && !voxelConnected) {
+      showToast("Reconnecting to the room. Try again in a moment.");
+      return;
+    }
     chatInput!.value = "";
     voxelConn?.send({ kind: "Chat", text });
   });
@@ -260,14 +276,24 @@ function bootVoxelRoom(): void {
         if (message.kind === "Welcome") {
           localPlayerId = message.you;
           hostPlayerId = message.snapshot.game.host;
-          voxelController?.setGridSize(message.snapshot.grid_size ?? 20);
+          voxelConnected = true;
+          setVoxelConnected(true);
+          const gridSize = message.snapshot.grid_size ?? 20;
+          voxelController?.setGridSize(gridSize);
           const gridSelect = document.getElementById("voxelGridSelect") as HTMLSelectElement | null;
-          if (gridSelect) gridSelect.value = String(message.snapshot.grid_size ?? 20);
+          if (gridSelect) {
+            gridSelect.value = String(gridSize);
+            gridSelect.dataset.currentGrid = String(gridSize);
+            gridSelect.disabled = localPlayerId !== hostPlayerId;
+            gridSelect.title = localPlayerId === hostPlayerId ? "Change grid size" : "Only the host can change the grid";
+          }
           onlinePlayers.clear();
           message.snapshot.players.forEach((player) => onlinePlayers.set(player.id, player.name));
           updateOnlinePlayers();
-          message.snapshot.voxels.forEach((voxel) => voxelController?.applyVoxel({ ...voxel, remove: false }));
+          voxelController?.replaceWorkspace(message.snapshot.voxels);
+          if (chatMessages) chatMessages.innerHTML = "";
           message.snapshot.chat.forEach((line) => appendChat(onlinePlayers.get(line.player) ?? "Player", line.text));
+          if (localPlayerId === hostPlayerId) voxelConn?.send({ kind: "GridSize", size: gridSize });
         } else if (message.kind === "Presence") {
           message.joined.forEach((player) => onlinePlayers.set(player.id, player.name));
           message.left.forEach((player) => onlinePlayers.delete(player));
@@ -284,7 +310,32 @@ function bootVoxelRoom(): void {
         } else if (message.kind === "GridSize") {
           voxelController?.setGridSize(message.size);
           const gridSelect = document.getElementById("voxelGridSelect") as HTMLSelectElement | null;
-          if (gridSelect) gridSelect.value = String(message.size);
+          if (gridSelect) {
+            gridSelect.value = String(message.size);
+            gridSelect.dataset.currentGrid = String(message.size);
+          }
+        } else if (message.kind === "Game" && message.event.kind === "HostChanged") {
+          hostPlayerId = message.event.new_host;
+          const gridSelect = document.getElementById("voxelGridSelect") as HTMLSelectElement | null;
+          if (gridSelect) {
+            gridSelect.disabled = localPlayerId !== hostPlayerId;
+            gridSelect.title = localPlayerId === hostPlayerId ? "Change grid size" : "Only the host can change the grid";
+          }
+        } else if (message.kind === "Bye") {
+          voxelConnected = false;
+          setVoxelConnected(false, "Room closed");
+        }
+      },
+      onState: (state) => {
+        if (state.kind === "open") {
+          voxelConnected = true;
+          setVoxelConnected(true);
+        } else if (state.kind === "connecting" || state.kind === "reconnecting") {
+          voxelConnected = false;
+          setVoxelConnected(false, "Reconnecting...");
+        } else if (state.kind === "closed") {
+          voxelConnected = false;
+          setVoxelConnected(false, "Disconnected");
         }
       },
     });
@@ -299,6 +350,24 @@ function bootVoxelRoom(): void {
     item.innerHTML = `<strong>${safeText(author)}</strong><span>${safeText(text)}</span>`;
     chatMessages.appendChild(item);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function sendVoxel(voxel: { x: number; y?: number; z: number; color: number; remove: boolean }): void {
+    if (solo) return;
+    if (!voxelConnected) {
+      showToast("Reconnecting to the room. Try again in a moment.");
+      return;
+    }
+    voxelConn?.send({ kind: "Voxel", ...voxel });
+  }
+
+  function setVoxelConnected(connected: boolean, label?: string): void {
+    document.querySelector(".voxel-room")?.classList.toggle("is-disconnected", !connected);
+    const dot = document.querySelector<HTMLElement>(".voxel-online-dot");
+    if (dot) dot.title = label ?? (connected ? "Connected" : "Disconnected");
+    if (chatInput) chatInput.disabled = !solo && !connected;
+    const sendButton = chatForm?.querySelector<HTMLButtonElement>("button[type='submit']");
+    if (sendButton) sendButton.disabled = !solo && !connected;
   }
 
   function updateOnlinePlayers(): void {
@@ -322,8 +391,8 @@ function bootVoxelRoom(): void {
     setPendingTemplate(null);
     buildTemplate(selected).forEach((block) => {
       const placed = { x: block.x + x, y: block.y, z: block.z + z, color: block.color };
-      voxelController?.applyVoxel({ ...placed, remove: false });
-      voxelConn?.send({ kind: "Voxel", x: placed.x, z: placed.z, color: placed.color, remove: false });
+      if (solo) voxelController?.applyVoxel({ ...placed, remove: false });
+      else sendVoxel({ ...placed, remove: false });
     });
     return true;
   }

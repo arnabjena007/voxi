@@ -1,15 +1,17 @@
 import * as THREE from "three";
 
 export type VoxelWebglOptions = {
-  onVoxel?: (voxel: { x: number; z: number; color: number; remove: boolean }) => void;
+  onVoxel?: (voxel: { x: number; y?: number; z: number; color: number; remove: boolean }) => void;
   onCellClick?: (cell: { x: number; z: number }) => boolean;
 };
 
 export type VoxelWebglController = {
   applyVoxel: (voxel: { x: number; y: number; z: number; color: number; remove: boolean }) => void;
+  replaceWorkspace: (voxels: Array<{ x: number; y: number; z: number; color: number }>) => void;
   clearWorkspace: () => Array<{ x: number; y: number; z: number; color: number }>;
   setSelectedColor: (color: number) => void;
   setGridSize: (size: number) => void;
+  setTheme: (dark: boolean) => void;
 };
 
 const COLORS = ["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899", "#a16207", "#f5f5f4"];
@@ -108,7 +110,7 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
 };
 
 export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOptions = {}): VoxelWebglController {
-  const darkTheme = document.body.classList.contains("voxi-theme-dark");
+  let darkTheme = document.body.classList.contains("voxi-theme-dark");
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -117,13 +119,14 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   const camera = new THREE.PerspectiveCamera(42, 1, .1, 200);
   camera.position.set(13, 15, 18);
   camera.lookAt(0, 0, 0);
-  scene.add(new THREE.HemisphereLight(darkTheme ? "#d9e5ff" : "#fff8e7", darkTheme ? "#202733" : "#7b6b52", 3.2));
+  const hemiLight = new THREE.HemisphereLight(darkTheme ? "#d9e5ff" : "#fff8e7", darkTheme ? "#202733" : "#7b6b52", 3.2);
+  scene.add(hemiLight);
   const keyLight = new THREE.DirectionalLight("#ffffff", 2.4);
   keyLight.position.set(-8, 14, 10);
   scene.add(keyLight);
   // Grid lines sit on cell edges; integer cube positions then land in cell centers.
-  const gridColors = darkTheme ? GRID_COLORS.dark : GRID_COLORS.light;
   const createGrid = (size: number): THREE.GridHelper => {
+    const gridColors = darkTheme ? GRID_COLORS.dark : GRID_COLORS.light;
     const helper = new THREE.GridHelper(size, size, gridColors.major, gridColors.minor);
     const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
     materials.forEach((gridMaterial) => {
@@ -264,6 +267,15 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   const loop = (): void => { render(); requestAnimationFrame(loop); };
   const controller: VoxelWebglController = {
     applyVoxel: (v) => { if (v.remove) remove(v.x, v.y, v.z); else add(v.x, v.y, v.z, v.color); },
+    replaceWorkspace: (voxels) => {
+      [...cubes.values()].forEach((mesh) => {
+        const data = mesh.userData as AnimatedVoxelData;
+        remove(data.x, data.y, data.z);
+      });
+      voxels.forEach((voxel) => add(voxel.x, voxel.y, voxel.z, voxel.color));
+      ghost.visible = false;
+      render();
+    },
     clearWorkspace: () => {
       const blocks = [...cubes.values()].map((mesh) => {
         const data = mesh.userData as AnimatedVoxelData;
@@ -284,10 +296,17 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       scene.add(grid);
       render();
     },
+    setTheme: (dark) => {
+      darkTheme = dark;
+      renderer.setClearColor(darkTheme ? "#111419" : "#ffffff");
+      hemiLight.color.set(darkTheme ? "#d9e5ff" : "#fff8e7");
+      hemiLight.groundColor.set(darkTheme ? "#202733" : "#7b6b52");
+      controller.setGridSize(gridSize);
+    },
   };
   canvas.addEventListener("pointerdown", (e) => { pointerDown = true; dragging = false; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener("pointermove", (e) => { const cell = point(e); if (pointerDown && Math.hypot(e.clientX-lastX, e.clientY-lastY) > 3) dragging = true; if (pointerDown && dragging) { ghost.visible = false; yaw += (e.clientX-lastX)*.01; pitch = Math.max(.15, Math.min(1.35, pitch+(e.clientY-lastY)*.008)); orbit(); lastX=e.clientX; lastY=e.clientY; } else updateGhost(cell); });
-  canvas.addEventListener("pointerup", (e) => { pointerDown = false; if (!dragging) { const cell=point(e); if (cell && !options.onCellClick?.(cell)) { const y=[...cubes.values()].filter(m=>m.userData.x===cell.x&&m.userData.z===cell.z).length; add(cell.x,y,cell.z,selectedColor); options.onVoxel?.({x:cell.x,z:cell.z,color:selectedColor,remove:false}); } } dragging = false; });
+  canvas.addEventListener("pointerup", (e) => { pointerDown = false; if (!dragging) { const cell=point(e); if (cell && !options.onCellClick?.(cell)) { const column=[...cubes.values()].filter(m=>m.userData.x===cell.x&&m.userData.z===cell.z); if (e.shiftKey) { const top=column.reduce<AnimatedVoxelData | null>((best, mesh) => { const data = mesh.userData as AnimatedVoxelData; return !best || data.y > best.y ? data : best; }, null); if (top) { remove(top.x, top.y, top.z); options.onVoxel?.({x:top.x,y:top.y,z:top.z,color:top.color,remove:true}); } } else { const y=column.length; add(cell.x,y,cell.z,selectedColor); options.onVoxel?.({x:cell.x,y,z:cell.z,color:selectedColor,remove:false}); } } } dragging = false; });
   canvas.addEventListener("pointerleave", () => { if (!pointerDown) ghost.visible = false; });
   canvas.addEventListener("wheel", (e) => { e.preventDefault(); distance=Math.max(8,Math.min(50,distance+e.deltaY*.02)); orbit(); }, { passive:false });
   document.querySelectorAll<HTMLButtonElement>("[data-voxel-color]").forEach((b) => b.addEventListener("click", () => { selectColor(Number(b.dataset.voxelColor)); document.querySelectorAll("[data-voxel-color]").forEach((item) => item.classList.remove("is-active")); b.classList.add("is-active"); }));

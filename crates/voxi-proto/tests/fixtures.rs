@@ -45,6 +45,18 @@ fn client_stroke_single_point_fixture() {
 }
 
 #[test]
+fn client_voxel_with_height_fixture() {
+    let msg = ClientMsg::Voxel {
+        x: -2,
+        y: Some(3),
+        z: 4,
+        color: 13,
+        remove: false,
+    };
+    assert_eq!(hex(&encode(&msg).unwrap()), "0afe0103040d00");
+}
+
+#[test]
 fn server_bye_reconnect_fixture() {
     let msg = ServerMsg::Bye {
         reason: ByeReason::Reconnect,
