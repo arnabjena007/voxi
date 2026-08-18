@@ -79,7 +79,7 @@ pub async fn token(
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    let identity = format!("{}-{}", q.name, &rand_id());
+    let identity = format!("{}-{}", q.name, rand_id());
 
     let claims = Claims {
         iss: api_key,

@@ -4,11 +4,11 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use tokio::sync::broadcast::error::RecvError as BroadcastRecvError;
 use voxi_proto::{
     decode_client_validated, encode, ByeReason, ClientMsg, Hello, RoomCode, ServerMsg,
 };
 use voxi_room::{ApprovalResult, JoinError, JoinOutcome, JoinResult, RoomHandle};
-use tokio::sync::broadcast::error::RecvError as BroadcastRecvError;
 
 pub async fn ws_handler(
     State(state): State<AppState>,

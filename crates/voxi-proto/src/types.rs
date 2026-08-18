@@ -220,7 +220,9 @@ pub struct RoomSnapshot {
     pub grid_size: u8,
 }
 
-fn default_grid_size() -> u8 { 20 }
+fn default_grid_size() -> u8 {
+    20
+}
 
 #[cfg(test)]
 mod tests {

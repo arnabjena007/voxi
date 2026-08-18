@@ -18,9 +18,9 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use matchmaker::Matchmaker;
-use voxi_room::WordLists;
 use std::sync::Arc;
 use tracker::Tracker;
+use voxi_room::WordLists;
 
 #[derive(Clone)]
 pub struct AppState {

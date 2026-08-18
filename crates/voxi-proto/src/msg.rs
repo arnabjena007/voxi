@@ -199,7 +199,9 @@ pub enum ClientMsg {
         color: u8,
         remove: bool,
     },
-    GridSize { size: u8 },
+    GridSize {
+        size: u8,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -283,5 +285,7 @@ pub enum ServerMsg {
         color: u8,
         remove: bool,
     },
-    GridSize { size: u8 },
+    GridSize {
+        size: u8,
+    },
 }

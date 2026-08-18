@@ -1,11 +1,11 @@
 use futures_util::{SinkExt, StreamExt};
-use voxi_proto::*;
-use voxi_server::{build_router, AppState};
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message as TungMsg;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use voxi_proto::*;
+use voxi_server::{build_router, AppState};
 
 type Client = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 

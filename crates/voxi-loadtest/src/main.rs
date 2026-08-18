@@ -14,13 +14,13 @@ use anyhow::Result;
 use clap::Parser;
 use futures_util::{SinkExt, StreamExt};
 use hdrhistogram::Histogram;
-use voxi_proto::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message;
+use voxi_proto::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Drive simulated clients against a voxi-server.")]

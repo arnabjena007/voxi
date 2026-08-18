@@ -59,16 +59,22 @@ fn server_welcome_empty_snapshot_fixture() {
         snapshot: RoomSnapshot {
             players: vec![],
             completed: vec![],
+            voxels: vec![],
             seq: 0,
             chat: vec![],
             game: GameSnapshot::default(),
+            grid_size: 20,
         },
         seq: 0,
         lk_token: String::new(),
     };
     // variant 0, you 1, players 0, completed 0, snap.seq 0, chat 0,
     // game.mode Standard=1, game.host None=0, game.scores 0,
-    // game.phase Lobby=0 + deadline_ms Option::None=0, outer seq 0,
+    // game.phase Lobby=0 + deadline_ms Option::None=0, voxels 0, grid size 20,
+    // outer seq 0,
     // lk_token len 0
-    assert_eq!(hex(&encode(&msg).unwrap()), "00010000000001000000000000");
+    assert_eq!(
+        hex(&encode(&msg).unwrap()),
+        "000100000000000100000000140000"
+    );
 }

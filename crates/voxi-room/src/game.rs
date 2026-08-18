@@ -4,10 +4,10 @@
 //! mask construction, hint reveal, score formula, and round / game tally.
 
 use ahash::AHashMap;
-use voxi_proto::PlayerId;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
 use std::time::Duration;
+use voxi_proto::PlayerId;
 
 pub const PICK_WINDOW: Duration = Duration::from_secs(15);
 pub const DRAW_WINDOW: Duration = Duration::from_secs(80);

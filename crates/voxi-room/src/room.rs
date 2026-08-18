@@ -9,12 +9,12 @@ use crate::{
     BROADCAST_CAPACITY, CHAT_RING, COMMAND_INBOX_CAPACITY, COMPLETED_STROKES_RING, UNICAST_CAPACITY,
 };
 use ahash::AHashMap;
-use voxi_proto::*;
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::time::Instant;
+use voxi_proto::*;
 
 const CHAT_BUCKET_CAPACITY: f32 = 5.0;
 const CHAT_REFILL_PER_SEC: f32 = 5.0 / 3.0;

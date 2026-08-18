@@ -2,12 +2,12 @@ use crate::AppState;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use voxi_proto::*;
-use voxi_room::{JoinOutcome, RoomHandle};
 use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Duration;
+use voxi_proto::*;
+use voxi_room::{JoinOutcome, RoomHandle};
 
 #[derive(Debug, Clone, Copy)]
 pub enum BotDifficulty {

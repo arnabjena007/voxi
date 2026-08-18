@@ -5,12 +5,12 @@
 //! We pause tokio time at the start of every test so the long pick/draw
 //! windows pass instantly via `advance`.
 
-use voxi_proto::*;
-use voxi_room::{spawn_room, JoinOutcome, JoinResult, RoomHandle, WordLists};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::Receiver as BroadcastRx;
 use tokio::sync::mpsc::Receiver as UnicastRx;
+use voxi_proto::*;
+use voxi_room::{spawn_room, JoinOutcome, JoinResult, RoomHandle, WordLists};
 
 const RECV_TIMEOUT: Duration = Duration::from_millis(200);
 

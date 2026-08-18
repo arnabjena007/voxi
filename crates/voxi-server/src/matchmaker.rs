@@ -14,11 +14,11 @@
 
 use crate::bot::{spawn_bot, BotDifficulty};
 use crate::rooms::Rooms;
-use voxi_proto::{GameMode, RoomCode};
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use voxi_proto::{GameMode, RoomCode};
 
 /// All quick matches run Standard.
 const QUICK_MATCH_MODE: GameMode = GameMode::Standard;

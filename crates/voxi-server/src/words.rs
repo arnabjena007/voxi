@@ -1,7 +1,7 @@
 use anyhow::Context;
-use voxi_room::WordLists;
 use std::fs;
 use std::path::Path;
+use voxi_room::WordLists;
 
 /// Load three text files into a `WordLists`. Each file is one word per line;
 /// blank lines and lines starting with `#` are skipped.

@@ -1,11 +1,11 @@
-use voxi_proto::*;
-use voxi_room::{
-    spawn_room, JoinError, JoinOutcome, JoinResult, RoomHandle, WordLists, MAX_PLAYERS_PER_ROOM,
-};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::Receiver as BroadcastRx;
 use tokio::sync::mpsc::Receiver as UnicastRx;
+use voxi_proto::*;
+use voxi_room::{
+    spawn_room, JoinError, JoinOutcome, JoinResult, RoomHandle, WordLists, MAX_PLAYERS_PER_ROOM,
+};
 
 const ROOM: &str = "ABC234";
 const RECV_TIMEOUT: Duration = Duration::from_millis(200);

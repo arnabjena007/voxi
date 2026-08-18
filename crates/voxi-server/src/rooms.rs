@@ -1,8 +1,8 @@
 use dashmap::DashMap;
-use voxi_proto::RoomCode;
-use voxi_room::{spawn_room_with_evictor, RoomHandle, WordLists};
 use rand::Rng;
 use std::sync::Arc;
+use voxi_proto::RoomCode;
+use voxi_room::{spawn_room_with_evictor, RoomHandle, WordLists};
 
 // The canonical room-code alphabet (Crockford-ish, no I/L/O/U). Matches
 // RoomCode::parse so a generated code round-trips unchanged.

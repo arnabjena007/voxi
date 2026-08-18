@@ -7,12 +7,12 @@
 use anyhow::Result;
 use clap::Parser;
 use futures_util::{SinkExt, StreamExt};
-use voxi_proto::*;
 use rand::Rng;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_tungstenite::tungstenite::Message;
+use voxi_proto::*;
 
 #[derive(Parser)]
 #[command(about = "A bot player for voxi rooms.")]

@@ -1,8 +1,8 @@
-use voxi_room::WordLists;
-use voxi_server::{build_router, words, AppState};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use voxi_room::WordLists;
+use voxi_server::{build_router, words, AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

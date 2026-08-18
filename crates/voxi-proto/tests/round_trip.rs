@@ -1,6 +1,6 @@
-use voxi_proto::*;
 use proptest::collection::{vec, SizeRange};
 use proptest::prelude::*;
+use voxi_proto::*;
 
 fn arb_room_code() -> impl Strategy<Value = RoomCode> {
     "[0-9A-HJKMNP-TV-Z]{6}".prop_map(|s| RoomCode::parse(&s).unwrap())
@@ -165,9 +165,11 @@ fn arb_snapshot() -> impl Strategy<Value = RoomSnapshot> {
         .prop_map(|(players, completed, seq, chat, game)| RoomSnapshot {
             players,
             completed,
+            voxels: vec![],
             seq,
             chat,
             game,
+            grid_size: 20,
         })
 }
 
