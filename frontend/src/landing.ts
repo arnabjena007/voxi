@@ -3,6 +3,7 @@
 import {
   setBgScene,
 } from "./music";
+import { mountLandingFooter } from "./landingFooter";
 
 export function showLanding(): void {
   void setBgScene("landing");
@@ -88,9 +89,15 @@ export function showLanding(): void {
             <p class="landing-status" id="joinStatus" role="status" aria-live="polite"></p>
           </form>
         </div>
+        <footer class="voxi-cube-footer" aria-label="Interactive rainbow voxel footer">
+          <canvas id="landingFooterCanvas" aria-label="Rainbow voxel pattern. Hover over a cube to lift it."></canvas>
+        </footer>
       </div>
     </main>
   `;
+
+  const footerCanvas = document.getElementById("landingFooterCanvas") as HTMLCanvasElement | null;
+  if (footerCanvas) mountLandingFooter(footerCanvas);
 
   const singleModeBtn = document.getElementById("singleModeBtn") as HTMLButtonElement | null;
   const multiModeBtn = document.getElementById("multiModeBtn") as HTMLButtonElement | null;
