@@ -3636,6 +3636,7 @@ canvas {
 .landing-mode-box .mode-grid-landing {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
+  margin-top: 14px;
 }
 
 .landing-status {
@@ -3896,6 +3897,11 @@ body.voxel-room-body > main {
   letter-spacing: .01em;
   text-transform: uppercase;
   text-shadow: 3px 3px 0 #299b94;
+}
+
+.landing-page--minimal .voxi-wordmark {
+  font-size: clamp(70px, 11vw, 132px);
+  text-shadow: 5px 6px 0 #299b94;
 }
 
 .voxi-wordmark-link {
