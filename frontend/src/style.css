@@ -3611,7 +3611,7 @@ canvas {
 
 .landing-mode-box {
   width: min(760px, 100%);
-  margin: 34px auto 0;
+  margin: 42px auto 0;
   padding: 22px;
   border: 0;
   background: transparent;
@@ -3623,7 +3623,7 @@ canvas {
   margin: 0;
   color: #2f210f;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: clamp(22px, 3vw, 34px);
   text-transform: uppercase;
   letter-spacing: .03em;
 }
@@ -3635,6 +3635,7 @@ canvas {
 
 .landing-mode-box .mode-grid-landing {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
 }
 
 .landing-status {
@@ -3663,7 +3664,7 @@ canvas {
 .landing-page--minimal .mode-tile {
   min-height: 126px;
   min-height: 170px;
-  padding: 42px 18px 30px;
+  padding: 42px 24px 30px;
 }
 
 .landing-join-box > label {

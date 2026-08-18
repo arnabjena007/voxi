@@ -16,7 +16,6 @@ export function showLanding(): void {
         <div class="landing-head">
           <div class="landing-brand">
             <div class="voxi-wordmark">VOXI</div>
-            <div class="voxi-wordmark-sub">VOXEL ROOM</div>
             <svg class="voxel-logo" viewBox="0 0 920 260" role="img" aria-label="voxi voxel logo">
               <g fill="none" stroke="none">
                 <g transform="translate(20,18)">
@@ -60,11 +59,9 @@ export function showLanding(): void {
                 </g>
               </g>
             </svg>
-            <span class="landing-brand-sub">choose a room and build together</span>
           </div>
           <section class="landing-mode-box" aria-labelledby="modeTitle">
-            <h1 id="modeTitle">Choose a mode</h1>
-            <p>Start with a clear canvas.</p>
+            <h1 id="modeTitle">Start with a clear canvas.</h1>
             <div class="mode-grid-landing">
               <button type="button" class="mode-tile" id="singleModeBtn">
                 <span class="mode-tile-dab"></span>
@@ -73,7 +70,7 @@ export function showLanding(): void {
               </button>
               <button type="button" class="mode-tile mode-tile--on" id="multiModeBtn">
                 <span class="mode-tile-dab"></span>
-                <span class="mode-tile-label">Multiplayer</span>
+                <span class="mode-tile-label">Multi Player</span>
                 <span class="mode-tile-meta">Build together</span>
               </button>
             </div>
