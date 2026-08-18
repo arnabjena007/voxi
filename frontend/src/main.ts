@@ -1262,7 +1262,7 @@ async function copyInviteLink(): Promise<void> {
 // dismissed or actioned, it never appears again from this browser.
 const FEEDBACK_SHOWN_KEY = "voxi.feedback-prompted";
 const FEEDBACK_URL =
-  "https://github.com/pixperk/voxi/issues/new?template=feedback.yml";
+  "https://github.com/arnabjena007/voxi/issues/new?template=feedback.yml";
 async function maybeAskForFeedback(): Promise<void> {
   if (window.localStorage.getItem(FEEDBACK_SHOWN_KEY) === "1") return;
   window.localStorage.setItem(FEEDBACK_SHOWN_KEY, "1");
