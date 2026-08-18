@@ -3332,121 +3332,12 @@ canvas {
   gap: 0;
 }
 
-.landing-theme-toggle {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  align-items: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid #cfcfcf;
-  border-radius: 50%;
-  padding: 0;
-  background: rgba(255,255,255,.82);
-  color: #353535;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(54, 43, 28, .13);
-}
-
-.landing-theme-toggle i {
-  font-size: 17px;
-}
-
-.landing-theme-toggle span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.landing-page--dark {
-  --ink: #f4f4f5;
-  --ink-soft: #b8bbc4;
-  background:
-    linear-gradient(to right, #34363d 1px, transparent 1px),
-    linear-gradient(to bottom, #34363d 1px, transparent 1px),
-    radial-gradient(circle at 18% 12%, rgba(255, 214, 94, 0.12), transparent 22%),
-    radial-gradient(circle at 84% 18%, rgba(88, 222, 207, 0.1), transparent 24%),
-    linear-gradient(180deg, #181a1f 0%, #101216 100%);
-  background-size: 40px 40px, 40px 40px, auto, auto, auto;
-}
-
-.landing-page--dark .landing-theme-toggle {
-  border-color: #555963;
-  background: #252830;
-  color: #f4f4f5;
-}
-
-.landing-page--dark .landing-mode-box,
-.landing-page--dark .landing-join-box {
-  background: rgba(21, 24, 30, .94);
-  border-color: #39414d;
-  box-shadow: 0 18px 42px rgba(0,0,0,.22);
-}
-
-.landing-page--dark .landing-mode-box h1,
-.landing-page--dark .landing-mode-box > p,
-.landing-page--dark .landing-join-box > label {
-  color: #f4f5f7;
-}
-
-.landing-page--dark .mode-tile {
-  background: #252a33;
-  border-color: #4d5664;
-  box-shadow: 0 7px 0 #11151b;
-}
-
-.landing-page--dark .mode-tile:hover,
-.landing-page--dark .mode-tile--on {
-  background: #303742;
-  border-color: #53cdbf;
-}
-
-.landing-page--dark .mode-tile-label { color: #ff74dc; }
-.landing-page--dark .mode-tile-meta { color: #64dfd1; }
-.landing-page--dark .landing-join-fields input {
-  background: #161a20;
-  border-color: #4d5664;
-  color: #f4f5f7;
-}
-.landing-page--dark .landing-join-fields input::placeholder { color: #8d96a4; }
-
 /* Keep the landing surface free of legacy floating block ornaments. */
 .landing-doodle,
 .landing-doodle--block,
 .landing-voxel-stage,
 .landing-canvas-horizon,
 .landing-canvas-grid { display: none !important; }
-
-body.voxi-theme-dark.voxel-room-body {
-  background: #111419;
-  color: #f4f5f7;
-}
-body.voxi-theme-dark .voxel-room {
-  background: #111419;
-  color: #f4f5f7;
-}
-body.voxi-theme-dark .voxel-room-head,
-body.voxi-theme-dark .voxel-room-canvas-shell,
-body.voxi-theme-dark .voxel-chat-panel {
-  background: #111419;
-  border-color: #414a57;
-}
-body.voxi-theme-dark .voxel-room-code {
-  background: #252b34;
-  border-color: #4d5664;
-  color: #64dfd1;
-}
-body.voxi-theme-dark .voxel-room-canvas-shell {
-  background: #111419;
-  border-color: #414a57;
-  box-shadow: 0 12px 0 rgba(0,0,0,.28), 0 24px 55px rgba(0,0,0,.32);
-}
 
 /* Compact room controls leave the canvas as the visual focus. */
 .voxel-room-head { gap: 7px; margin-bottom: 6px; }
@@ -3476,7 +3367,7 @@ body.voxi-theme-dark .voxel-room-canvas-shell {
   color: #9ea7b5;
   font-size: 8px;
 }
-body:not(.voxi-theme-dark) .voxel-tool-group {
+.voxel-tool-group {
   border-color: rgba(73,54,30,.16);
   background: rgba(255,255,255,.42);
 }
@@ -3935,20 +3826,10 @@ body.voxel-room-body > main {
 .voxel-room-canvas-shell > .voxel-toolbar-note { position: absolute; left: 50%; bottom: 7px; z-index: 3; transform: translateX(-50%); width: 100%; text-align: center; color: #6a5538; font-size: 10px; letter-spacing: .04em; pointer-events: none; }
 .voxel-template-select-group { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .voxel-template-select-group select { appearance: auto; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
-body.voxi-theme-dark .voxel-canvas-tools { border: 0; background: transparent; box-shadow: none; }
-body.voxi-theme-dark .voxel-canvas-tools .voxel-select-group { color: #9ea7b5; }
-body.voxi-theme-dark .voxel-canvas-tools .voxel-select-group select { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
-body.voxi-theme-dark .voxel-room-canvas-shell > .voxel-toolbar-note { color: #9ea7b5; }
-body.voxi-theme-dark .voxel-template-select-group { color: #9ea7b5; }
-body.voxi-theme-dark .voxel-template-select-group select { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
-.voxel-select-group { display: inline-flex; align-items: center; gap: 5px; color: #9ea7b5; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
-.voxel-select-group select { appearance: auto; border: 1px solid rgba(255,255,255,.16); border-radius: 5px; padding: 4px 20px 4px 7px; background: #1b2028; color: #64dfd1; font: 700 10px var(--font-display); cursor: pointer; }
+.voxel-select-group { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.voxel-select-group select { appearance: auto; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
 .voxel-clear-workspace { width: 22px; height: 22px; display: inline-grid; place-items: center; border: 1px solid rgba(73,54,30,.24); border-radius: 50%; padding: 0; background: #fffaf0; color: #b13c4e; font: 800 9px var(--font-display); cursor: pointer; }
 .voxel-clear-workspace:hover { background: #ffe4e8; border-color: #d95368; }
-body:not(.voxi-theme-dark) .voxel-select-group { color: #6a5538; }
-body:not(.voxi-theme-dark) .voxel-select-group select { border-color: rgba(73,54,30,.24); background: #fffaf0; color: #2c9e93; }
-body.voxi-theme-dark .voxel-clear-workspace { border-color: #4d5664; background: #1b2028; color: #ff8795; }
-body.voxi-theme-dark .voxel-clear-workspace:hover { background: #33212a; border-color: #ff8795; }
 .voxel-room-help { margin: 14px 0 0; text-align: center; color: #6a5538; font-size: 13px; }
 .voxel-room-help { display: none; }
 
@@ -3984,7 +3865,6 @@ body.voxi-theme-dark .voxel-clear-workspace:hover { background: #33212a; border-
 .voxel-voice-toggle.is-live { background: #53cdbf; color: #173c37; }
 .voxel-player-audio { display: inline-flex; align-items: center; gap: 3px; margin-right: 5px; }
 .voxel-player-audio button { border: 0; padding: 0; background: transparent; color: #2c9e93; cursor: pointer; }
-body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1b2028; color: #64dfd1; }
 .voxel-joined-toast { position: fixed; right: 24px; bottom: 24px; z-index: 20; padding: 11px 16px; border: 2px solid #2c9e93; border-radius: 999px; background: #e2fff9; color: #1f665e; box-shadow: 0 5px 0 rgba(44,158,147,.2); animation: voxel-toast-in .25s ease-out; transition: opacity .45s ease, transform .45s ease; }
 .voxel-joined-toast.is-hidden { opacity: 0; transform: translateY(10px); }
 @keyframes voxel-toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -6183,45 +6063,4 @@ body.voxi-theme-dark .voxel-voice-toggle { border-color: #4d5664; background: #1
 .gallery-tile--artist.gallery-tile--winner {
   box-shadow: 0 0 0 2px #f0c64f, 0 0 0 5px rgba(214, 83, 111, 0.35),
     0 10px 26px rgba(240, 198, 79, 0.4);
-}
-/* Shared theme control for every room and drawing screen. */
-.voxi-universal-theme-toggle {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border: 1px solid #b8afa0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .9);
-  color: #2d3d3a;
-  box-shadow: 0 4px 14px rgba(54, 43, 28, .12);
-  cursor: pointer;
-}
-
-.voxi-universal-theme-toggle:hover { transform: translateY(-1px); }
-.voxi-universal-theme-toggle i { font-size: 17px; color: #2fb8ad; }
-.voxi-universal-theme-toggle span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-body.voxi-theme-dark .voxi-universal-theme-toggle {
-  border-color: #4b5665;
-  background: rgba(27, 32, 40, .94);
-  color: #f4f6f8;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
-}
-
-@media (max-width: 640px) {
-  .landing-theme-toggle,
-  .voxi-universal-theme-toggle { top: 8px; right: 8px; width: 38px; height: 38px; }
 }

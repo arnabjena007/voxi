@@ -53,7 +53,6 @@ import { isPhoneViewport, loadInitialColor, loadInitialTool, mountToolbar } from
 import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
 import { isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
-import { mountUniversalThemeToggle } from "./theme";
 import { serverHttpUrl, serverWebSocketUrl } from "./server";
 
 // Show the landing screen if no room is in the URL. The landing form
@@ -69,7 +68,8 @@ if (!params.has("room")) {
 
 function bootVoxelRoom(): void {
   document.body.classList.add("voxel-room-body");
-  if (window.localStorage.getItem("voxi.landing-theme") === "dark") document.body.classList.add("voxi-theme-dark");
+  window.localStorage.removeItem("voxi.landing-theme");
+  document.body.classList.remove("voxi-theme-dark");
   const roomCode = params.get("room") ?? "";
   const invitedName = params.get("name")?.trim() ?? "";
   const solo = params.get("solo") === "1";
@@ -134,12 +134,7 @@ function bootVoxelRoom(): void {
       <p class="voxel-room-help">click to add a block · shift-click to remove · drag to orbit · scroll to zoom</p>
     </main>
   `;
-  mountUniversalThemeToggle();
   const canvas = document.getElementById("voxelRoomCanvas") as HTMLCanvasElement | null;
-  window.addEventListener("voxi:theme-change", (event) => {
-    const dark = event instanceof CustomEvent && Boolean(event.detail?.dark);
-    voxelController?.setTheme(dark);
-  });
   document.getElementById("voxelMaterialSelect")?.addEventListener("change", (event) => {
     const material = (event.target as HTMLSelectElement).value;
     const color = materialColors[material];
@@ -498,8 +493,6 @@ async function bootRoom(): Promise<void> {
       </div>
     </main>
   `;
-  mountUniversalThemeToggle();
-
 function pickRoomCode(): string {
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get("room");

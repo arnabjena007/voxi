@@ -3,13 +3,13 @@
 import {
   setBgScene,
 } from "./music";
-import { serverHttpUrl } from "./server";
 
 export function showLanding(): void {
   void setBgScene("landing");
+  window.localStorage.removeItem("voxi.landing-theme");
+  document.body.classList.remove("voxi-theme-dark");
 
   document.body.innerHTML = `
-    <button class="landing-theme-toggle" id="landingThemeToggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><i class="ph ph-moon"></i><span>Dark</span></button>
     <main class="landing">
       <div class="landing-page landing-page--minimal">
         <div class="landing-head">
@@ -97,27 +97,6 @@ export function showLanding(): void {
   const landingStatus = document.getElementById("landingStatus");
   const joinRoomForm = document.getElementById("joinRoomForm") as HTMLFormElement | null;
   const joinStatus = document.getElementById("joinStatus");
-  const themeToggle = document.getElementById("landingThemeToggle") as HTMLButtonElement | null;
-  const landingPage = document.querySelector<HTMLElement>(".landing-page");
-  const savedTheme = window.localStorage.getItem("voxi.landing-theme");
-  if (savedTheme === "dark") {
-    landingPage?.classList.add("landing-page--dark");
-    document.body.classList.add("voxi-theme-dark");
-  }
-  const syncThemeButton = (): void => {
-    const dark = landingPage?.classList.contains("landing-page--dark") ?? false;
-    if (themeToggle) {
-      themeToggle.innerHTML = `<i class="ph ${dark ? "ph-sun" : "ph-moon"}"></i><span>${dark ? "Light" : "Dark"}</span>`;
-      themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
-    }
-  };
-  syncThemeButton();
-  themeToggle?.addEventListener("click", () => {
-    const dark = landingPage?.classList.toggle("landing-page--dark") ?? false;
-    document.body.classList.toggle("voxi-theme-dark", dark);
-    window.localStorage.setItem("voxi.landing-theme", dark ? "dark" : "light");
-    syncThemeButton();
-  });
 
   const startMode = async (button: HTMLButtonElement, multiplayer: boolean): Promise<void> => {
       if (!multiplayer) {
@@ -132,29 +111,13 @@ export function showLanding(): void {
       button.disabled = true;
       button.classList.add("is-loading");
       if (landingStatus) landingStatus.textContent = "Opening room...";
-      try {
-        const res = await fetch(serverHttpUrl("/matchmake"), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          // Voxel rooms are collaborative canvas rooms: humans join by code.
-          // Do not seed them with drawing-game bots or automated chat.
-          body: JSON.stringify(multiplayer ? { size: 4, bots: 0 } : { size: 2, bots: 0 }),
-        });
-        if (!res.ok) throw new Error(`matchmake failed: ${res.status}`);
-        const { code } = (await res.json()) as { code: string };
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", code);
-        url.searchParams.set("qm", multiplayer ? "4" : "2");
-        url.searchParams.set("mode", "voxel");
-        if (!multiplayer) url.searchParams.set("solo", "1");
-        url.searchParams.set("voice", "1");
-        window.location.href = url.toString();
-      } catch (err) {
-        console.warn("[start mode]", err);
-        button.disabled = false;
-        button.classList.remove("is-loading");
-        if (landingStatus) landingStatus.textContent = "Room could not open. Check that the server is running.";
-      }
+      const url = new URL(window.location.href);
+      url.searchParams.set("room", randomRoomCode());
+      url.searchParams.set("mode", "voxel");
+      url.searchParams.delete("solo");
+      url.searchParams.delete("qm");
+      url.searchParams.set("voice", "1");
+      window.location.href = url.toString();
   };
 
   singleModeBtn?.addEventListener("click", () => void startMode(singleModeBtn, false));
@@ -179,4 +142,11 @@ export function showLanding(): void {
     url.searchParams.set("voice", "1");
     window.location.href = url.toString();
   });
+}
+
+function randomRoomCode(): string {
+  const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  const values = new Uint8Array(6);
+  crypto.getRandomValues(values);
+  return [...values].map((value) => alphabet[value % alphabet.length]).join("");
 }

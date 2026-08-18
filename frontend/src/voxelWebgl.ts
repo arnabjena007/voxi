@@ -11,7 +11,6 @@ export type VoxelWebglController = {
   clearWorkspace: () => Array<{ x: number; y: number; z: number; color: number }>;
   setSelectedColor: (color: number) => void;
   setGridSize: (size: number) => void;
-  setTheme: (dark: boolean) => void;
 };
 
 const COLORS = ["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899", "#a16207", "#f5f5f4"];
@@ -110,29 +109,27 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
 };
 
 export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOptions = {}): VoxelWebglController {
-  let darkTheme = document.body.classList.contains("voxi-theme-dark");
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setClearColor(darkTheme ? "#111419" : "#ffffff");
+  renderer.setClearColor("#ffffff");
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, .1, 200);
   camera.position.set(13, 15, 18);
   camera.lookAt(0, 0, 0);
-  const hemiLight = new THREE.HemisphereLight(darkTheme ? "#d9e5ff" : "#fff8e7", darkTheme ? "#202733" : "#7b6b52", 3.2);
-  scene.add(hemiLight);
+  scene.add(new THREE.HemisphereLight("#fff8e7", "#7b6b52", 3.2));
   const keyLight = new THREE.DirectionalLight("#ffffff", 2.4);
   keyLight.position.set(-8, 14, 10);
   scene.add(keyLight);
   // Grid lines sit on cell edges; integer cube positions then land in cell centers.
   const createGrid = (size: number): THREE.GridHelper => {
-    const gridColors = darkTheme ? GRID_COLORS.dark : GRID_COLORS.light;
+    const gridColors = GRID_COLORS.light;
     const helper = new THREE.GridHelper(size, size, gridColors.major, gridColors.minor);
     const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
     materials.forEach((gridMaterial) => {
       if (gridMaterial instanceof THREE.LineBasicMaterial) {
         gridMaterial.transparent = true;
-        gridMaterial.opacity = darkTheme ? .9 : .96;
+        gridMaterial.opacity = .96;
         gridMaterial.depthWrite = false;
       }
     });
@@ -295,13 +292,6 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       grid = createGrid(gridSize);
       scene.add(grid);
       render();
-    },
-    setTheme: (dark) => {
-      darkTheme = dark;
-      renderer.setClearColor(darkTheme ? "#111419" : "#ffffff");
-      hemiLight.color.set(darkTheme ? "#d9e5ff" : "#fff8e7");
-      hemiLight.groundColor.set(darkTheme ? "#202733" : "#7b6b52");
-      controller.setGridSize(gridSize);
     },
   };
   canvas.addEventListener("pointerdown", (e) => { pointerDown = true; dragging = false; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
