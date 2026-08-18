@@ -54,6 +54,7 @@ import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
 import { isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
 import { mountUniversalThemeToggle } from "./theme";
+import { serverHttpUrl, serverWebSocketUrl } from "./server";
 
 // Show the landing screen if no room is in the URL. The landing form
 // redirects to ?room=CODE&host=1&mode=MODE on submit.
@@ -243,12 +244,11 @@ function bootVoxelRoom(): void {
 
   function connectVoxel(name: string): void {
     if (voxelConn) return;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const tokenKey = "voxi.client_token";
     const token = window.localStorage.getItem(tokenKey) ?? crypto.randomUUID();
     window.localStorage.setItem(tokenKey, token);
     voxelConn = new Conn({
-      url: `${protocol}//${window.location.host}/ws/${roomCode}`,
+      url: serverWebSocketUrl(`/ws/${roomCode}`),
       hello: () => ({ kind: "Hello", hello: {
         room: roomCode,
         name,
@@ -862,7 +862,7 @@ const gameUI = mountGameUI(overlayEl, {
     renderGameUI();
   },
   onAddBot: (difficulty) => {
-    fetch(`/bot/${room}?difficulty=${difficulty}`, { method: "POST" })
+    fetch(`${serverHttpUrl(`/bot/${room}`)}?difficulty=${difficulty}`, { method: "POST" })
       .then((r) => r.text())
       .then((name) => showToast(name, { kind: "success" }))
       .catch(() => showToast("Couldn't add bot", { kind: "error" }));
@@ -1123,10 +1123,7 @@ if (experimentRequested) {
   }, 600);
 }
 
-const wsUrl = (() => {
-  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}/ws/${room}`;
-})();
+const wsUrl = serverWebSocketUrl(`/ws/${room}`);
 
 function modeBadge(): string {
   const m = MODE_OPTIONS.find((o) => o.id === selectedMode) ?? MODE_OPTIONS[1];

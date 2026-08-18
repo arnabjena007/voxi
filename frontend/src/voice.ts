@@ -12,6 +12,7 @@ import {
   type Participant,
   type LocalAudioTrack,
 } from "livekit-client";
+import { serverHttpUrl } from "./server";
 
 let room: Room | null = null;
 let connecting: Promise<void> | null = null;
@@ -67,7 +68,7 @@ export function onMicState(h: MicStateHandler): () => void {
 
 async function fetchToken(roomCode: string, name: string): Promise<{ token: string; url: string }> {
   const params = new URLSearchParams({ room: roomCode, name });
-  const res = await fetch(`/voice/token?${params.toString()}`);
+  const res = await fetch(`${serverHttpUrl("/voice/token")}?${params.toString()}`);
   if (!res.ok) throw new Error(`voice token fetch failed: ${res.status}`);
   return res.json();
 }

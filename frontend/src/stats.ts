@@ -1,6 +1,7 @@
 // Minimal stats dashboard. Polls the server's `/stats` JSON endpoint and
 // renders the running totals. Lives on its own route (`/stats.html`) so it
 // never touches the game in `main.ts`.
+import { serverHttpUrl } from "./server";
 
 type Stats = {
   rooms_active: number;
@@ -17,7 +18,7 @@ const set = (id: string, value: string) => {
 
 async function load(): Promise<void> {
   try {
-    const res = await fetch("/stats", { headers: { accept: "application/json" } });
+    const res = await fetch(serverHttpUrl("/stats"), { headers: { accept: "application/json" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = (await res.json()) as Stats;
     set("unique", fmt(s.unique_players));

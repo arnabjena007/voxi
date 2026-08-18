@@ -3,6 +3,7 @@
 import {
   setBgScene,
 } from "./music";
+import { serverHttpUrl } from "./server";
 
 export function showLanding(): void {
   void setBgScene("landing");
@@ -132,7 +133,7 @@ export function showLanding(): void {
       button.classList.add("is-loading");
       if (landingStatus) landingStatus.textContent = "Opening room...";
       try {
-        const res = await fetch("/matchmake", {
+        const res = await fetch(serverHttpUrl("/matchmake"), {
           method: "POST",
           headers: { "content-type": "application/json" },
           // Voxel rooms are collaborative canvas rooms: humans join by code.
