@@ -13,12 +13,13 @@ pub mod words;
 pub mod ws;
 
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use matchmaker::Matchmaker;
 use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 use tracker::Tracker;
 use voxi_room::WordLists;
 
@@ -70,6 +71,12 @@ pub fn build_router(state: AppState) -> Router {
         .route("/bot/:code", post(bot::add_bot))
         .route("/matchmake", post(matchmake))
         .route("/voice/token", get(voice::token))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_headers(Any),
+        )
         .with_state(state);
 
     // In production, serve the frontend dist/ folder as a static fallback.
