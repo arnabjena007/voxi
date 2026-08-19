@@ -652,7 +652,7 @@ async function pickOrConfirmIdentity() {
 }
 const { name, avatar } = await pickOrConfirmIdentity();
 const clientToken = pickClientToken();
-document.title = "VOXI";
+document.title = "voxi";
 if (voiceRequested && voicePrefetch && params.get("mode") !== "voxel") {
     await prewarmVoice(room, name, voicePrefetch);
   }
