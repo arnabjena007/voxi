@@ -20,12 +20,10 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "types": [
-      "vite/client",
-      "vitest/globals"
+      "vite/client"
     ]
   },
   "include": [
-    "src",
-    "tests"
+    "src"
   ]
 }
