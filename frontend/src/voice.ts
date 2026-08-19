@@ -19,7 +19,6 @@ let connecting: Promise<void> | null = null;
 let publishing: Promise<void> | null = null;
 let micPublished = false;
 let muted = true;
-let localIdentity: string | null = null;
 
 type SpeakingHandler = (ids: Set<string>) => void;
 const speakingHandlers = new Set<SpeakingHandler>();
@@ -128,14 +127,12 @@ async function connect(roomCode: string, name: string): Promise<void> {
       room = null;
       micPublished = false;
       muted = true;
-      localIdentity = null;
       remoteAudioByIdentity.clear();
       setMicState("off");
     });
 
     await r.connect(url, token);
     room = r;
-    localIdentity = r.localParticipant.identity;
     await r.startAudio().catch(() => undefined);
   })();
 
