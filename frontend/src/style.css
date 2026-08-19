@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Kalam Vox";
+  src: url("/fonts/Kalam-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Kalam Vox";
+  src: url("/fonts/Kalam-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #15221a;
   --surface: #243628;
@@ -9,9 +25,9 @@
   --shadow: 0 10px 0 rgba(13, 21, 16, 0.38), 0 18px 34px rgba(6, 10, 8, 0.28);
   --radius: 8px;
   --sidebar-w: 260px;
-  --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-display: "Fredoka", "Plus Jakarta Sans", sans-serif;
-  --font-hand: "Patrick Hand", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  --font-body: "Kalam Vox", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Kalam Vox", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-hand: "Kalam Vox", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
   --blush: #ff9fb7; --blush-deep: #cc5f7c;
   --sage: #9ddc92;  --sage-deep: #5f9c55;
   --butter: #f4d26b;--butter-deep: #c79c2a;

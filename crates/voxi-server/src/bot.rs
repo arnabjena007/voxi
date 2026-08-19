@@ -4,7 +4,6 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use rand::Rng;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::time::Duration;
 use voxi_proto::*;
 use voxi_room::{JoinOutcome, RoomHandle};
@@ -66,39 +65,6 @@ impl BotDifficulty {
 pub struct BotQuery {
     #[serde(default)]
     difficulty: Option<String>,
-}
-
-struct Drawing {
-    strokes: Vec<Vec<(u8, u8)>>,
-}
-
-fn load_drawings() -> HashMap<String, Drawing> {
-    let data = include_bytes!("../../voxi-loadtest/data/drawings.bin");
-    let mut pos = 0usize;
-    let count = u32::from_le_bytes(data[pos..pos + 4].try_into().unwrap()) as usize;
-    pos += 4;
-    let mut map = HashMap::new();
-    for _ in 0..count {
-        let wlen = data[pos] as usize;
-        pos += 1;
-        let word = String::from_utf8_lossy(&data[pos..pos + wlen]).to_string();
-        pos += wlen;
-        let stroke_count = data[pos] as usize;
-        pos += 1;
-        let mut strokes = Vec::with_capacity(stroke_count);
-        for _ in 0..stroke_count {
-            let pt_count = u16::from_le_bytes(data[pos..pos + 2].try_into().unwrap()) as usize;
-            pos += 2;
-            let mut pts = Vec::with_capacity(pt_count);
-            for _ in 0..pt_count {
-                pts.push((data[pos], data[pos + 1]));
-                pos += 2;
-            }
-            strokes.push(pts);
-        }
-        map.insert(word, Drawing { strokes });
-    }
-    map
 }
 
 static BOT_NAMES: &[&str] = &[
@@ -304,7 +270,6 @@ async fn run_bot(
     name: String,
     diff: BotDifficulty,
 ) -> anyhow::Result<()> {
-    let drawings = load_drawings();
     let all_words = load_all_game_words();
 
     let hello = Hello {
@@ -356,18 +321,13 @@ async fn run_bot(
             uc = unicast_rx.recv() => {
                 let Some(msg) = uc else { break };
                 match msg.as_ref() {
-                    ServerMsg::WordOptions { words, .. } => {
-                        let pick = words.iter().position(|w| {
-                            drawings.contains_key(&w.to_lowercase())
-                        }).unwrap_or(0);
-                        let idx = pick.min(words.len().saturating_sub(1));
-                        room.send(my_id, ClientMsg::Game(GameAction::PickWord(idx as u8))).await;
+                    ServerMsg::WordOptions { .. } => {
+                        room.send(my_id, ClientMsg::Game(GameAction::PickWord(0))).await;
                     }
                     ServerMsg::DrawerWord { word, .. } => {
                         is_drawer = true;
 
                         bot_chat(&room, my_id, random_from(REACT_MY_TURN)).await;
-                        let word_lower = word.to_lowercase();
                         // Schedule one banter line a few seconds into the
                         // drawing so the bot feels chatty while sketching.
                         // Cloned RoomHandle is cheap (mpsc Sender clone).
@@ -383,12 +343,8 @@ async fn run_bot(
                                 room_c.send(my_id, ClientMsg::Chat { text: line }).await;
                             });
                         }
-                        if let Some(drawing) = drawings.get(&word_lower) {
-                            replay_drawing(&room, my_id, &drawing.strokes).await;
-                        } else {
-                            bot_chat(&room, my_id, "hmm this is a tough one".into()).await;
-                            replay_drawing(&room, my_id, &[]).await;
-                        }
+                        let strokes = built_in_sketch(word);
+                        replay_drawing(&room, my_id, &strokes).await;
                     }
                     ServerMsg::Guess { player, kind: GuessKind::Close, .. }
                         if *player == my_id && rand::thread_rng().gen_bool(0.7) =>
@@ -539,33 +495,41 @@ async fn run_bot(
     Ok(())
 }
 
-fn fallback_question_mark() -> Vec<Vec<(u8, u8)>> {
-    vec![
-        // The curve of the ?
-        vec![
-            (100, 80),
-            (110, 70),
-            (130, 65),
-            (150, 70),
-            (158, 80),
-            (158, 95),
-            (148, 110),
-            (128, 120),
-            (128, 140),
+fn built_in_sketch(word: &str) -> Vec<Vec<(u8, u8)>> {
+    let seed = word.bytes().fold(0u8, |acc, byte| acc.wrapping_add(byte));
+    match seed % 4 {
+        0 => vec![
+            vec![(70, 170), (128, 90), (186, 170), (70, 170)],
+            vec![(92, 170), (92, 210), (164, 210), (164, 170)],
+            vec![(120, 210), (120, 185), (140, 185), (140, 210)],
         ],
-        // The dot
-        vec![(126, 160), (128, 162), (130, 160), (128, 158), (126, 160)],
-    ]
+        1 => vec![
+            vec![(128, 60), (128, 190)],
+            vec![(128, 92), (86, 132), (128, 124), (170, 132), (128, 92)],
+            vec![(128, 136), (76, 178), (128, 166), (180, 178), (128, 136)],
+            vec![(128, 188), (98, 220), (158, 220), (128, 188)],
+        ],
+        2 => vec![
+            vec![(70, 150), (92, 110), (130, 92), (170, 108), (192, 150)],
+            vec![(74, 150), (192, 150), (178, 195), (88, 195), (74, 150)],
+            vec![(96, 155), (112, 170), (130, 155), (148, 170), (166, 155)],
+        ],
+        _ => vec![
+            vec![
+                (88, 86),
+                (168, 86),
+                (188, 166),
+                (128, 218),
+                (68, 166),
+                (88, 86),
+            ],
+            vec![(92, 128), (164, 128)],
+            vec![(104, 166), (152, 166)],
+        ],
+    }
 }
 
 async fn replay_drawing(room: &RoomHandle, my_id: PlayerId, strokes: &[Vec<(u8, u8)>]) {
-    let fallback;
-    let strokes = if strokes.is_empty() {
-        fallback = fallback_question_mark();
-        &fallback
-    } else {
-        strokes
-    };
     let pad_x = 80.0_f32;
     let pad_y = 50.0_f32;
     let usable_w = 960.0 - pad_x * 2.0;

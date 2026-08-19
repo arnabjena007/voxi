@@ -4,7 +4,6 @@ members = [
     "crates/voxi-proto",
     "crates/voxi-room",
     "crates/voxi-server",
-    "crates/voxi-loadtest",
 ]
 
 [workspace.package]
@@ -33,7 +32,4 @@ dashmap = "6"
 # test
 proptest = "1"
 
-# loadtest
-clap = { version = "4.5", features = ["derive"] }
-hdrhistogram = "7"
 futures-util = "0.3"
