@@ -120,6 +120,7 @@ export class Conn {
       case "Guess":
       case "Presence":
       case "Game":
+      case "Voice":
         this.lastSeq = msg.seq;
         return;
       case "Resume":

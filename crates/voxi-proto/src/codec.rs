@@ -73,7 +73,8 @@ pub fn validate_client(msg: &ClientMsg) -> Result<(), CodecError> {
         | ClientMsg::Emote { .. }
         | ClientMsg::Vote { .. }
         | ClientMsg::Voxel { .. }
-        | ClientMsg::GridSize { .. } => {}
+        | ClientMsg::GridSize { .. }
+        | ClientMsg::Voice { .. } => {}
     }
     Ok(())
 }
@@ -190,7 +191,8 @@ pub fn validate_server(msg: &ServerMsg, depth: u8) -> Result<(), CodecError> {
         | ServerMsg::DrawingFeedback { .. }
         | ServerMsg::Emote { .. }
         | ServerMsg::Voxel { .. }
-        | ServerMsg::GridSize { .. } => {}
+        | ServerMsg::GridSize { .. }
+        | ServerMsg::Voice { .. } => {}
     }
     Ok(())
 }

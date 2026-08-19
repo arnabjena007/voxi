@@ -812,6 +812,7 @@ impl Room {
                 remove,
             } => self.handle_voxel(player, x, y, z, color, remove),
             ClientMsg::GridSize { size } => self.handle_grid_size(player, size),
+            ClientMsg::Voice { muted } => self.handle_voice(player, muted),
             ClientMsg::Hello(_) | ClientMsg::Pong { .. } => {
                 // Hello is connection setup.
             }
@@ -1729,6 +1730,14 @@ impl Room {
         self.game.lobby_deadline = None;
         self.grid_size = size;
         self.broadcast(ServerMsg::GridSize { size });
+    }
+
+    fn handle_voice(&mut self, player: PlayerId, muted: bool) {
+        if !self.players.contains_key(&player) {
+            return;
+        }
+        let seq = self.next_seq();
+        self.broadcast(ServerMsg::Voice { seq, player, muted });
     }
 
     /// Tally hearts, pick the top drawing + best artist, broadcast, and close.

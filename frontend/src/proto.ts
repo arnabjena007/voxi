@@ -666,7 +666,8 @@ export type ClientMsg =
   | { kind: "Emote"; idx: number }
   | { kind: "Vote"; turn: number; hearts: number }
   | { kind: "Voxel"; x: number; y?: number; z: number; color: number; remove: boolean }
-  | { kind: "GridSize"; size: number };
+  | { kind: "GridSize"; size: number }
+  | { kind: "Voice"; muted: boolean };
 
 export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -717,6 +718,9 @@ export function encodeClientMsg(msg: ClientMsg): Uint8Array<ArrayBuffer> {
     case "GridSize":
       w.variant(11).u8(msg.size);
       break;
+    case "Voice":
+      w.variant(12).bool(msg.muted);
+      break;
   }
   return w.bytes();
 }
@@ -757,6 +761,8 @@ export function decodeClientMsg(bytes: Uint8Array): ClientMsg {
       return { kind: "Voxel", x: r.i8(), y: r.option((rr) => rr.u8()) ?? undefined, z: r.i8(), color: r.u8(), remove: r.bool() };
     case 11:
       return { kind: "GridSize", size: r.u8() };
+    case 12:
+      return { kind: "Voice", muted: r.bool() };
     default:
       throw new Error(`unknown ClientMsg variant: ${v}`);
   }
@@ -796,7 +802,8 @@ export type ServerMsg =
   | { kind: "DrawingFeedback"; mood: DrawingMood }
   | { kind: "Emote"; player: number; idx: number }
   | { kind: "Voxel"; seq: number; player: number; x: number; y: number; z: number; color: number; remove: boolean }
-  | { kind: "GridSize"; size: number };
+  | { kind: "GridSize"; size: number }
+  | { kind: "Voice"; seq: number; player: number; muted: boolean };
 
 export function encodeServerMsg(msg: ServerMsg): Uint8Array<ArrayBuffer> {
   const w = new Writer();
@@ -873,6 +880,9 @@ function writeServerMsg(w: Writer, msg: ServerMsg): void {
       return;
     case "GridSize":
       w.variant(15).u8(msg.size);
+      return;
+    case "Voice":
+      w.variant(16).varint(msg.seq).varint(msg.player).bool(msg.muted);
       return;
   }
 }
@@ -967,6 +977,8 @@ function readServerMsg(r: Reader, depth = 0): ServerMsg {
       };
     case 15:
       return { kind: "GridSize", size: r.u8() };
+    case 16:
+      return { kind: "Voice", seq: r.varint(), player: r.varint(), muted: r.bool() };
     default:
       throw new Error(`unknown ServerMsg variant: ${v}`);
   }

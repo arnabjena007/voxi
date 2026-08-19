@@ -203,6 +203,10 @@ pub enum ClientMsg {
     GridSize {
         size: u8,
     },
+    /// Report whether the sender's published microphone is muted.
+    Voice {
+        muted: bool,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -288,5 +292,11 @@ pub enum ServerMsg {
     },
     GridSize {
         size: u8,
+    },
+    /// A player's microphone mute state changed.
+    Voice {
+        seq: Seq,
+        player: PlayerId,
+        muted: bool,
     },
 }
