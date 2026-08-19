@@ -91,6 +91,7 @@ function bootVoxelRoom(): void {
   let hostPlayerId: number | null = null;
   let voxelConnected = solo;
   const materialColors: Record<string, number> = { grass: 10, stone: 11, glass: 12, wood: 13, water: 14, lava: 15, fire: 16 };
+  const landscapes = ["grass", "mud", "sand", "snow", "water"] as const;
   const onlinePlayers = new Map<number, string>();
   document.body.innerHTML = `
     <main class="voxel-room${solo ? " voxel-room--solo" : ""}">
@@ -108,11 +109,12 @@ function bootVoxelRoom(): void {
           </div>
           <div class="voxel-build-toolbar">
             <label class="voxel-select-group">MATERIAL<select id="voxelMaterialSelect"><option value="grass">GRASS</option><option value="stone">STONE</option><option value="glass">GLASS</option><option value="wood">WOOD</option><option value="water">WATER</option><option value="lava">LAVA</option><option value="fire">FIRE</option></select></label>
+            <label class="voxel-select-group">LAND<select id="voxelLandscapeSelect"><option value="grass">GRASS</option><option value="mud">MUD</option><option value="sand">SAND</option><option value="snow">SNOW</option><option value="water">WATER</option></select></label>
             <label class="voxel-select-group">GRID<select id="voxelGridSelect"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label>
           </div>
           <label class="voxel-template-select-group">TEMPLATES<select id="voxelTemplateSelect" aria-label="Choose a build template">
             <option value="">CHOOSE</option>
-            <optgroup label="STRUCTURES"><option value="house">HOUSE</option><option value="castle">CASTLE</option><option value="bridge">BRIDGE</option></optgroup>
+            <optgroup label="STRUCTURES"><option value="house">HOUSE</option><option value="castle">CASTLE</option></optgroup>
             <optgroup label="NATURE"><option value="tree">TREE</option></optgroup>
           </select></label>
           <button type="button" class="voxel-clear-workspace" id="clearVoxelWorkspace" aria-label="Clear workspace" title="Remove every block from this workspace"><i class="ph ph-trash"></i></button>
@@ -152,6 +154,11 @@ function bootVoxelRoom(): void {
     if (color === undefined) return;
     document.querySelectorAll("[data-voxel-color]").forEach((item) => item.classList.remove("is-active"));
     voxelController?.setSelectedColor(color);
+  });
+  document.getElementById("voxelLandscapeSelect")?.addEventListener("change", (event) => {
+    const landscape = (event.target as HTMLSelectElement).value;
+    if (!landscapes.includes(landscape as typeof landscapes[number])) return;
+    voxelController?.setLandscape(landscape as typeof landscapes[number]);
   });
   const setPendingTemplate = (value: string | null): void => {
     pendingTemplate = value;
@@ -466,11 +473,19 @@ function bootVoxelRoom(): void {
 
   function buildTemplate(kind: string): Array<{ x: number; y: number; z: number; color: number }> {
     const blocks: Array<{ x: number; y: number; z: number; color: number }> = [];
-    const add = (x: number, y: number, z: number, color: number) => blocks.push({ x, y, z, color });
+    const occupied = new Set<string>();
+    const add = (x: number, y: number, z: number, color: number) => {
+      const key = `${x},${y},${z}`;
+      if (occupied.has(key)) return;
+      occupied.add(key);
+      blocks.push({ x, y, z, color });
+    };
     const grass = 10;
     const stone = 11;
     const glass = 12;
     const wood = 13;
+    const water = 14;
+    const fire = 16;
     if (kind === "tree") {
       for (let y = 0; y < 5; y++) add(0, y, 0, wood);
       for (let y = 3; y <= 5; y++) {
@@ -482,34 +497,57 @@ function bootVoxelRoom(): void {
         }
       }
       add(0, 6, 0, grass);
-    } else if (kind === "bridge") {
-      for (let x = -5; x <= 5; x++) {
-        add(x, 1, -1, wood); add(x, 1, 0, wood); add(x, 1, 1, wood);
-        if (x % 2 === 0) { add(x, 2, -2, wood); add(x, 2, 2, wood); }
-      }
-      for (const x of [-5, 5]) for (let z = -2; z <= 2; z++) add(x, 0, z, stone);
-      for (let x = -4; x <= 4; x += 2) { add(x, 0, -1, stone); add(x, 0, 1, stone); }
     } else if (kind === "castle") {
-      for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) if (Math.abs(x) === 4 || Math.abs(z) === 4) for (let y = 0; y < 3; y++) add(x, y, z, stone);
-      for (const [x, z] of [[-4, -4], [-4, 4], [4, -4], [4, 4]]) for (let y = 0; y < 6; y++) add(x, y, z, stone);
-      for (let x = -1; x <= 1; x++) add(x, 0, -4, wood);
-      add(0, 1, -4, wood);
-    } else {
-      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) add(x, 0, z, stone);
-      for (let x = -3; x <= 3; x++) for (let y = 1; y <= 3; y++) { add(x, y, -3, wood); add(x, y, 3, wood); }
-      for (let z = -2; z <= 2; z++) for (let y = 1; y <= 3; y++) { add(-3, y, z, wood); add(3, y, z, wood); }
-      for (let x = -1; x <= 1; x++) { add(x, 1, -3, glass); add(x, 2, -3, glass); }
-      add(0, 1, 3, stone); add(0, 2, 3, stone);
-      for (let layer = 0; layer < 3; layer++) {
-        for (let x = -3 + layer; x <= 3 - layer; x++) {
-          add(x, 4 + layer, -3 + layer, wood);
-          add(x, 4 + layer, 3 - layer, wood);
-        }
-        for (let z = -2 + layer; z <= 2 - layer; z++) {
-          add(-3 + layer, 4 + layer, z, wood);
-          add(3 - layer, 4 + layer, z, wood);
+      for (let x = -5; x <= 5; x++) {
+        for (let z = -5; z <= 5; z++) {
+          const wall = Math.abs(x) === 5 || Math.abs(z) === 5;
+          if (wall) for (let y = 0; y <= 3; y++) add(x, y, z, stone);
+          if (wall && (x + z) % 2 === 0) add(x, 4, z, stone);
         }
       }
+      for (const [tx, tz] of [[-5, -5], [-5, 5], [5, -5], [5, 5]]) {
+        for (let x = tx - 1; x <= tx + 1; x++) {
+          for (let z = tz - 1; z <= tz + 1; z++) {
+            if (Math.abs(x - tx) + Math.abs(z - tz) <= 1) for (let y = 0; y <= 6; y++) add(x, y, z, stone);
+          }
+        }
+        for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) add(tx + dx, 7, tz + dz, stone);
+        add(tx, 8, tz, fire);
+      }
+      for (let x = -1; x <= 1; x++) {
+        add(x, 0, -5, wood);
+        add(x, 1, -5, wood);
+      }
+      add(0, 2, -5, wood);
+      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) if ((x + z) % 2 === 0) add(x, 0, z, grass);
+    } else {
+      for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) add(x, 0, z, grass);
+      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) add(x, 1, z, stone);
+      for (let x = -3; x <= 3; x++) for (let y = 2; y <= 4; y++) { add(x, y, -3, wood); add(x, y, 3, wood); }
+      for (let z = -2; z <= 2; z++) for (let y = 2; y <= 4; y++) { add(-3, y, z, wood); add(3, y, z, wood); }
+      for (const [x, z] of [[-2, -3], [2, -3], [-3, -1], [3, 1]]) {
+        add(x, 3, z, glass);
+        add(x, 4, z, glass);
+      }
+      add(0, 2, 3, stone);
+      add(0, 3, 3, stone);
+      add(-1, 2, 3, wood);
+      add(1, 2, 3, wood);
+      for (let layer = 0; layer <= 3; layer++) {
+        const y = 5 + layer;
+        for (let x = -4 + layer; x <= 4 - layer; x++) {
+          add(x, y, -4 + layer, wood);
+          add(x, y, 4 - layer, wood);
+        }
+        for (let z = -3 + layer; z <= 3 - layer; z++) {
+          add(-4 + layer, y, z, wood);
+          add(4 - layer, y, z, wood);
+        }
+      }
+      add(3, 6, 1, stone);
+      add(3, 7, 1, stone);
+      add(3, 8, 1, fire);
+      add(-4, 0, 0, water);
     }
     return blocks;
   }

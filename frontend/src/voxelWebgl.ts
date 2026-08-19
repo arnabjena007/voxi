@@ -11,6 +11,7 @@ export type VoxelWebglController = {
   clearWorkspace: () => Array<{ x: number; y: number; z: number; color: number }>;
   setSelectedColor: (color: number) => void;
   setGridSize: (size: number) => void;
+  setLandscape: (landscape: LandscapeKind) => void;
 };
 
 const COLORS = ["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899", "#a16207", "#f5f5f4"];
@@ -29,7 +30,15 @@ const GRID_COLORS = {
 };
 
 type MaterialKind = "solid" | "grass" | "stone" | "glass" | "wood" | "water" | "lava" | "fire";
+export type LandscapeKind = "grass" | "mud" | "sand" | "snow" | "water";
 type AnimatedVoxelData = { x: number; y: number; z: number; color: number; kind: MaterialKind; phase: number; light?: THREE.PointLight };
+const LANDSCAPE_COLORS: Record<LandscapeKind, string> = {
+  grass: "#78b941",
+  mud: "#8b5b32",
+  sand: "#f2d47a",
+  snow: "#edf6f7",
+  water: "#28aee4",
+};
 
 const materialKind = (color: number): MaterialKind => {
   if (color === 10) return "grass";
@@ -44,7 +53,7 @@ const materialKind = (color: number): MaterialKind => {
 
 const previewColor = (color: number): string => MATERIAL_PREVIEWS[color] ?? COLORS[color % COLORS.length];
 
-const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
+const makeTexture = (kind: MaterialKind | LandscapeKind): THREE.CanvasTexture | null => {
   if (kind === "solid" || kind === "glass") return null;
   const size = 96;
   const canvas = document.createElement("canvas");
@@ -87,6 +96,12 @@ const makeTexture = (kind: MaterialKind): THREE.CanvasTexture | null => {
     ctx.fillStyle = "#e8fbff";
     for (let i = 0; i < 7; i++) ctx.fillRect(Math.floor(Math.random() * 8) * 12, Math.floor(Math.random() * 8) * 12, 12, 12);
     ctx.globalAlpha = 1;
+  } else if (kind === "mud") {
+    blockTiles("#8b5b32", ["#6c4224", "#a87343", "#573019", "#9a6a3d"], .4);
+  } else if (kind === "sand") {
+    blockTiles("#e9c96b", ["#f7dd8d", "#dcb956", "#cfa44e", "#fff0a6"], .34);
+  } else if (kind === "snow") {
+    blockTiles("#ecf6f7", ["#ffffff", "#d6e8ea", "#bdd7dd", "#f7ffff"], .28);
   } else if (kind === "lava" || kind === "fire") {
     blockTiles(kind === "fire" ? "#ff8a1c" : "#b82816", ["#fff176", "#ff8a1c", "#e11d1d", "#5f1717"], kind === "fire" ? .5 : .44);
     ctx.globalAlpha = .26;
@@ -138,6 +153,14 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   };
   let grid = createGrid(20);
   scene.add(grid);
+  let landscapeKind: LandscapeKind = "grass";
+  const landscapeGeometry = new THREE.PlaneGeometry(20, 20);
+  let landscapeMaterial = makeLandscapeMaterial(landscapeKind, 20);
+  const landscape = new THREE.Mesh(landscapeGeometry, landscapeMaterial);
+  landscape.rotation.x = -Math.PI / 2;
+  landscape.position.set(.5, -.03, .5);
+  landscape.receiveShadow = true;
+  scene.add(landscape);
   const cubes = new Map<string, THREE.Mesh>();
   let selectedColor = 0;
   const ghost = new THREE.Mesh(
@@ -158,6 +181,34 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   let lastY = 0;
   const clock = new THREE.Clock();
 
+  function makeLandscapeMaterial(kind: LandscapeKind, size: number): THREE.MeshPhysicalMaterial {
+    const texture = makeTexture(kind);
+    if (texture) texture.repeat.set(size / 4, size / 4);
+    return new THREE.MeshPhysicalMaterial({
+      color: LANDSCAPE_COLORS[kind],
+      map: texture ?? undefined,
+      bumpMap: texture ?? undefined,
+      bumpScale: kind === "water" ? .018 : .035,
+      roughness: kind === "water" ? .12 : kind === "snow" ? .38 : .72,
+      metalness: 0,
+      transparent: kind === "water",
+      opacity: kind === "water" ? .82 : 1,
+      clearcoat: kind === "water" ? .72 : .04,
+      clearcoatRoughness: kind === "water" ? .12 : .35,
+    });
+  }
+  const updateLandscape = (kind = landscapeKind): void => {
+    landscapeKind = kind;
+    landscape.geometry.dispose();
+    landscape.geometry = new THREE.PlaneGeometry(gridSize, gridSize);
+    landscape.position.set(.5, -.03, .5);
+    landscapeMaterial.map?.dispose();
+    if (landscapeMaterial.bumpMap !== landscapeMaterial.map) landscapeMaterial.bumpMap?.dispose();
+    landscapeMaterial.dispose();
+    landscapeMaterial = makeLandscapeMaterial(kind, gridSize);
+    landscape.material = landscapeMaterial;
+    renderer.setClearColor(kind === "water" ? "#e7fbff" : kind === "snow" ? "#f7fbfb" : "#ffffff");
+  };
   const material = (color: number): THREE.MeshPhysicalMaterial => {
     const kind = materialKind(color);
     if (kind === "solid") {
@@ -245,12 +296,13 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       const texture = meshMaterial.map;
       if (kind === "water") {
         if (texture) {
-          texture.offset.x = (time * .018 + data.phase * .03) % 1;
-          texture.offset.y = (Math.sin(time * .38 + data.phase) * .012 + data.phase * .025) % 1;
-          texture.rotation = Math.sin(time * .28 + data.phase) * .035;
+          texture.offset.x = (time * .055 + data.phase * .03) % 1;
+          texture.offset.y = (time * .022 + Math.sin(time * .82 + data.phase) * .025 + data.phase * .025) % 1;
+          texture.rotation = Math.sin(time * .62 + data.phase) * .075;
         }
-        meshMaterial.opacity = .7 + Math.sin(time * 1.25 + data.phase) * .035;
-        meshMaterial.clearcoatRoughness = .1 + Math.sin(time * .9 + data.phase) * .025;
+        mesh.position.y = data.y + .5 + Math.sin(time * 1.45 + data.phase) * .025;
+        meshMaterial.opacity = .67 + Math.sin(time * 1.45 + data.phase) * .055;
+        meshMaterial.clearcoatRoughness = .08 + Math.sin(time * 1.1 + data.phase) * .035;
       } else if (kind === "lava" || kind === "fire") {
         if (texture) {
           texture.offset.y = (time * (kind === "fire" ? .06 : .032) + data.phase * .04) % 1;
@@ -262,6 +314,13 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
         data.light && (data.light.intensity = (kind === "fire" ? .58 : .45) + Math.max(0, flicker) * .55);
       }
     });
+    const groundTexture = landscapeMaterial.map;
+    if (landscapeKind === "water" && groundTexture) {
+      groundTexture.offset.x = (time * .028) % 1;
+      groundTexture.offset.y = (time * .015) % 1;
+      landscapeMaterial.opacity = .78 + Math.sin(time * 1.1) * .04;
+      landscape.position.y = -.04 + Math.sin(time * .9) * .01;
+    }
     renderer.render(scene, camera);
   };
   const loop = (): void => { render(); requestAnimationFrame(loop); };
@@ -294,8 +353,10 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
       else grid.material.dispose();
       grid = createGrid(gridSize);
       scene.add(grid);
+      updateLandscape();
       render();
     },
+    setLandscape: updateLandscape,
   };
   canvas.addEventListener("pointerdown", (e) => { pointerDown = true; dragging = false; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener("pointermove", (e) => { const cell = point(e); if (pointerDown && Math.hypot(e.clientX-lastX, e.clientY-lastY) > 3) dragging = true; if (pointerDown && dragging) { ghost.visible = false; yaw += (e.clientX-lastX)*.01; pitch = Math.max(.15, Math.min(1.35, pitch+(e.clientY-lastY)*.008)); orbit(); lastX=e.clientX; lastY=e.clientY; } else updateGhost(cell); });
