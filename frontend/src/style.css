@@ -3343,7 +3343,7 @@ canvas {
 /* Compact room controls leave the canvas as the visual focus. */
 .voxel-room-head { gap: 7px; margin-bottom: 6px; }
 .voxel-room { gap: 8px; padding-top: 10px; }
-.voxel-room-logo { font-size: clamp(28px, 4vw, 42px); }
+.voxel-room-logo { font-size: 42px; }
 .voxel-room-head .voxel-color-strip { gap: 6px; }
 .voxel-color-strip .voxel-color { width: 22px; height: 22px; }
 .voxel-toolbar-note { margin-top: -2px; font-size: 9px; }
@@ -3808,14 +3808,14 @@ body.voxel-room-body > main {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 18px;
+  gap: 7px;
   grid-column: 1 / -1;
   justify-items: center;
 }
 
 .voxel-room-logo {
   font-family: var(--font-display);
-  font-size: clamp(30px, 5vw, 52px);
+  font-size: 42px;
   font-weight: 800;
   line-height: .8;
   letter-spacing: .06em;
@@ -3834,7 +3834,7 @@ body.voxel-room-body > main {
 }
 
 .voxel-room-sub span { color: #2c9e93; }
-.voxel-room-code { justify-self: end; display: inline-flex; align-items: center; gap: 8px; border: 2px solid #d5dce4; border-radius: 10px; padding: 9px 12px; background: #ffffff; color: #2c9e93; font-family: var(--font-display); font-weight: 700; letter-spacing: .12em; cursor: pointer; }
+.voxel-room-code { justify-self: end; display: inline-flex; align-items: center; gap: 8px; min-height: 42px; border: 2px solid #d5dce4; border-radius: 10px; padding: 9px 12px; background: #ffffff; color: #2c9e93; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .12em; cursor: pointer; }
 .voxel-room-code.is-copied { background: #dffbf4; border-color: #2c9e93; }
 .voxel-room-head .voxel-color-strip { justify-content: flex-end; }
 .voxel-room-head .voxel-color-strip { grid-column: 1 / -1; justify-content: center; gap: 10px; }
@@ -3877,10 +3877,10 @@ body.voxel-room-body > main {
 .voxel-canvas-tools .voxel-select-group { color: #6a5538; }
 .voxel-canvas-tools .voxel-select-group select { border-color: rgba(73,54,30,.24); background: #ffffff; color: #2c9e93; }
 .voxel-room-canvas-shell > .voxel-toolbar-note { position: absolute; left: 50%; bottom: 7px; z-index: 3; transform: translateX(-50%); width: 100%; text-align: center; color: #6a5538; font-size: 10px; letter-spacing: .04em; pointer-events: none; }
-.voxel-template-select-group { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
-.voxel-template-select-group select { appearance: auto; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
-.voxel-select-group { display: inline-flex; align-items: center; gap: 5px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
-.voxel-select-group select { appearance: auto; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
+.voxel-template-select-group { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.voxel-template-select-group select { appearance: auto; min-height: 24px; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
+.voxel-select-group { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.voxel-select-group select { appearance: auto; min-height: 24px; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
 .voxel-clear-workspace { width: 22px; height: 22px; display: inline-grid; place-items: center; border: 1px solid rgba(73,54,30,.24); border-radius: 50%; padding: 0; background: #fffaf0; color: #b13c4e; font: 800 9px var(--font-display); cursor: pointer; }
 .voxel-clear-workspace:hover { background: #ffe4e8; border-color: #d95368; }
 .voxel-room-help { margin: 14px 0 0; text-align: center; color: #6a5538; font-size: 13px; }
@@ -3931,7 +3931,7 @@ body.voxel-room-body > main {
 
 @media (max-width: 650px) {
   .voxel-room { display: block; height: 100dvh; overflow-y: auto; }
-  .voxel-room-head { grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+  .voxel-room-head { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 7px; margin-bottom: 6px; }
   .voxel-room-head .voxel-color-strip { justify-content: center; text-align: center; }
   .voxel-room-canvas-shell { min-height: 360px; height: 65dvh; }
   .voxel-chat-panel { height: 260px; margin-top: 14px; }
