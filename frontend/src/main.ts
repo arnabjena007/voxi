@@ -8,6 +8,10 @@ import { Conn, type ConnState } from "./ws";
 
 type VoxelBlock = { x: number; y: number; z: number; color: number };
 type VoxelPreset = "house" | "castle" | "trees";
+type VoxelEdit = {
+  forward: { x: number; y?: number; z: number; color: number; remove: boolean };
+  inverse: { x: number; y?: number; z: number; color: number; remove: boolean };
+};
 
 const params = new URLSearchParams(location.search);
 if (!params.has("room")) showLanding();
@@ -76,6 +80,9 @@ function bootVoxelRoom(): void {
   let speakers = new Set<string>();
   const players = new Map<number, string>();
   const mutedPlayers = new Set<number>();
+  const undoStack: VoxelEdit[] = [];
+  const redoStack: VoxelEdit[] = [];
+  let applyingHistory = false;
   const materialColors: Record<string, number> = { grass: 10, stone: 11, glass: 12, wood: 13, water: 14, lava: 15, fire: 16 };
 
   document.body.innerHTML = `<main class="voxel-room${solo ? " voxel-room--solo" : ""}">
@@ -113,6 +120,26 @@ function bootVoxelRoom(): void {
   });
   grid.addEventListener("change", () => { if (!solo && (!connected || you !== host)) { grid.value = String(grid.dataset.current ?? 20); showToast("Only the host can change the grid."); return; } const size = Number(grid.value); setGrid(size); if (!solo) conn?.send({ kind: "GridSize", size }); });
   document.getElementById("chatForm")?.addEventListener("submit", (event) => { event.preventDefault(); const text = input.value.trim(); if (!text || !connected) return; input.value = ""; conn?.send({ kind: "Chat", text }); });
+  document.addEventListener("keydown", (event) => {
+    const target = event.target as HTMLElement | null;
+    if ((!event.ctrlKey && !event.metaKey) || target?.matches("input, textarea, select, [contenteditable='true']")) return;
+    const key = event.key.toLowerCase();
+    const redo = key === "y" || (key === "z" && event.shiftKey);
+    const undo = key === "z" && !event.shiftKey;
+    if (!undo && !redo) return;
+    event.preventDefault();
+    const source = redo ? redoStack : undoStack;
+    const edit = source.pop();
+    if (!edit) return;
+    applyingHistory = true;
+    const voxel = redo ? edit.forward : edit.inverse;
+    const applied = sendVoxel(voxel);
+    applyingHistory = false;
+    if (!applied) { source.push(edit); return; }
+    canvas?.applyVoxel({ ...voxel, y: voxel.y ?? 0 });
+    (redo ? undoStack : redoStack).push(edit);
+    showToast(redo ? "Redone." : "Undone.");
+  });
   onMicState((state) => { micState = state; renderPlayers(); });
   onActiveSpeakers((ids) => { speakers = new Set([...ids].map(identityToName)); renderPlayers(); });
 
@@ -128,7 +155,7 @@ function bootVoxelRoom(): void {
     if (message.kind === "Bye") { connected = false; setConnectionLabel("Room closed"); }
   }
   function handleState(state: ConnState): void { if (state.kind !== "open") { connected = false; setConnectionLabel(state.kind === "reconnecting" ? "Reconnecting..." : "Connecting..."); } }
-  function sendVoxel(voxel: { x: number; y?: number; z: number; color: number; remove: boolean }): boolean { if (solo) return true; if (!connected) { showToast("Reconnecting to the room."); return false; } conn?.send({ kind: "Voxel", ...voxel }); return true; }
+  function sendVoxel(voxel: { x: number; y?: number; z: number; color: number; remove: boolean }): boolean { if (!solo && !connected) { showToast("Reconnecting to the room."); return false; } if (!applyingHistory) { undoStack.push({ forward: { ...voxel }, inverse: { ...voxel, remove: !voxel.remove } }); if (undoStack.length > 200) undoStack.shift(); redoStack.length = 0; } if (!solo) conn?.send({ kind: "Voxel", ...voxel }); return true; }
   function setGrid(size: number): void { canvas?.setGridSize(size); grid.value = String(size); grid.dataset.current = String(size); grid.disabled = !solo && you !== host; }
   function setConnectionLabel(label: string): void { document.querySelector(".voxel-room")?.classList.add("is-disconnected"); input.disabled = !solo; input.placeholder = label; }
   function publishVoiceState(): void { if (!solo && connected && micState !== "off") conn?.send({ kind: "Voice", muted: micState !== "live" }); }
