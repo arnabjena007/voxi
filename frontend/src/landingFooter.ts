@@ -10,6 +10,7 @@ type FooterCube = {
 };
 
 const COLOR_ROWS = [
+  ["#f06a9e", "#e24f88", "#ff8a1a", "#c93b76"],
   ["#8f155f", "#6f1b78", "#b50f5a", "#7e245f"],
   ["#f15b5d", "#df2f76", "#c74f6d", "#ff790d"],
   ["#bd3d91", "#8d2187", "#aa177b", "#7250a2"],
@@ -20,7 +21,7 @@ const COLOR_ROWS = [
 ];
 
 const TOP_PADDING = 14;
-const PATTERN_HEIGHT_IN_TILE_WIDTHS = 3.6765;
+const PATTERN_HEIGHT_IN_TILE_WIDTHS = 4.1065;
 
 export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
   const context = canvas.getContext("2d");
