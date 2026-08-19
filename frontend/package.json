@@ -18,10 +18,7 @@
     "vitest": "^2.1.0"
   },
   "dependencies": {
-    "@dicebear/collection": "^9.4.2",
-    "@dicebear/core": "^9.4.2",
     "livekit-client": "^2.19.0",
-    "three": "^0.185.1",
-    "tone": "^15.1.22"
+    "three": "^0.185.1"
   }
 }

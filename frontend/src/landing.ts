@@ -1,12 +1,8 @@
 // Landing screen shown when the URL has no ?room param.
 
-import {
-  setBgScene,
-} from "./music";
 import { mountLandingFooter } from "./landingFooter";
 
 export function showLanding(): void {
-  void setBgScene("landing");
   window.localStorage.removeItem("voxi.landing-theme");
   document.body.classList.remove("game-room-body", "voxel-room-body", "voxi-theme-dark");
 

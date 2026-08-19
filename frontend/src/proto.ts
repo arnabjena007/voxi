@@ -8,32 +8,10 @@ import { Reader, Writer } from "./postcard";
 // --------- limits (kept in sync with voxi-proto/src/limits.rs) ----------
 
 const ROOM_CODE_LEN = 6;
-export const MAX_CHAT_LEN = 256;
-export const MAX_POINTS_PER_BATCH = 64;
 
 // --------- types ---------------------------------------------------------
 
 export type RoomCode = string; // canonical uppercase 6-char string
-
-const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-
-export function parseRoomCode(s: string): RoomCode {
-  if (s.length !== ROOM_CODE_LEN) {
-    throw new Error(`room code must be ${ROOM_CODE_LEN} chars, got ${s.length}`);
-  }
-  let out = "";
-  for (const ch of s.toUpperCase()) {
-    let c = ch;
-    if (c === "I" || c === "L") c = "1";
-    else if (c === "O") c = "0";
-    else if (c === "U") c = "V";
-    if (!ALPHABET.includes(c)) {
-      throw new Error(`invalid room-code char: '${ch}'`);
-    }
-    out += c;
-  }
-  return out;
-}
 
 function writeRoomCode(w: Writer, code: RoomCode): void {
   const bytes = new TextEncoder().encode(code);

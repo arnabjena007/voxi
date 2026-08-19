@@ -51,10 +51,6 @@ export function getMicState(): MicState {
   return micState;
 }
 
-export function getLocalIdentity(): string | null {
-  return localIdentity;
-}
-
 // Subscribe to speaking-set changes. Set contains LiveKit participant identities.
 export function onActiveSpeakers(h: SpeakingHandler): () => void {
   speakingHandlers.add(h);
@@ -77,11 +73,6 @@ async function fetchToken(roomCode: string, name: string): Promise<{ token: stri
 // Explicit pre-warm. Connects to the LiveKit room without publishing a mic
 // track so the first toggleMic click only has to ask for mic permission +
 // publish (skip token fetch + WS handshake).
-export async function connectVoice(roomCode: string, name: string): Promise<void> {
-  await connect(roomCode, name);
-  setMicState("muted");
-}
-
 async function connect(roomCode: string, name: string): Promise<void> {
   if (room) return;
   if (connecting) return connecting;
@@ -217,24 +208,6 @@ async function setLocalMuted(m: boolean): Promise<void> {
       else await pub.unmute();
     }
   }
-}
-
-export async function disconnect(): Promise<void> {
-  if (room) {
-    await room.disconnect();
-    room = null;
-  }
-  micPublished = false;
-  publishing = null;
-  muted = true;
-  localIdentity = null;
-  mutedNames.clear();
-  remoteAudioByIdentity.clear();
-  setMicState("off");
-}
-
-export function isMuted(): boolean {
-  return muted;
 }
 
 // Map LiveKit identity (name-XXXXXX) back to display name so the UI can match
