@@ -17,7 +17,7 @@ body:
     attributes:
       label: How to reproduce it
       placeholder: |
-        1. open playpastel.com
+        1. open Voxi
         2. create a room in Sprint mode
         3. open the invite link in a second tab
         4. click Start - nothing happens
