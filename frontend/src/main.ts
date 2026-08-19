@@ -6,9 +6,61 @@ import { getMicState, identityToName, isRemoteMutedByName, onActiveSpeakers, onM
 import { mountVoxelWebgl, type LandscapeKind, type VoxelWebglController } from "./voxelWebgl";
 import { Conn, type ConnState } from "./ws";
 
+type VoxelBlock = { x: number; y: number; z: number; color: number };
+type VoxelPreset = "house" | "castle" | "trees";
+
 const params = new URLSearchParams(location.search);
 if (!params.has("room")) showLanding();
 else bootVoxelRoom();
+
+function presetBlocks(preset: VoxelPreset): VoxelBlock[] {
+  const blocks: VoxelBlock[] = [];
+  const block = (x: number, y: number, z: number, color: number): void => { blocks.push({ x, y, z, color }); };
+  const box = (fromX: number, toX: number, fromY: number, toY: number, fromZ: number, toZ: number, color: number): void => {
+    for (let x = fromX; x <= toX; x += 1) for (let y = fromY; y <= toY; y += 1) for (let z = fromZ; z <= toZ; z += 1) block(x, y, z, color);
+  };
+
+  if (preset === "house") {
+    box(-2, 2, 0, 0, -2, 2, 13);
+    for (let y = 1; y <= 3; y += 1) {
+      for (let x = -2; x <= 2; x += 1) for (let z = -2; z <= 2; z += 1) {
+        if (Math.abs(x) === 2 || Math.abs(z) === 2) block(x, y, z, 9);
+      }
+    }
+    box(-1, 1, 4, 4, -2, 2, 0);
+    box(0, 0, 5, 5, -1, 1, 0);
+    block(0, 1, -2, 13);
+    block(0, 2, -2, 13);
+    block(-2, 2, 0, 12);
+    block(2, 2, 0, 12);
+    return blocks;
+  }
+
+  if (preset === "castle") {
+    box(-3, 3, 0, 0, -3, 3, 11);
+    for (let y = 1; y <= 3; y += 1) {
+      for (let x = -3; x <= 3; x += 1) for (let z = -3; z <= 3; z += 1) {
+        if (Math.abs(x) === 3 || Math.abs(z) === 3) block(x, y, z, 11);
+      }
+    }
+    for (const [x, z] of [[-3, -3], [-3, 3], [3, -3], [3, 3]]) {
+      box(x - 1, x + 1, 4, 5, z - 1, z + 1, 11);
+      block(x, 6, z, 0);
+    }
+    block(0, 1, -3, 13);
+    block(0, 2, -3, 13);
+    return blocks;
+  }
+
+  for (const [x, z] of [[-3, -1], [2, 1], [0, 3]]) {
+    box(x, x, 0, 3, z, z, 13);
+    for (let y = 3; y <= 5; y += 1) {
+      const radius = y === 5 ? 0 : 1;
+      box(x - radius, x + radius, y, y, z - radius, z + radius, 10);
+    }
+  }
+  return blocks;
+}
 
 function bootVoxelRoom(): void {
   document.body.classList.add("voxel-room-body");
@@ -28,7 +80,7 @@ function bootVoxelRoom(): void {
   document.body.innerHTML = `<main class="voxel-room${solo ? " voxel-room--solo" : ""}">
     <header class="voxel-room-head"><div></div><a class="voxi-wordmark-link" href="/" aria-label="Home"><div class="voxi-wordmark">VOXI</div></a>${solo ? "" : `<button class="voxel-room-code" id="copyCode" type="button">${escapeHtml(room)} <i class="ph ph-copy"></i></button>`}</header>
     <section class="voxel-room-canvas-shell${name || solo ? "" : " is-locked"}">
-      <div class="voxel-canvas-tools"><div class="voxel-color-strip">${["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899"].map((color, index) => `<button class="voxel-color${index === 0 ? " is-active" : ""}" data-color="${index}" style="--voxel-color:${color}"></button>`).join("")}</div><label class="voxel-select-group">MATERIAL<select id="material">${Object.keys(materialColors).map((item) => `<option value="${item}">${item.toUpperCase()}</option>`).join("")}</select></label><label class="voxel-select-group">LAND<select id="land"><option value="grass">GRASS</option><option value="mud">MUD</option><option value="sand">SAND</option><option value="snow">SNOW</option><option value="water">WATER</option></select></label><label class="voxel-select-group">GRID<select id="grid"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label></div>
+      <div class="voxel-canvas-tools"><div class="voxel-color-strip">${["#ef4444", "#f97316", "#facc15", "#84cc16", "#14b8a6", "#38bdf8", "#6366f1", "#ec4899"].map((color, index) => `<button class="voxel-color${index === 0 ? " is-active" : ""}" data-color="${index}" style="--voxel-color:${color}"></button>`).join("")}</div><label class="voxel-select-group">MATERIAL<select id="material">${Object.keys(materialColors).map((item) => `<option value="${item}">${item.toUpperCase()}</option>`).join("")}</select></label><label class="voxel-select-group">LAND<select id="land"><option value="grass">GRASS</option><option value="mud">MUD</option><option value="sand">SAND</option><option value="snow">SNOW</option><option value="water">WATER</option></select></label><label class="voxel-select-group">GRID<select id="grid"><option value="12">SMALL</option><option value="20" selected>MEDIUM</option><option value="32">LARGE</option><option value="40">XL</option></select></label><label class="voxel-template-select-group">PRESET<select id="preset"><option value="">CHOOSE</option><option value="house">HOUSE</option><option value="castle">CASTLE</option><option value="trees">TREES</option></select></label></div>
       <div class="voxel-name-gate" id="nameGate"${name || solo ? " hidden" : ""}><form id="nameForm" class="voxel-name-card"><h1>Join this room</h1><p>Choose the name other builders will see.</p><input id="nameInput" maxlength="24" required placeholder="Your name"/><button>Enter canvas</button></form></div><canvas id="voxelRoomCanvas" aria-label="Shared voxel canvas"></canvas>
     </section><aside class="voxel-chat-panel"><div class="voxel-chat-head"><div class="voxel-chat-summary"><strong>Room chat</strong><span id="count">0 builders online</span><span id="names"></span></div><span class="voxel-online-dot"></span></div><div class="voxel-chat-messages" id="messages"></div><form class="voxel-chat-form" id="chatForm"><input id="chatInput" maxlength="180" placeholder="Say something..."/><button>Send</button></form></aside></main>`;
 
@@ -44,6 +96,20 @@ function bootVoxelRoom(): void {
   document.querySelectorAll<HTMLButtonElement>("[data-color]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-color]").forEach((item) => item.classList.remove("is-active")); button.classList.add("is-active"); canvas?.setSelectedColor(Number(button.dataset.color)); }));
   document.getElementById("material")?.addEventListener("change", (event) => canvas?.setSelectedColor(materialColors[(event.target as HTMLSelectElement).value]));
   document.getElementById("land")?.addEventListener("change", (event) => canvas?.setLandscape((event.target as HTMLSelectElement).value as LandscapeKind));
+  document.getElementById("preset")?.addEventListener("change", (event) => {
+    const preset = (event.target as HTMLSelectElement).value as VoxelPreset | "";
+    if (!preset) return;
+    const blocks = presetBlocks(preset);
+    let placed = 0;
+    for (const block of blocks) {
+      if (sendVoxel({ ...block, remove: false })) {
+        canvas?.applyVoxel({ ...block, remove: false });
+        placed += 1;
+      }
+    }
+    (event.target as HTMLSelectElement).value = "";
+    if (placed) showToast(`${preset[0].toUpperCase()}${preset.slice(1)} preset placed.`);
+  });
   grid.addEventListener("change", () => { if (!solo && (!connected || you !== host)) { grid.value = String(grid.dataset.current ?? 20); showToast("Only the host can change the grid."); return; } const size = Number(grid.value); setGrid(size); if (!solo) conn?.send({ kind: "GridSize", size }); });
   document.getElementById("chatForm")?.addEventListener("submit", (event) => { event.preventDefault(); const text = input.value.trim(); if (!text || !connected) return; input.value = ""; conn?.send({ kind: "Chat", text }); });
   onMicState((state) => { micState = state; renderPlayers(); });
