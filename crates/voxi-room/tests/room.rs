@@ -173,6 +173,49 @@ async fn chat_is_broadcast_to_all() {
 }
 
 #[tokio::test]
+async fn voxel_is_broadcast_to_all() {
+    let h = spawn();
+    let mut a = join(&h, "alice").await;
+    let mut b = join(&h, "bob").await;
+    let _ = next_unicast(&mut a.unicast_rx).await;
+    let _ = next_unicast(&mut b.unicast_rx).await;
+    drain_presence(&mut a.broadcast_rx, 2).await;
+    drain_presence(&mut b.broadcast_rx, 1).await;
+
+    h.send(
+        a.you,
+        ClientMsg::Voxel {
+            x: 1,
+            y: Some(2),
+            z: 3,
+            color: 4,
+            remove: false,
+        },
+    )
+    .await;
+
+    for rx in [&mut a.broadcast_rx, &mut b.broadcast_rx] {
+        match next(rx).await.as_ref() {
+            ServerMsg::Voxel {
+                player,
+                x,
+                y,
+                z,
+                color,
+                remove,
+                ..
+            } => {
+                assert_eq!(*player, a.you);
+                assert_eq!((*x, *y, *z), (1, 2, 3));
+                assert_eq!(*color, 4);
+                assert!(!remove);
+            }
+            other => panic!("expected Voxel, got {other:?}"),
+        }
+    }
+}
+
+#[tokio::test]
 async fn correct_guess_broadcasts_guess_event() {
     let h = spawn();
     let mut a = join(&h, "alice").await; // drawer
@@ -491,6 +534,36 @@ async fn non_host_leaving_does_not_broadcast_host_changed() {
     );
 }
 
+#[tokio::test]
+async fn grid_size_is_host_only_and_transfers_with_host_role() {
+    let h = spawn();
+    let mut alice = join(&h, "alice").await;
+    let mut bob = join(&h, "bob").await;
+    let _ = next_unicast(&mut alice.unicast_rx).await;
+    let _ = next_unicast(&mut bob.unicast_rx).await;
+    drain_presence(&mut alice.broadcast_rx, 2).await;
+    drain_presence(&mut bob.broadcast_rx, 1).await;
+
+    h.send(bob.you, ClientMsg::GridSize { size: 40 }).await;
+    expect_no_message(&mut bob.broadcast_rx).await;
+
+    h.leave(alice.you).await;
+    let _ = next(&mut bob.broadcast_rx).await;
+    assert!(matches!(
+        next(&mut bob.broadcast_rx).await.as_ref(),
+        ServerMsg::Game {
+            event: GameEvent::HostChanged { new_host },
+            ..
+        } if *new_host == bob.you
+    ));
+
+    h.send(bob.you, ClientMsg::GridSize { size: 32 }).await;
+    assert!(matches!(
+        next(&mut bob.broadcast_rx).await.as_ref(),
+        ServerMsg::GridSize { size: 32 }
+    ));
+}
+
 // ---- scoreboard filter + same-browser rejoin ----------------------------
 
 fn hello_with_token(name: &str, token: &str) -> Hello {
@@ -797,6 +870,39 @@ async fn lobby_times_out_after_120s_with_no_start() {
         bye,
         Some(ByeReason::RoomClosed),
         "lobby past 120s without Start should expire and send Bye"
+    );
+}
+
+/// A voxel edit turns the lobby into an active collaborative canvas, so the
+/// generic two-minute unused-lobby cleanup must no longer close it.
+#[tokio::test(start_paused = true)]
+async fn voxel_activity_cancels_lobby_expiry() {
+    let h = spawn();
+    let mut alice = join(&h, "alice").await;
+    let _ = next_unicast(&mut alice.unicast_rx).await;
+    drain_presence(&mut alice.broadcast_rx, 1).await;
+
+    h.send(
+        alice.you,
+        ClientMsg::Voxel {
+            x: 0,
+            y: Some(0),
+            z: 0,
+            color: 2,
+            remove: false,
+        },
+    )
+    .await;
+    assert!(matches!(
+        next(&mut alice.broadcast_rx).await.as_ref(),
+        ServerMsg::Voxel { .. }
+    ));
+
+    tokio::time::advance(Duration::from_secs(125)).await;
+    let bob = h.join(hello("bob")).await;
+    assert!(
+        bob.is_ok(),
+        "active voxel room should remain joinable after 120 seconds"
     );
 }
 

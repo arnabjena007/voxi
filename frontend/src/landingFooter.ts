@@ -19,6 +19,9 @@ const COLOR_ROWS = [
   ["#ffe70d", "#ffc20d", "#f38b00", "#d6db24"],
 ];
 
+const TOP_PADDING = 14;
+const PATTERN_HEIGHT_IN_TILE_WIDTHS = 3.6765;
+
 export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
   const context = canvas.getContext("2d");
   if (!context) return () => undefined;
@@ -66,7 +69,7 @@ export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
       cube.lift += (cube.targetLift - cube.lift) * 0.18;
       const centerX = cube.col * tileWidth + (cube.row % 2 ? tileWidth / 2 : 0);
       const visualRow = COLOR_ROWS.length - 1 - cube.row;
-      const screenY = 48 + topHeight / 2 + visualRow * topHeight - cube.lift;
+      const screenY = TOP_PADDING + topHeight / 2 + visualRow * topHeight - cube.lift;
       cube.hitArea = drawCube(context, centerX, screenY, tileWidth, topHeight, sideHeight, cube.color);
     }
 
@@ -90,7 +93,8 @@ export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
     canvas.classList.remove("is-hovering");
   };
 
-  window.addEventListener("resize", rebuild);
+  const resizeObserver = new ResizeObserver(rebuild);
+  resizeObserver.observe(canvas);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerleave", onPointerLeave);
   rebuild();
@@ -98,7 +102,7 @@ export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
 
   return () => {
     cancelAnimationFrame(animationFrame);
-    window.removeEventListener("resize", rebuild);
+    resizeObserver.disconnect();
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerleave", onPointerLeave);
   };
@@ -151,8 +155,8 @@ function pointInPolygon(point: Point, polygon: Point[]): boolean {
   return inside;
 }
 
-function getTileWidth(width: number, height: number): number {
-  return Math.max(62, Math.min(96, width / 14, (height - 48) / 3));
+function getTileWidth(_width: number, height: number): number {
+  return Math.max(48, (height - TOP_PADDING - 2) / PATTERN_HEIGHT_IN_TILE_WIDTHS);
 }
 
 function positiveModulo(value: number, divisor: number): number {

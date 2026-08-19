@@ -22,14 +22,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  background:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-    radial-gradient(circle at 20% 15%, rgba(140, 209, 127, 0.14) 0%, transparent 34%),
-    radial-gradient(circle at 80% 20%, rgba(244, 210, 107, 0.12) 0%, transparent 28%),
-    linear-gradient(180deg, #1a2a20 0%, #132018 100%);
-  background-size: 28px 28px, 28px 28px, auto, auto, auto;
-  background-attachment: fixed;
+  background: #ffffff;
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 14px;
@@ -45,7 +38,15 @@ body {
 
 /* Pixel dust over the whole app. Fixed and behind all content (main sits at
    z-index 1). */
-body::before {
+body.game-room-body {
+  background:
+    radial-gradient(circle at 20% 15%, rgba(140, 209, 127, 0.14) 0%, transparent 34%),
+    radial-gradient(circle at 80% 20%, rgba(244, 210, 107, 0.12) 0%, transparent 28%),
+    linear-gradient(180deg, #1a2a20 0%, #132018 100%);
+  background-attachment: fixed;
+}
+
+body.game-room-body::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -3896,10 +3897,12 @@ body.voxel-room-body > main {
   box-shadow: 0 8px 0 rgba(73,54,30,.12);
   overflow: hidden;
 }
-.voxel-chat-head { display: flex; align-items: center; justify-content: space-between; padding: 14px; border-bottom: 2px solid rgba(73,54,30,.15); }
+.voxel-chat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px; border-bottom: 2px solid rgba(73,54,30,.15); }
 .voxel-chat-head strong, .voxel-chat-head span { display: block; }
 .voxel-chat-head strong { font-family: var(--font-display); text-transform: uppercase; font-size: 14px; }
 .voxel-chat-head span { margin-top: 3px; color: #6a5538; font-size: 11px; }
+.voxel-chat-summary { min-width: 0; flex: 1; }
+#voxelOnlineNames { display: grid; gap: 5px; margin-top: 9px; }
 .voxel-online-dot { width: 10px; height: 10px; border-radius: 50%; background: #38b98a; box-shadow: 0 0 0 4px rgba(56,185,138,.16); }
 .voxel-room.is-disconnected .voxel-online-dot { background: #f97316; box-shadow: 0 0 0 4px rgba(249,115,22,.18); }
 .voxel-room.is-disconnected #voxelRoomCanvas { cursor: wait; }
@@ -3913,10 +3916,15 @@ body.voxel-room-body > main {
 .voxel-chat-form input:disabled,
 .voxel-chat-form button:disabled,
 .voxel-select-group select:disabled { opacity: .58; cursor: not-allowed; }
-.voxel-voice-toggle { border: 1px solid rgba(73,54,30,.25); border-radius: 7px; width: 30px; height: 30px; background: #fffaf0; color: #2c9e93; cursor: pointer; }
-.voxel-voice-toggle.is-live { background: #53cdbf; color: #173c37; }
-.voxel-player-audio { display: inline-flex; align-items: center; gap: 3px; margin-right: 5px; }
-.voxel-player-audio button { border: 0; padding: 0; background: transparent; color: #2c9e93; cursor: pointer; }
+.voxel-chat-head #voxelOnlineNames .voxel-player-audio { display: flex; align-items: center; gap: 7px; min-width: 0; margin: 0; }
+.voxel-chat-head #voxelOnlineNames .voxel-player-name { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voxel-player-mic { display: inline-grid; place-items: center; flex: 0 0 auto; width: 25px; height: 25px; border: 1px solid rgba(73,54,30,.22); border-radius: 8px; padding: 0; background: #fffaf0; color: #2c9e93; cursor: pointer; transition: transform 120ms ease, background 120ms ease, color 120ms ease, box-shadow 120ms ease; }
+.voxel-player-mic:hover { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(73,54,30,.12); }
+.voxel-player-mic.is-live { border-color: #238f86; background: #53cdbf; color: #173c37; }
+.voxel-player-mic.is-muted { background: #f5e7e7; color: #a64f62; }
+.voxel-player-mic.is-connecting i { animation: reconnect-spin .8s linear infinite; }
+.voxel-player-audio.is-speaking .voxel-player-mic { box-shadow: 0 0 0 4px rgba(83,205,191,.2); }
+.voxel-player-mic:disabled { opacity: .62; cursor: wait; }
 .voxel-joined-toast { position: fixed; right: 24px; bottom: 24px; z-index: 20; padding: 11px 16px; border: 2px solid #2c9e93; border-radius: 999px; background: #e2fff9; color: #1f665e; box-shadow: 0 5px 0 rgba(44,158,147,.2); animation: voxel-toast-in .25s ease-out; transition: opacity .45s ease, transform .45s ease; }
 .voxel-joined-toast.is-hidden { opacity: 0; transform: translateY(10px); }
 @keyframes voxel-toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -4719,8 +4727,8 @@ body.voxel-room-body > main {
   z-index: 1;
   flex: 0 0 auto;
   width: 100%;
-  height: clamp(360px, 45vh, 450px);
-  margin-top: 28px;
+  height: clamp(270px, 38vw, 430px);
+  margin-top: clamp(20px, 3vw, 32px);
   overflow: hidden;
   background: transparent;
 }
@@ -4749,8 +4757,8 @@ body.voxel-room-body > main {
   }
 
   .voxi-cube-footer {
-    height: 320px;
-    margin-top: 24px;
+    height: clamp(240px, 72vw, 300px);
+    margin-top: 20px;
   }
 }
 

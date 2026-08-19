@@ -1666,6 +1666,10 @@ impl Room {
         if x.abs() > 20 || z.abs() > 20 {
             return;
         }
+        // Voxel rooms use the lobby phase as a persistent collaborative canvas.
+        // The first accepted edit proves the room is active, so it must not be
+        // removed by the two-minute unused-lobby cleanup.
+        self.game.lobby_deadline = None;
         if remove {
             let idx = if let Some(y) = y {
                 self.voxels

@@ -16,6 +16,7 @@ import { serverHttpUrl } from "./server";
 
 let room: Room | null = null;
 let connecting: Promise<void> | null = null;
+let publishing: Promise<void> | null = null;
 let micPublished = false;
 let muted = true;
 let localIdentity: string | null = null;
@@ -98,7 +99,9 @@ async function connect(roomCode: string, name: string): Promise<void> {
         const el = track.attach() as HTMLAudioElement;
         el.style.display = "none";
         el.autoplay = true;
+        el.setAttribute("playsinline", "");
         document.body.appendChild(el);
+        void el.play().catch(() => undefined);
         const id = participant.identity;
         const list = remoteAudioByIdentity.get(id) ?? [];
         list.push(track);
@@ -129,9 +132,20 @@ async function connect(roomCode: string, name: string): Promise<void> {
       for (const h of speakingHandlers) h(new Set());
     });
 
+    r.on(RoomEvent.Disconnected, () => {
+      if (room !== r) return;
+      room = null;
+      micPublished = false;
+      muted = true;
+      localIdentity = null;
+      remoteAudioByIdentity.clear();
+      setMicState("off");
+    });
+
     await r.connect(url, token);
     room = r;
     localIdentity = r.localParticipant.identity;
+    await r.startAudio().catch(() => undefined);
   })();
 
   try {
@@ -144,13 +158,28 @@ async function connect(roomCode: string, name: string): Promise<void> {
 async function publishMic(): Promise<void> {
   if (!room) return;
   if (micPublished) return;
-  const track: LocalAudioTrack = await createLocalAudioTrack({
-    echoCancellation: true,
-    noiseSuppression: true,
-    autoGainControl: true,
-  });
-  await room.localParticipant.publishTrack(track);
-  micPublished = true;
+  if (publishing) return publishing;
+  publishing = (async () => {
+    const activeRoom = room;
+    if (!activeRoom) return;
+    const track: LocalAudioTrack = await createLocalAudioTrack({
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+    try {
+      await activeRoom.localParticipant.publishTrack(track);
+      micPublished = true;
+    } catch (error) {
+      track.stop();
+      throw error;
+    }
+  })();
+  try {
+    await publishing;
+  } finally {
+    publishing = null;
+  }
 }
 
 // Toggle mic. First call lazily connects + publishes. Subsequent toggles flip
@@ -165,6 +194,7 @@ export async function toggleMic(roomCode: string, name: string): Promise<MicStat
       setMicState("live");
       return micState;
     }
+    await room.startAudio();
     if (!micPublished) {
       await publishMic();
     }
@@ -195,6 +225,7 @@ export async function disconnect(): Promise<void> {
     room = null;
   }
   micPublished = false;
+  publishing = null;
   muted = true;
   localIdentity = null;
   mutedNames.clear();

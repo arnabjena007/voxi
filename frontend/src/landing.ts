@@ -8,7 +8,7 @@ import { mountLandingFooter } from "./landingFooter";
 export function showLanding(): void {
   void setBgScene("landing");
   window.localStorage.removeItem("voxi.landing-theme");
-  document.body.classList.remove("voxi-theme-dark");
+  document.body.classList.remove("game-room-body", "voxel-room-body", "voxi-theme-dark");
 
   document.body.innerHTML = `
     <main class="landing">

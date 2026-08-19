@@ -52,7 +52,15 @@ import { DEFAULT_AVATAR } from "./proto";
 import { isPhoneViewport, loadInitialColor, loadInitialTool, mountToolbar } from "./toolbar";
 import { mountMobileTools } from "./mobileTools";
 import { Conn, type ConnState } from "./ws";
-import { isRemoteMutedByName, toggleMic, toggleRemoteMute } from "./voice";
+import {
+  getMicState,
+  identityToName,
+  isRemoteMutedByName,
+  onActiveSpeakers,
+  onMicState,
+  toggleMic,
+  toggleRemoteMute,
+} from "./voice";
 import { serverHttpUrl, serverWebSocketUrl } from "./server";
 
 // Show the landing screen if no room is in the URL. The landing form
@@ -67,6 +75,7 @@ if (!params.has("room")) {
 }
 
 function bootVoxelRoom(): void {
+  document.body.classList.remove("game-room-body");
   document.body.classList.add("voxel-room-body");
   window.localStorage.removeItem("voxi.landing-theme");
   document.body.classList.remove("voxi-theme-dark");
@@ -121,8 +130,7 @@ function bootVoxelRoom(): void {
       </section>
       <aside class="voxel-chat-panel" aria-label="Room chat">
         <div class="voxel-chat-head">
-          <div><strong>Room chat</strong><span id="voxelOnlineCount">1 builder online</span><span id="voxelOnlineNames"></span></div>
-          <button class="voxel-voice-toggle" id="voxelVoiceToggle" type="button" title="Enable voice"><i class="ph ph-microphone-slash"></i></button>
+          <div class="voxel-chat-summary"><strong>Room chat</strong><span id="voxelOnlineCount">1 builder online</span><span id="voxelOnlineNames"></span></div>
           <span class="voxel-online-dot"></span>
         </div>
         <div class="voxel-chat-messages" id="voxelChatMessages"></div>
@@ -135,6 +143,9 @@ function bootVoxelRoom(): void {
     </main>
   `;
   const canvas = document.getElementById("voxelRoomCanvas") as HTMLCanvasElement | null;
+  const chatForm = document.getElementById("voxelChatForm") as HTMLFormElement | null;
+  const chatInput = document.getElementById("voxelChatInput") as HTMLInputElement | null;
+  const chatMessages = document.getElementById("voxelChatMessages");
   document.getElementById("voxelMaterialSelect")?.addEventListener("change", (event) => {
     const material = (event.target as HTMLSelectElement).value;
     const color = materialColors[material];
@@ -159,6 +170,12 @@ function bootVoxelRoom(): void {
   });
   document.getElementById("voxelGridSelect")?.addEventListener("change", (event) => {
     const size = Number((event.target as HTMLSelectElement).value);
+    if (!solo && !voxelConnected) {
+      const select = event.target as HTMLSelectElement;
+      select.value = String(select.dataset.currentGrid ?? 20);
+      showToast("Reconnecting to the room. Try again in a moment.");
+      return;
+    }
     if (!solo && localPlayerId !== hostPlayerId) {
       const select = event.target as HTMLSelectElement;
       select.value = String(voxelController ? Number(select.dataset.currentGrid ?? 20) : 20);
@@ -171,6 +188,10 @@ function bootVoxelRoom(): void {
   });
   document.getElementById("clearVoxelWorkspace")?.addEventListener("click", () => {
     if (!voxelController) return;
+    if (!solo && !voxelConnected) {
+      showToast("Reconnecting to the room. Try again in a moment.");
+      return;
+    }
     const blocks = voxelController.clearWorkspace();
     setPendingTemplate(null);
     if (!blocks.length) return;
@@ -179,7 +200,7 @@ function bootVoxelRoom(): void {
       return;
     }
     if (!solo) {
-      [...blocks].sort((a, b) => b.y - a.y).forEach((block) => voxelConn?.send({ kind: "Voxel", x: block.x, y: block.y, z: block.z, color: block.color, remove: true }));
+      [...blocks].sort((a, b) => b.y - a.y).forEach((block) => sendVoxel({ ...block, remove: true }));
     }
   });
   document.getElementById("copyRoomCode")?.addEventListener("click", async () => {
@@ -223,9 +244,16 @@ function bootVoxelRoom(): void {
     });
   }
 
-  const chatForm = document.getElementById("voxelChatForm") as HTMLFormElement | null;
-  const chatInput = document.getElementById("voxelChatInput") as HTMLInputElement | null;
-  const chatMessages = document.getElementById("voxelChatMessages");
+  let currentMicState = getMicState();
+  let activeVoiceNames = new Set<string>();
+  onMicState((state) => {
+    currentMicState = state;
+    updateOnlinePlayers();
+  });
+  onActiveSpeakers((identities) => {
+    activeVoiceNames = new Set([...identities].map(identityToName));
+    updateOnlinePlayers();
+  });
   chatForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     const text = chatInput?.value.trim();
@@ -237,22 +265,6 @@ function bootVoxelRoom(): void {
     chatInput!.value = "";
     voxelConn?.send({ kind: "Chat", text });
   });
-  document.getElementById("voxelVoiceToggle")?.addEventListener("click", async () => {
-    const button = document.getElementById("voxelVoiceToggle");
-    if (!button || solo) return;
-    try {
-      const state = await toggleMic(roomCode, activeName || "Builder");
-      button.innerHTML = `<i class="ph ${state === "live" ? "ph-microphone" : "ph-microphone-slash"}"></i>`;
-      button.title = state === "live" ? "Mute microphone" : "Enable voice";
-      button.classList.toggle("is-live", state === "live");
-    } catch (error) {
-      button.innerHTML = `<i class="ph ph-warning"></i>`;
-      button.title = "Voice unavailable - click to retry";
-      const message = error instanceof Error ? error.message : "Microphone permission or voice server unavailable";
-      showToast(message);
-    }
-  });
-
   function connectVoxel(name: string): void {
     if (voxelConn) return;
     const tokenKey = "voxi.client_token";
@@ -323,8 +335,9 @@ function bootVoxelRoom(): void {
       },
       onState: (state) => {
         if (state.kind === "open") {
-          voxelConnected = true;
-          setVoxelConnected(true);
+          // The socket is open, but the room is not ready until Welcome arrives.
+          voxelConnected = false;
+          setVoxelConnected(false, "Joining room...");
         } else if (state.kind === "connecting" || state.kind === "reconnecting") {
           voxelConnected = false;
           setVoxelConnected(false, "Reconnecting...");
@@ -347,13 +360,14 @@ function bootVoxelRoom(): void {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  function sendVoxel(voxel: { x: number; y?: number; z: number; color: number; remove: boolean }): void {
-    if (solo) return;
+  function sendVoxel(voxel: { x: number; y?: number; z: number; color: number; remove: boolean }): boolean {
+    if (solo) return true;
     if (!voxelConnected) {
       showToast("Reconnecting to the room. Try again in a moment.");
-      return;
+      return false;
     }
     voxelConn?.send({ kind: "Voxel", ...voxel });
+    return true;
   }
 
   function setVoxelConnected(connected: boolean, label?: string): void {
@@ -363,25 +377,74 @@ function bootVoxelRoom(): void {
     if (chatInput) chatInput.disabled = !solo && !connected;
     const sendButton = chatForm?.querySelector<HTMLButtonElement>("button[type='submit']");
     if (sendButton) sendButton.disabled = !solo && !connected;
+    const templateSelect = document.getElementById("voxelTemplateSelect") as HTMLSelectElement | null;
+    if (templateSelect) templateSelect.disabled = !solo && !connected;
+    const clearButton = document.getElementById("clearVoxelWorkspace") as HTMLButtonElement | null;
+    if (clearButton) clearButton.disabled = !solo && !connected;
+    const gridSelect = document.getElementById("voxelGridSelect") as HTMLSelectElement | null;
+    if (gridSelect) gridSelect.disabled = !solo && (!connected || localPlayerId !== hostPlayerId);
   }
 
   function updateOnlinePlayers(): void {
     const count = document.getElementById("voxelOnlineCount");
     const names = document.getElementById("voxelOnlineNames");
-    const players = [...onlinePlayers.values()];
+    const players = [...onlinePlayers.entries()];
     if (count) count.textContent = `${players.length} builder${players.length === 1 ? "" : "s"} online`;
     if (names) {
-      names.innerHTML = players.map((player) => `<span class="voxel-player-audio"><span>${safeText(player)}</span><button type="button" data-voxel-mute="${safeText(player)}" title="Mute ${safeText(player)}"><i class="ph ${isRemoteMutedByName(player) ? "ph-speaker-slash" : "ph-speaker-high"}"></i></button></span>`).join("");
-      names.querySelectorAll<HTMLButtonElement>("[data-voxel-mute]").forEach((button) => button.addEventListener("click", () => {
-        const player = button.dataset.voxelMute ?? "";
-        const muted = toggleRemoteMute(player);
-        button.innerHTML = `<i class="ph ${muted ? "ph-speaker-slash" : "ph-speaker-high"}"></i>`;
+      names.innerHTML = players.map(([playerId, playerName]) => {
+        const isSelf = playerId === localPlayerId;
+        const locallyMuted = !isSelf && isRemoteMutedByName(playerName);
+        const speaking = activeVoiceNames.has(playerName);
+        const ownMicClass = currentMicState === "live" ? "is-live" : currentMicState === "connecting" ? "is-connecting" : "is-muted";
+        const buttonClass = isSelf ? ownMicClass : locallyMuted ? "is-muted" : "";
+        const icon = isSelf
+          ? currentMicState === "connecting" ? "ph-circle-notch" : currentMicState === "live" ? "ph-microphone" : "ph-microphone-slash"
+          : locallyMuted ? "ph-microphone-slash" : "ph-microphone";
+        const label = isSelf
+          ? currentMicState === "live" ? "Mute your microphone" : "Turn on your microphone"
+          : `${locallyMuted ? "Listen to" : "Mute"} ${playerName}`;
+        return `<span class="voxel-player-audio${speaking ? " is-speaking" : ""}"><button class="voxel-player-mic ${buttonClass}" type="button" data-voxel-player="${playerId}" aria-label="${safeText(label)}" title="${safeText(label)}"><i class="ph ${icon}"></i></button><span class="voxel-player-name">${safeText(playerName)}${isSelf ? " (you)" : ""}</span></span>`;
+      }).join("");
+      names.querySelectorAll<HTMLButtonElement>("[data-voxel-player]").forEach((button) => button.addEventListener("click", async () => {
+        const playerId = Number(button.dataset.voxelPlayer);
+        const playerName = onlinePlayers.get(playerId);
+        if (!playerName) return;
+        if (playerId !== localPlayerId) {
+          toggleRemoteMute(playerName);
+          updateOnlinePlayers();
+          return;
+        }
+        if (!voxelConnected) {
+          showToast("Reconnect to the room before using voice.");
+          return;
+        }
+        button.disabled = true;
+        try {
+          await toggleMic(roomCode, activeName || playerName);
+        } catch (error) {
+          showToast(voiceErrorMessage(error));
+        } finally {
+          updateOnlinePlayers();
+        }
       }));
     }
   }
 
+  function voiceErrorMessage(error: unknown): string {
+    if (error instanceof DOMException) {
+      if (error.name === "NotAllowedError") return "Microphone permission was blocked. Allow microphone access and try again.";
+      if (error.name === "NotFoundError") return "No microphone was found on this device.";
+      if (error.name === "NotReadableError") return "The microphone is already being used by another application.";
+    }
+    return error instanceof Error ? error.message : "Voice connection failed. Please try again.";
+  }
+
   function placePendingTemplate(x: number, z: number): boolean {
     if (!pendingTemplate) return false;
+    if (!solo && !voxelConnected) {
+      showToast("Reconnecting to the room. Try again in a moment.");
+      return true;
+    }
     const selected = pendingTemplate;
     setPendingTemplate(null);
     buildTemplate(selected).forEach((block) => {
@@ -453,6 +516,8 @@ function bootVoxelRoom(): void {
 }
 
 async function bootRoom(): Promise<void> {
+  document.body.classList.remove("voxel-room-body");
+  document.body.classList.add("game-room-body");
   document.body.innerHTML = `
     <main>
       <header>

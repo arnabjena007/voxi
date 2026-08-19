@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
 export type VoxelWebglOptions = {
-  onVoxel?: (voxel: { x: number; y?: number; z: number; color: number; remove: boolean }) => void;
+  onVoxel?: (voxel: { x: number; y?: number; z: number; color: number; remove: boolean }) => boolean | void;
   onCellClick?: (cell: { x: number; z: number }) => boolean;
 };
 
@@ -233,6 +233,9 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
     selectedColor = color;
     (ghost.material as THREE.MeshBasicMaterial).color.set(previewColor(selectedColor));
   };
+  const requestVoxel = (voxel: { x: number; y: number; z: number; color: number; remove: boolean }): boolean => (
+    options.onVoxel?.(voxel) !== false
+  );
   const render = (): void => {
     const time = clock.getElapsedTime();
     cubes.forEach((mesh) => {
@@ -296,7 +299,29 @@ export function mountVoxelWebgl(canvas: HTMLCanvasElement, options: VoxelWebglOp
   };
   canvas.addEventListener("pointerdown", (e) => { pointerDown = true; dragging = false; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener("pointermove", (e) => { const cell = point(e); if (pointerDown && Math.hypot(e.clientX-lastX, e.clientY-lastY) > 3) dragging = true; if (pointerDown && dragging) { ghost.visible = false; yaw += (e.clientX-lastX)*.01; pitch = Math.max(.15, Math.min(1.35, pitch+(e.clientY-lastY)*.008)); orbit(); lastX=e.clientX; lastY=e.clientY; } else updateGhost(cell); });
-  canvas.addEventListener("pointerup", (e) => { pointerDown = false; if (!dragging) { const cell=point(e); if (cell && !options.onCellClick?.(cell)) { const column=[...cubes.values()].filter(m=>m.userData.x===cell.x&&m.userData.z===cell.z); if (e.shiftKey) { const top=column.reduce<AnimatedVoxelData | null>((best, mesh) => { const data = mesh.userData as AnimatedVoxelData; return !best || data.y > best.y ? data : best; }, null); if (top) { remove(top.x, top.y, top.z); options.onVoxel?.({x:top.x,y:top.y,z:top.z,color:top.color,remove:true}); } } else { const y=column.length; add(cell.x,y,cell.z,selectedColor); options.onVoxel?.({x:cell.x,y,z:cell.z,color:selectedColor,remove:false}); } } } dragging = false; });
+  canvas.addEventListener("pointerup", (event) => {
+    pointerDown = false;
+    if (!dragging) {
+      const cell = point(event);
+      if (cell && !options.onCellClick?.(cell)) {
+        const column = [...cubes.values()].filter((mesh) => mesh.userData.x === cell.x && mesh.userData.z === cell.z);
+        if (event.shiftKey) {
+          const top = column.reduce<AnimatedVoxelData | null>((best, mesh) => {
+            const data = mesh.userData as AnimatedVoxelData;
+            return !best || data.y > best.y ? data : best;
+          }, null);
+          if (top) {
+            const voxel = { x: top.x, y: top.y, z: top.z, color: top.color, remove: true };
+            if (requestVoxel(voxel)) remove(top.x, top.y, top.z);
+          }
+        } else {
+          const voxel = { x: cell.x, y: column.length, z: cell.z, color: selectedColor, remove: false };
+          if (requestVoxel(voxel)) add(voxel.x, voxel.y, voxel.z, voxel.color);
+        }
+      }
+    }
+    dragging = false;
+  });
   canvas.addEventListener("pointerleave", () => { if (!pointerDown) ghost.visible = false; });
   canvas.addEventListener("wheel", (e) => { e.preventDefault(); distance=Math.max(8,Math.min(50,distance+e.deltaY*.02)); orbit(); }, { passive:false });
   document.querySelectorAll<HTMLButtonElement>("[data-voxel-color]").forEach((b) => b.addEventListener("click", () => { selectColor(Number(b.dataset.voxelColor)); document.querySelectorAll("[data-voxel-color]").forEach((item) => item.classList.remove("is-active")); b.classList.add("is-active"); }));
