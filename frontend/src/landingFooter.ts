@@ -23,6 +23,7 @@ const COLOR_ROWS = [
 
 const TOP_PADDING = 14;
 const PATTERN_HEIGHT_IN_TILE_WIDTHS = 4.5365;
+const BLEED_ROW_COLORS = ["#d90f65", "#ef4b57", "#f36b00", "#bd3d62"];
 
 export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
   const context = canvas.getContext("2d");
@@ -67,6 +68,7 @@ export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
     const sideHeight = topHeight * 1.55;
     context.clearRect(0, 0, bounds.width, bounds.height);
 
+    drawBleedRow(context, bounds.width, tileWidth, topHeight, sideHeight);
     for (const cube of cubes) {
       cube.lift += (cube.targetLift - cube.lift) * 0.18;
       const centerX = cube.col * tileWidth + (cube.row % 2 ? tileWidth / 2 : 0);
@@ -108,6 +110,29 @@ export function mountLandingFooter(canvas: HTMLCanvasElement): () => void {
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerleave", onPointerLeave);
   };
+}
+
+function drawBleedRow(
+  context: CanvasRenderingContext2D,
+  width: number,
+  tileWidth: number,
+  topHeight: number,
+  sideHeight: number,
+): void {
+  const visualRow = COLOR_ROWS.length;
+  const screenY = TOP_PADDING + topHeight / 2 + visualRow * topHeight;
+  const columns = Math.ceil(width / tileWidth) + 3;
+  for (let col = -2; col < columns; col += 1) {
+    drawCube(
+      context,
+      col * tileWidth + (visualRow % 2 ? tileWidth / 2 : 0),
+      screenY,
+      tileWidth,
+      topHeight,
+      sideHeight,
+      BLEED_ROW_COLORS[positiveModulo(col * 3, BLEED_ROW_COLORS.length)],
+    );
+  }
 }
 
 function drawCube(
