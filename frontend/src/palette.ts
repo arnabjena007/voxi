@@ -86,11 +86,6 @@ export const TOOLS: Tool[] = [
   { id: "eraser", label: "Eraser", width: 16, forcedColor: 0xffffff },
 ];
 
-// Width-0 is the paint-bucket sentinel (see TOOLS above).
-export const FILL_WIDTH = 0;
-
-export const ERASER_COLOR = 0xffffff;
-
 export function findColor(rgb: number): Swatch | undefined {
   for (const p of PALETTES) {
     for (const c of p.colors) {

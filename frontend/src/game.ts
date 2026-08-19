@@ -55,14 +55,6 @@ export function applyScores(s: GameState, scores: [number, number][]): void {
   for (const [id, v] of scores) s.scores.set(id, v);
 }
 
-export function isDrawer(state: GameState, you: number | null): boolean {
-  if (you === null) return false;
-  return (
-    (state.phase.kind === "ChoosingWord" && state.phase.drawer === you) ||
-    (state.phase.kind === "Drawing" && state.phase.drawer === you)
-  );
-}
-
 export interface ModeOption {
   id: GameMode;
   label: string;

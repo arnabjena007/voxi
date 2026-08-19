@@ -7,12 +7,9 @@ import { Reader, Writer } from "./postcard";
 
 // --------- limits (kept in sync with voxi-proto/src/limits.rs) ----------
 
-export const ROOM_CODE_LEN = 6;
-export const MAX_NAME_LEN = 32;
+const ROOM_CODE_LEN = 6;
 export const MAX_CHAT_LEN = 256;
-export const MAX_GUESS_LEN = 64;
 export const MAX_POINTS_PER_BATCH = 64;
-export const MAX_FRAME_BYTES = 64 * 1024;
 
 // --------- types ---------------------------------------------------------
 
@@ -296,15 +293,6 @@ function readGameSnapshot(r: Reader): GameSnapshot {
   };
 }
 
-export function emptyGameSnapshot(): GameSnapshot {
-  return {
-    mode: "Standard",
-    host: null,
-    scores: [],
-    phase: { kind: "Lobby", deadline_ms: null },
-  };
-}
-
 export interface RoomSnapshot {
   players: Player[];
   completed: CompletedStroke[];
@@ -355,28 +343,6 @@ function readGameMode(r: Reader): GameMode {
     throw new Error(`unknown GameMode variant: ${v}`);
   }
   return GAME_MODE_ORDER[v];
-}
-
-export function modeRounds(m: GameMode): number {
-  switch (m) {
-    case "Sprint":
-      return 3;
-    case "Standard":
-      return 5;
-    case "Marathon":
-      return 7;
-  }
-}
-
-export function modeWordOptions(m: GameMode): number {
-  switch (m) {
-    case "Sprint":
-      return 7;
-    case "Standard":
-      return 5;
-    case "Marathon":
-      return 3;
-  }
 }
 
 export type GameAction =

@@ -135,7 +135,7 @@ export const PARTS: Record<PartKey, PartDef> = {
   },
 };
 
-export function partCount(key: PartKey): number {
+function partCount(key: PartKey): number {
   return PARTS[key].options.length;
 }
 

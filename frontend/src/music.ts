@@ -29,26 +29,6 @@ let currentScene: BgScene | null = null;
 let currentAudio: HTMLAudioElement | null = null;
 let fadeTimers = new Set<number>();
 
-type BgPlayingHandler = (playing: boolean) => void;
-const bgPlayingHandlers = new Set<BgPlayingHandler>();
-
-export function isBgPlaying(): boolean {
-  return currentAudio !== null && !currentAudio.paused;
-}
-
-export function onBgPlaying(h: BgPlayingHandler): () => void {
-  bgPlayingHandlers.add(h);
-  h(isBgPlaying());
-  return () => {
-    bgPlayingHandlers.delete(h);
-  };
-}
-
-function emitBgPlaying(): void {
-  const p = isBgPlaying();
-  for (const h of bgPlayingHandlers) h(p);
-}
-
 function targetVolume(): number {
   return duckedForVoice ? DUCK_VOLUME : BG_VOLUME;
 }
@@ -112,7 +92,6 @@ async function startScene(scene: BgScene): Promise<void> {
       out.src = "";
     });
   }
-  emitBgPlaying();
 }
 
 function stopBg(): void {
@@ -125,7 +104,6 @@ function stopBg(): void {
     });
     currentAudio = null;
   }
-  emitBgPlaying();
 }
 
 async function ensureToneStarted(): Promise<void> {
@@ -165,7 +143,7 @@ export async function enableBg(): Promise<void> {
   if (currentScene) await startScene(currentScene);
 }
 
-export function disableBg(): void {
+function disableBg(): void {
   bgEnabled = false;
   window.localStorage.setItem(BG_KEY, "0");
   stopBg();
@@ -183,7 +161,7 @@ export async function enableSfx(): Promise<void> {
   window.localStorage.setItem(SFX_KEY, "1");
 }
 
-export function disableSfx(): void {
+function disableSfx(): void {
   sfxEnabled = false;
   window.localStorage.setItem(SFX_KEY, "0");
 }
