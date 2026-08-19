@@ -128,7 +128,6 @@ function bootVoxelRoom(): void {
           </form>
         </div>
         <canvas id="voxelRoomCanvas" aria-label="Shared voxel canvas"></canvas>
-        <div class="voxel-toolbar-note">1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM</div>
       </section>
       <aside class="voxel-chat-panel" aria-label="Room chat">
         <div class="voxel-chat-head">
@@ -164,8 +163,6 @@ function bootVoxelRoom(): void {
     pendingTemplate = value;
     const select = document.getElementById("voxelTemplateSelect") as HTMLSelectElement | null;
     if (select && select.value !== (value ?? "")) select.value = value ?? "";
-    const note = document.querySelector<HTMLElement>(".voxel-toolbar-note");
-    if (note) note.textContent = value ? `PLACE ${value.toUpperCase()}: CLICK CANVAS · ESC TO CANCEL` : "1-9 / 0: COLOR · CLICK: ADD BLOCK · SHIFT + CLICK: REMOVE · DRAG: ORBIT · SCROLL: ZOOM";
   };
   document.getElementById("voxelTemplateSelect")?.addEventListener("change", (event) => {
     setPendingTemplate((event.target as HTMLSelectElement).value || null);

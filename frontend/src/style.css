@@ -3346,7 +3346,6 @@ canvas {
 .voxel-room-logo { font-size: 42px; }
 .voxel-room-head .voxel-color-strip { gap: 6px; }
 .voxel-color-strip .voxel-color { width: 22px; height: 22px; }
-.voxel-toolbar-note { margin-top: -2px; font-size: 9px; }
 .voxel-build-toolbar { gap: 3px 8px; margin-top: -2px; }
 .voxel-tool-group { gap: 2px; }
 .voxel-tool-group > span { font-size: 8px; }
@@ -3839,7 +3838,6 @@ body.voxel-room-body > main {
 .voxel-room-head .voxel-color-strip { justify-content: flex-end; }
 .voxel-room-head .voxel-color-strip { grid-column: 1 / -1; justify-content: center; gap: 10px; }
 .voxel-color-strip .voxel-color { width: 22px; height: 22px; border-width: 2px; }
-.voxel-toolbar-note { grid-column: 1 / -1; text-align: center; color: #6a5538; font-size: 10px; letter-spacing: .04em; margin-top: -4px; }
 .voxel-build-toolbar { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 3px 7px; margin-top: -4px; padding: 2px 6px; }
 .voxel-tool-group { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 3px; }
 .voxel-tool-group > span { margin-right: 2px; color: #6a5538; font-size: 8px; font-weight: 700; letter-spacing: .04em; }
@@ -3865,18 +3863,15 @@ body.voxel-room-body > main {
 #voxelRoomCanvas:active { cursor: grabbing; }
 .voxel-canvas-tools { position: absolute; top: 10px; left: 50%; z-index: 3; width: min(96%, 920px); transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 5px 10px; padding: 3px 5px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .voxel-canvas-tools .voxel-color-strip { grid-column: auto; }
-.voxel-canvas-tools .voxel-toolbar-note { grid-column: auto; }
 .voxel-canvas-tools .voxel-build-toolbar { grid-column: auto; }
 .voxel-canvas-tools .voxel-build-toolbar { flex: 0 1 auto; }
 .voxel-canvas-tools .voxel-color-strip { order: 1; }
 .voxel-canvas-tools .voxel-build-toolbar { order: 2; }
 .voxel-canvas-tools .voxel-template-select-group { order: 3; }
 .voxel-canvas-tools .voxel-clear-workspace { order: 4; }
-.voxel-canvas-tools .voxel-toolbar-note { display: none; }
 .voxel-canvas-tools .voxel-color { border-radius: 50%; }
 .voxel-canvas-tools .voxel-select-group { color: #6a5538; }
 .voxel-canvas-tools .voxel-select-group select { border-color: rgba(73,54,30,.24); background: #ffffff; color: #2c9e93; }
-.voxel-room-canvas-shell > .voxel-toolbar-note { position: absolute; left: 50%; bottom: 7px; z-index: 3; transform: translateX(-50%); width: 100%; text-align: center; color: #6a5538; font-size: 10px; letter-spacing: .04em; pointer-events: none; }
 .voxel-template-select-group { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .voxel-template-select-group select { appearance: auto; min-height: 24px; border: 1px solid rgba(73,54,30,.24); border-radius: 5px; padding: 4px 20px 4px 7px; background: #fffaf0; color: #2c9e93; font: 700 10px var(--font-display); cursor: pointer; }
 .voxel-select-group { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; color: #6a5538; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
