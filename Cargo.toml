@@ -20,7 +20,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "1"
 anyhow = "1"
-bytes = "1"
 ahash = "0.8"
 rand = "0.8"
 
@@ -31,5 +30,3 @@ dashmap = "6"
 
 # test
 proptest = "1"
-
-futures-util = "0.3"
