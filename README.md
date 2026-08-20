@@ -17,6 +17,10 @@ VOXI lets people create or join a room, place textured voxel blocks on a shared 
 - Keyboard-only voxel history: undo and redo
 - Responsive voxel-inspired interface and interactive footer
 
+## Demo
+
+https://github.com/user-attachments/assets/2994b89c-9783-4a11-8283-f9b92d379bed
+
 ## Screenshots
 
 ### System architecture
