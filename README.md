@@ -19,9 +19,7 @@ VOXI lets people create or join a room, place textured voxel blocks on a shared 
 
 ## Demo
 
-<video src="https://github.com/arnabjena007/voxi/raw/refs/heads/main/docs/demo/voxi-demo.mp4" controls muted playsinline></video>
-
-[Open or download the full VOXI demo](docs/demo/voxi-demo.mp4)
+![VOXI demo preview](docs/demo/voxi-demo-preview.gif)
 
 ## Screenshots
 
