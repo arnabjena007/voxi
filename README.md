@@ -17,6 +17,10 @@ VOXI lets people create or join a room, place textured voxel blocks on a shared 
 - Keyboard-only voxel history: undo and redo
 - Responsive voxel-inspired interface and interactive footer
 
+## Demo
+
+[Watch the VOXI demo](docs/demo/voxi-demo.mp4)
+
 ## Screenshots
 
 ### System architecture
@@ -66,7 +70,7 @@ Choose a color or material from the toolbar, select a land style, and pick the g
 
 ### Presets
 
-The `PRESET` selector places ready-made structures at the center of the workspace:
+Choose a preset, then click any canvas cell to place the ready-made structure at that location:
 
 - `HOUSE` creates a compact house with walls, roof, door, and windows.
 - `CASTLE` creates a stone courtyard with four towers.
