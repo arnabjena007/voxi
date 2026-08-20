@@ -17,9 +17,9 @@ const params = new URLSearchParams(location.search);
 if (!params.has("room")) showLanding();
 else bootVoxelRoom();
 
-function presetBlocks(preset: VoxelPreset): VoxelBlock[] {
+function presetBlocks(preset: VoxelPreset, origin: { x: number; z: number }): VoxelBlock[] {
   const blocks: VoxelBlock[] = [];
-  const block = (x: number, y: number, z: number, color: number): void => { blocks.push({ x, y, z, color }); };
+  const block = (x: number, y: number, z: number, color: number): void => { blocks.push({ x: x + origin.x, y, z: z + origin.z, color }); };
   const box = (fromX: number, toX: number, fromY: number, toY: number, fromZ: number, toZ: number, color: number): void => {
     for (let x = fromX; x <= toX; x += 1) for (let y = fromY; y <= toY; y += 1) for (let z = fromZ; z <= toZ; z += 1) block(x, y, z, color);
   };
@@ -83,6 +83,7 @@ function bootVoxelRoom(): void {
   const undoStack: VoxelEdit[] = [];
   const redoStack: VoxelEdit[] = [];
   let applyingHistory = false;
+  let pendingPreset: VoxelPreset | null = null;
   const materialColors: Record<string, number> = { grass: 10, stone: 11, glass: 12, wood: 13, water: 14, lava: 15, fire: 16 };
 
   document.body.innerHTML = `<main class="voxel-room${solo ? " voxel-room--solo" : ""}">
@@ -96,27 +97,20 @@ function bootVoxelRoom(): void {
   const messages = document.getElementById("messages")!;
   const input = document.getElementById("chatInput") as HTMLInputElement;
   const grid = document.getElementById("grid") as HTMLSelectElement;
-  const mount = (): void => { if (!canvas) canvas = mountVoxelWebgl(element, { onVoxel: sendVoxel }); };
+  const mount = (): void => { if (!canvas) canvas = mountVoxelWebgl(element, { onVoxel: sendVoxel, onCellClick: placePresetAt }); };
   const enter = (next: string): void => { name = next.trim(); if (!name) return; params.set("name", name); history.replaceState({}, "", `${location.pathname}?${params}`); document.getElementById("nameGate")?.setAttribute("hidden", ""); document.querySelector(".voxel-room-canvas-shell")?.classList.remove("is-locked"); mount(); if (!solo) connect(); };
   if (solo || name) { mount(); if (!solo) connect(); }
   document.getElementById("nameForm")?.addEventListener("submit", (event) => { event.preventDefault(); enter((document.getElementById("nameInput") as HTMLInputElement).value); });
-  document.getElementById("copyCode")?.addEventListener("click", () => void navigator.clipboard.writeText(room));
+  document.getElementById("copyCode")?.addEventListener("click", () => void copyRoomCode());
   document.querySelectorAll<HTMLButtonElement>("[data-color]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-color]").forEach((item) => item.classList.remove("is-active")); button.classList.add("is-active"); canvas?.setSelectedColor(Number(button.dataset.color)); }));
   document.getElementById("material")?.addEventListener("change", (event) => canvas?.setSelectedColor(materialColors[(event.target as HTMLSelectElement).value]));
   document.getElementById("land")?.addEventListener("change", (event) => canvas?.setLandscape((event.target as HTMLSelectElement).value as LandscapeKind));
   document.getElementById("preset")?.addEventListener("change", (event) => {
     const preset = (event.target as HTMLSelectElement).value as VoxelPreset | "";
     if (!preset) return;
-    const blocks = presetBlocks(preset);
-    let placed = 0;
-    for (const block of blocks) {
-      if (sendVoxel({ ...block, remove: false })) {
-        canvas?.applyVoxel({ ...block, remove: false });
-        placed += 1;
-      }
-    }
+    pendingPreset = preset;
     (event.target as HTMLSelectElement).value = "";
-    if (placed) showToast(`${preset[0].toUpperCase()}${preset.slice(1)} preset placed.`);
+    showToast(`Click the canvas to place the ${preset} preset.`);
   });
   grid.addEventListener("change", () => { if (!solo && (!connected || you !== host)) { grid.value = String(grid.dataset.current ?? 20); showToast("Only the host can change the grid."); return; } const size = Number(grid.value); setGrid(size); if (!solo) conn?.send({ kind: "GridSize", size }); });
   document.getElementById("chatForm")?.addEventListener("submit", (event) => { event.preventDefault(); const text = input.value.trim(); if (!text || !connected) return; input.value = ""; conn?.send({ kind: "Chat", text }); });
@@ -155,9 +149,54 @@ function bootVoxelRoom(): void {
     if (message.kind === "Bye") { connected = false; setConnectionLabel("Room closed"); }
   }
   function handleState(state: ConnState): void { if (state.kind !== "open") { connected = false; setConnectionLabel(state.kind === "reconnecting" ? "Reconnecting..." : "Connecting..."); } }
+  function placePresetAt(cell: { x: number; z: number }): boolean {
+    if (!pendingPreset) return false;
+    if (!solo && !connected) { showToast("Reconnecting to the room."); return true; }
+    const preset = pendingPreset;
+    pendingPreset = null;
+    let placed = 0;
+    for (const block of presetBlocks(preset, cell)) {
+      if (sendVoxel({ ...block, remove: false })) {
+        canvas?.applyVoxel({ ...block, remove: false });
+        placed += 1;
+      }
+    }
+    if (placed) showToast(`${preset[0].toUpperCase()}${preset.slice(1)} preset placed.`);
+    return true;
+  }
   function sendVoxel(voxel: { x: number; y?: number; z: number; color: number; remove: boolean }): boolean { if (!solo && !connected) { showToast("Reconnecting to the room."); return false; } if (!applyingHistory) { undoStack.push({ forward: { ...voxel }, inverse: { ...voxel, remove: !voxel.remove } }); if (undoStack.length > 200) undoStack.shift(); redoStack.length = 0; } if (!solo) conn?.send({ kind: "Voxel", ...voxel }); return true; }
   function setGrid(size: number): void { canvas?.setGridSize(size); grid.value = String(size); grid.dataset.current = String(size); grid.disabled = !solo && you !== host; }
   function setConnectionLabel(label: string): void { document.querySelector(".voxel-room")?.classList.add("is-disconnected"); input.disabled = !solo; input.placeholder = label; }
+  async function copyRoomCode(): Promise<void> {
+    let copied = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(room);
+        copied = true;
+      }
+    } catch {
+      // Some embedded or non-secure browsers deny the modern clipboard API.
+    }
+    if (!copied) {
+      const textarea = document.createElement("textarea");
+      textarea.value = room;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      copied = document.execCommand("copy");
+      textarea.remove();
+    }
+    const button = document.getElementById("copyCode");
+    if (copied) {
+      button?.classList.add("is-copied");
+      window.setTimeout(() => button?.classList.remove("is-copied"), 1200);
+      showToast("Room code copied.");
+    } else {
+      showToast("Could not copy the room code. Please copy it manually.");
+    }
+  }
   function publishVoiceState(): void { if (!solo && connected && micState !== "off") conn?.send({ kind: "Voice", muted: micState !== "live" }); }
   function appendChat(author: string, text: string): void { const item = document.createElement("div"); item.className = "voxel-chat-message"; item.innerHTML = `<strong>${escapeHtml(author)}</strong><span>${escapeHtml(text)}</span>`; messages.appendChild(item); messages.scrollTop = messages.scrollHeight; }
   function renderPlayers(): void { const list = [...players.entries()]; document.getElementById("count")!.textContent = `${list.length} builder${list.length === 1 ? "" : "s"} online`; const names = document.getElementById("names")!; names.innerHTML = list.map(([id, player]) => { const self = id === you; const locallyMuted = !self && isRemoteMutedByName(player); const sharedMuted = mutedPlayers.has(id); const live = self && micState === "live"; return `<span class="voxel-player-audio${speakers.has(player) ? " is-speaking" : ""}"><button class="voxel-player-mic${live ? " is-live" : locallyMuted || sharedMuted ? " is-muted" : ""}" data-player="${id}" aria-label="${sharedMuted ? "Microphone muted" : "Microphone controls"}"><i class="ph ${live ? "ph-microphone" : "ph-microphone-slash"}"></i></button><span class="voxel-player-name">${escapeHtml(player)}${self ? " (you)" : ""}</span></span>`; }).join(""); names.querySelectorAll<HTMLButtonElement>("[data-player]").forEach((button) => button.addEventListener("click", async () => { const id = Number(button.dataset.player); const player = players.get(id); if (!player) return; if (id !== you) { toggleRemoteMute(player); renderPlayers(); return; } try { const state = await toggleMic(room, name); if (!solo && connected) conn?.send({ kind: "Voice", muted: state !== "live" }); if (state !== "live") mutedPlayers.add(id); else mutedPlayers.delete(id); renderPlayers(); } catch { showToast("Microphone access failed."); } })); }
