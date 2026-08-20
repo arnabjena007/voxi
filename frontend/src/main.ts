@@ -57,9 +57,9 @@ function presetBlocks(preset: VoxelPreset, origin: { x: number; z: number }): Vo
   }
 
   for (const [x, z] of [[-3, -1], [2, 1], [0, 3]]) {
-    box(x, x, 0, 3, z, z, 13);
-    for (let y = 3; y <= 5; y += 1) {
-      const radius = y === 5 ? 0 : 1;
+    box(x, x, 0, 4, z, z, 13);
+    for (let y = 4; y <= 7; y += 1) {
+      const radius = y === 4 ? 2 : y === 7 ? 0 : 1;
       box(x - radius, x + radius, y, y, z - radius, z + radius, 10);
     }
   }
